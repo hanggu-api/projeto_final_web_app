@@ -1,0 +1,212 @@
+Analyzing mobile_app...                                         
+
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:22:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:23:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:71:12 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:92:7 - avoid_print
+   info - The import of 'package:flutter/material.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart' - lib\core\utils\navigation_helper.dart:2:8 - unnecessary_import
+   info - The imported package 'google_sign_in' isn't a dependency of the importing package - lib\features\auth\login_screen.dart:5:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:google_sign_in/google_sign_in.dart' - lib\features\auth\login_screen.dart:5:8 - uri_does_not_exist
+  error - Undefined class 'GoogleSignInAccount' - lib\features\auth\login_screen.dart:381:13 - undefined_class
+  error - The method 'GoogleSignIn' isn't defined for the type '_LoginScreenState' - lib\features\auth\login_screen.dart:381:53 - undefined_method
+  error - Undefined class 'GoogleSignInAuthentication' - lib\features\auth\login_screen.dart:387:13 - undefined_class
+warning - The value of the field '_serviceType' isn't used - lib\features\client\payment_screen.dart:31:11 - unused_field
+warning - The value of the field '_userPhone' isn't used - lib\features\client\payment_screen.dart:36:11 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\payment_screen.dart:669:43 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:264:44 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:272:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:274:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:279:44 - use_build_context_synchronously
+warning - The value of the local variable 'clientDeparting' isn't used - lib\features\client\scheduled_service_screen.dart:533:16 - unused_local_variable
+warning - The value of the local variable 'paymentPending' isn't used - lib\features\client\scheduled_service_screen.dart:534:16 - unused_local_variable
+   info - The private field _priceEstimated could be 'final' - lib\features\client\service_request_screen_fixed.dart:46:10 - prefer_final_fields
+warning - The value of the field '_aiCategoryName' isn't used - lib\features\client\service_request_screen_fixed.dart:52:11 - unused_field
+warning - The value of the field '_aiConfidence' isn't used - lib\features\client\service_request_screen_fixed.dart:54:11 - unused_field
+warning - The value of the field '_aiSuggestionMessage' isn't used - lib\features\client\service_request_screen_fixed.dart:58:11 - unused_field
+warning - The value of the field '_aiServiceType' isn't used - lib\features\client\service_request_screen_fixed.dart:59:11 - unused_field
+warning - The value of the field '_aiSuggestions' isn't used - lib\features\client\service_request_screen_fixed.dart:60:36 - unused_field
+warning - The value of the field '_needsDetails' isn't used - lib\features\client\service_request_screen_fixed.dart:64:14 - unused_field
+warning - The value of the field '_aiClassifying' isn't used - lib\features\client\service_request_screen_fixed.dart:65:14 - unused_field
+warning - The value of the field '_allProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:70:22 - unused_field
+warning - The value of the field '_filteredProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:71:22 - unused_field
+warning - The value of the field '_selectedTimeSlotData' isn't used - lib\features\client\service_request_screen_fixed.dart:72:25 - unused_field
+warning - The value of the field '_showTeach' isn't used - lib\features\client\service_request_screen_fixed.dart:76:14 - unused_field
+warning - The value of the field '_hasAiRun' isn't used - lib\features\client\service_request_screen_fixed.dart:77:14 - unused_field
+warning - The declaration '_classifyAi' isn't referenced - lib\features\client\service_request_screen_fixed.dart:481:16 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:486:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:487:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:488:16 - unused_element
+warning - The value of the local variable 'serviceName' isn't used - lib\features\client\service_request_screen_fixed.dart:566:11 - unused_local_variable
+warning - The value of the field '_isLoading' isn't used - lib\features\client\service_request_screen_mobile.dart:37:8 - unused_field
+warning - The value of the field '_chooseOtherAddress' isn't used - lib\features\client\service_request_screen_mobile.dart:43:14 - unused_field
+warning - The value of the field '_suggestions' isn't used - lib\features\client\service_request_screen_mobile.dart:45:36 - unused_field
+warning - The value of the field '_aiCategoryName' isn't used - lib\features\client\service_request_screen_mobile.dart:54:11 - unused_field
+warning - The value of the field '_aiConfidence' isn't used - lib\features\client\service_request_screen_mobile.dart:56:11 - unused_field
+warning - The value of the field '_aiSuggestionMessage' isn't used - lib\features\client\service_request_screen_mobile.dart:60:11 - unused_field
+warning - The value of the field '_aiSuggestions' isn't used - lib\features\client\service_request_screen_mobile.dart:62:36 - unused_field
+warning - The value of the field '_needsDetails' isn't used - lib\features\client\service_request_screen_mobile.dart:64:14 - unused_field
+warning - The value of the field '_allProfessions' isn't used - lib\features\client\service_request_screen_mobile.dart:69:22 - unused_field
+warning - The value of the field '_filteredProfessions' isn't used - lib\features\client\service_request_screen_mobile.dart:70:22 - unused_field
+warning - The value of the field '_expandedProviderIndex' isn't used - lib\features\client\service_request_screen_mobile.dart:75:8 - unused_field
+warning - The value of the field '_selectedProviderId' isn't used - lib\features\client\service_request_screen_mobile.dart:76:8 - unused_field
+warning - The value of the field '_showTeach' isn't used - lib\features\client\service_request_screen_mobile.dart:78:14 - unused_field
+warning - The value of the field '_hasAiRun' isn't used - lib\features\client\service_request_screen_mobile.dart:79:14 - unused_field
+warning - The value of the field '_isLoadingProfessions' isn't used - lib\features\client\service_request_screen_mobile.dart:91:8 - unused_field
+warning - The declaration '_searchAddress' isn't referenced - lib\features\client\service_request_screen_mobile.dart:415:16 - unused_element
+warning - The value of the local variable 'isFixed' isn't used - lib\features\client\service_request_screen_mobile.dart:459:17 - unused_local_variable
+warning - The declaration '_formatAddressData' isn't referenced - lib\features\client\service_request_screen_mobile.dart:495:10 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:500:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:501:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:502:16 - unused_element
+warning - The value of the field '_photonService' isn't used - lib\features\home\home_screen.dart:42:9 - unused_field
+warning - The value of the field '_unreadCount' isn't used - lib\features\home\home_screen.dart:48:7 - unused_field
+warning - The value of the field '_uberEnabled' isn't used - lib\features\home\home_screen.dart:49:8 - unused_field
+warning - The value of the field '_isMapReady' isn't used - lib\features\home\home_screen.dart:56:8 - unused_field
+   info - The private field _selectingPickup could be 'final' - lib\features\home\home_screen.dart:86:8 - prefer_final_fields
+warning - The value of the field '_selectingPickup' isn't used - lib\features\home\home_screen.dart:86:8 - unused_field
+warning - The value of the field '_routeDuration' isn't used - lib\features\home\home_screen.dart:90:11 - unused_field
+warning - The value of the field '_detailsCache' isn't used - lib\features\home\home_screen.dart:92:29 - unused_field
+   info - The private field _fareEstimatesByVehicle could be 'final' - lib\features\home\home_screen.dart:94:34 - prefer_final_fields
+warning - The declaration '_generateSessionToken' isn't referenced - lib\features\home\home_screen.dart:119:8 - unused_element
+   info - The 'if' statement could be replaced by a null-aware assignment - lib\features\home\home_screen.dart:120:5 - prefer_conditional_assignment
+warning - The '!' will have no effect because the receiver can't be null - lib\features\home\home_screen.dart:547:39 - unnecessary_non_null_assertion
+warning - The '!' will have no effect because the receiver can't be null - lib\features\home\home_screen.dart:547:45 - unnecessary_non_null_assertion
+warning - The declaration '_handleCleanup' isn't referenced - lib\features\home\home_screen.dart:933:16 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1170:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1183:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1370:43 - deprecated_member_use
+warning - The declaration '_showScanner' isn't referenced - lib\features\home\home_screen.dart:1636:8 - unused_element
+warning - The declaration '_buildNotificationAccordion' isn't referenced - lib\features\home\home_screen.dart:1722:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1921:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1957:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1965:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2016:43 - deprecated_member_use
+  error - Undefined name '_aiCategoryName' - lib\features\home\home_screen.dart:2255:53 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2296:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2309:82 - deprecated_member_use
+  error - Undefined name '_aiCategoryName' - lib\features\home\home_screen.dart:2417:59 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2466:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2573:52 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:2581:36 - unnecessary_underscores
+warning - The value of the local variable 'isPoi' isn't used - lib\features\home\home_screen.dart:2606:22 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2680:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2716:35 - deprecated_member_use
+   info - Unnecessary braces in a string interpolation - lib\features\home\home_screen.dart:2777:22 - unnecessary_brace_in_string_interps
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:2791:35 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:2792:43 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:2793:12 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:2940:36 - curly_braces_in_flow_control_structures
+warning - Unused import: 'dart:ui' - lib\features\home\widgets\fixed_service_card.dart:3:8 - unused_import
+warning - Unused import: 'package:intl/intl.dart' - lib\features\home\widgets\fixed_service_card.dart:6:8 - unused_import
+   info - The import of 'package:flutter/cupertino.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\features\home\widgets\fixed_service_card.dart:10:8 - unnecessary_import
+   info - The private field _rating could be 'final' - lib\features\home\widgets\fixed_service_card.dart:67:7 - prefer_final_fields
+warning - The value of the field '_submittingReview' isn't used - lib\features\home\widgets\fixed_service_card.dart:69:8 - unused_field
+warning - The value of the field '_reviewSubmittedSuccessfully' isn't used - lib\features\home\widgets\fixed_service_card.dart:70:8 - unused_field
+   info - The private field _isSchedulingCounter could be 'final' - lib\features\home\widgets\fixed_service_card.dart:80:8 - prefer_final_fields
+warning - The value of the field '_isSchedulingCounter' isn't used - lib\features\home\widgets\fixed_service_card.dart:80:8 - unused_field
+   info - The private field _selectedDate could be 'final' - lib\features\home\widgets\fixed_service_card.dart:81:12 - prefer_final_fields
+warning - The value of the field '_selectedDate' isn't used - lib\features\home\widgets\fixed_service_card.dart:81:12 - unused_field
+   info - The private field _selectedTime could be 'final' - lib\features\home\widgets\fixed_service_card.dart:82:13 - prefer_final_fields
+warning - The value of the field '_selectedTime' isn't used - lib\features\home\widgets\fixed_service_card.dart:82:13 - unused_field
+warning - The value of the field '_travelSubtitle' isn't used - lib\features\home\widgets\fixed_service_card.dart:86:11 - unused_field
+warning - The value of the local variable 'priceEstimated' isn't used - lib\features\home\widgets\fixed_service_card.dart:380:11 - unused_local_variable
+warning - The value of the local variable 'dateText' isn't used - lib\features\home\widgets\fixed_service_card.dart:382:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\fixed_service_card.dart:404:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\fixed_service_card.dart:580:53 - deprecated_member_use
+warning - The declaration '_submitLocalReview' isn't referenced - lib\features\home\widgets\fixed_service_card.dart:783:16 - unused_element
+warning - The value of the field '_trackingSubtitle' isn't used - lib\features\home\widgets\mobile_service_card.dart:154:11 - unused_field
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1179:42 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1182:62 - use_build_context_synchronously
+   info - Unnecessary use of multiple underscores - lib\features\home\widgets\mobile_service_card.dart:1469:35 - unnecessary_underscores
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1506:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1508:75 - use_build_context_synchronously
+warning - The value of the field '_isPlaying' isn't used - lib\features\notifications\widgets\time_to_leave_modal.dart:21:8 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:79:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:84:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:97:47 - deprecated_member_use
+   info - The private field _unreadCount could be 'final' - lib\features\provider\provider_home_fixed.dart:31:7 - prefer_final_fields
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_fixed.dart:31:7 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:864:47 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:866:54 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:873:54 - use_build_context_synchronously
+   info - The private field _unreadCount could be 'final' - lib\features\provider\provider_home_mobile.dart:60:7 - prefer_final_fields
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_mobile.dart:60:7 - unused_field
+  error - The method 'inFilter' isn't defined for the type 'SupabaseStreamBuilder' - lib\features\provider\provider_home_mobile.dart:183:10 - undefined_method
+   info - 'timeLimit' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\features\provider\provider_home_mobile.dart:557:60 - deprecated_member_use
+warning - The declaration '_showEditProfileDialog' isn't referenced - lib\features\provider\provider_profile_content.dart:120:8 - unused_element
+warning - The value of the field '_isLoadingRoute' isn't used - lib\features\provider\widgets\provider_service_card.dart:49:8 - unused_field
+warning - The value of the local variable 'statusColor' isn't used - lib\features\provider\widgets\provider_service_card.dart:164:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:286:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:502:71 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\provider\widgets\provider_service_card.dart:736:35 - unnecessary_underscores
+warning - The declaration '_sendDebugProposal' isn't referenced - lib\features\shared\chat_screen.dart:637:16 - unused_element
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\driver_home_screen.dart:63:28 - use_build_context_synchronously
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\uber\driver_home_screen.dart:104:17 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:140:35 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\uber_request_screen.dart:50:28 - use_build_context_synchronously
+warning - The value of the local variable 'trip' isn't used - lib\features\uber\uber_request_screen.dart:63:13 - unused_local_variable
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\uber_request_screen.dart:91:28 - use_build_context_synchronously
+warning - Unused import: 'package:supabase_flutter/supabase_flutter.dart' - lib\features\uber\uber_tracking_screen.dart:4:8 - unused_import
+warning - The name pi is shown, but isn't used - lib\features\uber\uber_tracking_screen.dart:7:25 - unused_shown_name
+  error - Undefined name 'FirebaseAnalytics' - lib\main.dart:87:15 - undefined_identifier
+  error - Undefined name 'Supabase' - lib\main.dart:202:27 - undefined_identifier
+   info - Empty catch block - lib\services\analytics_service.dart:42:16 - empty_catches
+warning - Dead code - lib\services\api_service.dart:40:39 - dead_code
+warning - The value of the field '_tokenCompleter' isn't used - lib\services\api_service.dart:54:23 - unused_field
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:187:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:192:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:197:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:27:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:42:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:47:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:66:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:72:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:74:7 - avoid_print
+  error - Instance member 'post' can't be accessed using static access - lib\services\location_service.dart:112:24 - static_access_to_instance_member
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:117:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:121:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:148:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\location_service.dart:150:7 - avoid_print
+warning - Dead code - lib\services\permissions_service.dart:54:54 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\services\permissions_service.dart:54:57 - dead_null_aware_expression
+warning - The left operand can't be null, so the right operand is never executed - lib\services\permissions_service.dart:55:58 - dead_null_aware_expression
+warning - The left operand can't be null, so the right operand is never executed - lib\services\permissions_service.dart:59:65 - dead_null_aware_expression
+warning - Dead code - lib\services\permissions_service.dart:64:49 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\services\permissions_service.dart:64:52 - dead_null_aware_expression
+warning - The left operand can't be null, so the right operand is never executed - lib\services\permissions_service.dart:65:54 - dead_null_aware_expression
+warning - The left operand can't be null, so the right operand is never executed - lib\services\permissions_service.dart:66:60 - dead_null_aware_expression
+warning - The left operand can't be null, so the right operand is never executed - lib\services\permissions_service.dart:69:63 - dead_null_aware_expression
+   info - Don't invoke 'print' in production code - lib\services\permissions_service.dart:76:7 - avoid_print
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\permissions_service.dart:96:7 - use_null_aware_elements
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\permissions_service.dart:97:7 - use_null_aware_elements
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\photon_autocomplete_service.dart:18:7 - use_null_aware_elements
+   info - Don't invoke 'print' in production code - lib\services\photon_autocomplete_service.dart:62:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\service_sync_service.dart:59:5 - avoid_print
+  error - The method 'watchService' isn't defined for the type 'RealtimeService' - lib\services\service_sync_service.dart:69:12 - undefined_method
+   info - Don't invoke 'print' in production code - lib\services\service_sync_service.dart:76:15 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\service_sync_service.dart:81:15 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\service_sync_service.dart:89:7 - avoid_print
+  error - Instance member 'get' can't be accessed using static access - lib\services\service_sync_service.dart:109:45 - static_access_to_instance_member
+   info - Don't invoke 'print' in production code - lib\services\service_sync_service.dart:115:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\service_sync_service.dart:119:11 - avoid_print
+  error - Instance member 'get' can't be accessed using static access - lib\services\service_sync_service.dart:133:41 - static_access_to_instance_member
+   info - Don't invoke 'print' in production code - lib\services\service_sync_service.dart:142:7 - avoid_print
+warning - Unused import: 'package:geolocator/geolocator.dart' - lib\services\uber_service.dart:2:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_bottom_nav.dart:100:29 - deprecated_member_use
+   info - The imported package 'cloud_firestore' isn't a dependency of the importing package - test\tracking_realtime_test.dart:5:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:cloud_firestore/cloud_firestore.dart' - test\tracking_realtime_test.dart:5:8 - uri_does_not_exist
+   info - The imported package 'firebase_database' isn't a dependency of the importing package - test\tracking_realtime_test.dart:6:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:firebase_database/firebase_database.dart' - test\tracking_realtime_test.dart:6:8 - uri_does_not_exist
+  error - Classes and mixins can only implement other classes and mixins - test\tracking_realtime_test.dart:18:39 - implements_non_class
+warning - The getter doesn't override an inherited getter - test\tracking_realtime_test.dart:23:12 - override_on_non_overriding_member
+  error - Classes and mixins can only implement other classes and mixins - test\tracking_realtime_test.dart:29:36 - implements_non_class
+  error - Undefined class 'DataSnapshot' - test\tracking_realtime_test.dart:34:3 - undefined_class
+warning - The getter doesn't override an inherited getter - test\tracking_realtime_test.dart:34:20 - override_on_non_overriding_member
+  error - Classes and mixins can only implement other classes and mixins - test\tracking_realtime_test.dart:40:35 - implements_non_class
+warning - The getter doesn't override an inherited getter - test\tracking_realtime_test.dart:45:15 - override_on_non_overriding_member
+  error - The name 'DocumentSnapshot' isn't a type, so it can't be used as a type argument - test\tracking_realtime_test.dart:55:47 - non_type_as_type_argument
+  error - The name 'DatabaseEvent' isn't a type, so it can't be used as a type argument - test\tracking_realtime_test.dart:56:48 - non_type_as_type_argument
+  error - The name 'DocumentSnapshot' isn't a type, so it can't be used as a type argument - test\tracking_realtime_test.dart:59:10 - non_type_as_type_argument
+warning - The method doesn't override an inherited method - test\tracking_realtime_test.dart:59:28 - override_on_non_overriding_member
+  error - The name 'DatabaseEvent' isn't a type, so it can't be used as a type argument - test\tracking_realtime_test.dart:64:10 - non_type_as_type_argument
+

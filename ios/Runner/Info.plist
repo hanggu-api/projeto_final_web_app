@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mobile App</string>
+	<string>101 Service</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>mobile_app</string>
+	<string>101 Service</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -45,9 +45,17 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>101 Service precisa de sua localização para encontrar serviços próximos e permitir que prestadores localizem você</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>101 Service precisa de sua localização em tempo real para melhor matching com prestadores de serviço</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>101 Service usa sua localização para gerenciar serviços e entregar notificações relevantes</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+		<string>googlemaps</string>
+		<string>waze</string>
+	</array>
 </dict>
 </plist>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Precisamos da sua localização para direcionar o prestador até você.</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Permitirá cálculo de rota e acompanhamento do serviço.</string>

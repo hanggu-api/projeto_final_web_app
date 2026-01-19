@@ -1,7 +1,9 @@
 import 'dart:typed_data';
-import 'package:http/http.dart' as http;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 Future<Uint8List> readFileBytes(String url) async {
-  final resp = await http.get(Uri.parse(url));
-  return resp.bodyBytes;
+  final response = await web.window.fetch(url.toJS).toDart;
+  final buffer = await response.arrayBuffer().toDart;
+  return buffer.toDart.asUint8List();
 }

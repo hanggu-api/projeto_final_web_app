@@ -1,0 +1,14 @@
+3 available emulators:
+
+Id                   • Name                 • Manufacturer • Platform
+
+Pixel_9_Pro          • Pixel 9 Pro          • Google       • android
+Pixel_9_Pro_Client   • Pixel 9 Pro Client   • Google       • android
+Pixel_9_Pro_Original • Pixel 9 Pro Original •              • android
+
+To run an emulator, run 'flutter emulators --launch <emulator id>'.
+To create a new emulator, run 'flutter emulators --create [--name xyz]'.
+
+You can find more information on managing emulators at the links below:
+  https://developer.android.com/studio/run/managing-avds
+  https://developer.android.com/studio/command-line/avdmanager

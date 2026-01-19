@@ -6,9 +6,15 @@ class AudioRecorder {
 
   Future<bool> hasPermission() => _record.hasPermission();
 
-  Future<void> start() async {
-    final dir = await getTemporaryDirectory();
-    final filePath = '${dir.path}/chat_${DateTime.now().millisecondsSinceEpoch}.m4a';
+  Future<void> start({String? path}) async {
+    String filePath;
+    if (path != null) {
+      filePath = path;
+    } else {
+      final dir = await getTemporaryDirectory();
+      filePath = '${dir.path}/chat_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    }
+
     await _record.start(
       const rec.RecordConfig(
         encoder: rec.AudioEncoder.aacLc,

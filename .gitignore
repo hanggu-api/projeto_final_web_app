@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Specific generated/temp files
+*.apk
+analysis*.txt
+flutter_logs_temp.txt
+app.csv
+app.sql
+deps.txt
+test_log.txt
+screen_release.png

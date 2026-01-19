@@ -1,0 +1,2712 @@
+Vou implementar essa transformação completa do seu sistema para uma plataforma híbrida estilo Uber. Vamos começar pelo Passo 1.
+
+---
+
+## 🛠️ PASSO 1: Atualização do Schema Prisma
+
+### Arquivo: `backend/prisma/schema.prisma`
+
+```prisma
+// ============================================
+// ENUMS
+// ============================================
+
+enum MissionType {
+  SERVICE
+  TRANSPORT
+}
+
+enum VehicleType {
+  MOTO
+  CARRO
+  VAN
+  // Para serviços, pode ser null ou 'NONE'
+}
+
+enum MissionStatus {
+  PENDING
+  SEARCHING
+  ACCEPTED
+  WAITING_REMAINING_PAYMENT
+  IN_PROGRESS
+  WAITING_CLIENT_CONFIRMATION
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// TABELAS PRINCIPAIS
+// ============================================
+
+model missions {
+  id                        String    @id @default(uuid())
+  user_id                   String
+  provider_id               String?
+  type                      MissionType @default(SERVICE)
+  vehicle_type              VehicleType?
+  
+  // Coordenadas de origem (pickup)
+  pickup_lat                Decimal?
+  pickup_lng                Decimal?
+  pickup_address            String?
+  
+  // Coordenadas de destino (dropoff) - apenas para TRANSPORT
+  dropoff_lat               Decimal?
+  dropoff_lng               Decimal?
+  dropoff_address           String?
+  
+  // Métricas da rota
+  estimated_distance_km     Float?
+  estimated_duration_min    Int?
+  estimated_price           Decimal?
+  
+  // Campos existentes (mantidos)
+  title                     String
+  description               String?
+  category                  String
+  price_upfront             Decimal   // 30% antecipado
+  price_total               Decimal   // Valor total
+  status                    MissionStatus @default(PENDING)
+  validation_code           String?
+  completion_code           String?
+  proof_photo_url           String?
+  proof_video_url           String?
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+  
+  // Relacionamentos
+  user                      users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  provider                  users?    @relation(fields: [provider_id], references: [id])
+  
+  @@index([user_id])
+  @@index([provider_id])
+  @@index([status])
+  @@index([type])
+}
+
+model notification_registry {
+  id                String   @id @default(uuid())
+  user_id           String   @unique
+  
+  // Localização atual
+  latitude          Decimal
+  longitude         Decimal
+  heading           Float?   // Direção em graus (0-360)
+  
+  // Informações do veículo (para transporte)
+  current_vehicle   String?  // Ex: 'HONDA_CG_160', 'FIAT_UNO'
+  vehicle_plate     String?  // Placa do veículo
+  vehicle_type      VehicleType?
+  
+  // Raio de atendimento
+  service_radius    Int      @default(10) // km
+  
+  // Status online
+  is_available      Boolean  @default(true)
+  last_seen         DateTime @updatedAt
+  
+  // Relacionamento
+  user              users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([latitude, longitude])
+  @@index([is_available])
+}
+
+// ============================================
+// TABELA DE RASTREAMENTO EM TEMPO REAL
+// ============================================
+
+model driver_locations {
+  id                String   @id @default(uuid())
+  driver_id         String   @unique
+  latitude          Decimal
+  longitude         Decimal
+  heading           Float?   // Direção para rotação do ícone
+  speed             Float?   // Velocidade em km/h
+  status            String   @default("available") // available, busy, offline
+  mission_id        String?  // Missão atual
+  updated_at        DateTime @updatedAt
+  
+  @@index([driver_id])
+  @@index([latitude, longitude])
+}
+
+// ============================================
+// TABELA DE HISTÓRICO DE POSIÇÕES
+// ============================================
+
+model location_history {
+  id                String   @id @default(uuid())
+  driver_id         String
+  latitude          Decimal
+  longitude         Decimal
+  timestamp         DateTime @default(now())
+  mission_id        String?
+  
+  @@index([driver_id])
+  @@index([mission_id])
+  @@index([timestamp])
+}
+
+// ============================================
+// TABELAS EXISTENTES (mantidas)
+// ============================================
+
+model users {
+  id                String    @id @default(uuid())
+  name              String
+  email             String    @unique
+  phone             String?
+  role              String    // 'client' ou 'provider'
+  is_verified       Boolean   @default(false)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  
+  missions_as_user  missions[] @relation("UserMissions")
+  missions_as_provider missions[] @relation("ProviderMissions")
+  notification_registry notification_registry?
+  
+  @@index([email])
+  @@index([role])
+}
+
+model payments {
+  id                String   @id @default(uuid())
+  mission_id        String
+  amount            Decimal
+  status            String   // pending, completed, failed
+  payment_method    String?  // credit_card, pix
+  created_at        DateTime @default(now())
+  
+  mission           missions @relation(fields: [mission_id], references: [id], onDelete: Cascade)
+  
+  @@index([mission_id])
+  @@index([status])
+}
+```
+
+---
+
+### 📝 Script de Migração SQL
+
+Crie o arquivo: `backend/prisma/migrations/20260213000000_add_transport_features/migration.sql`
+
+```sql
+-- ============================================
+-- ENUMS
+-- ============================================
+
+-- MissionType enum
+CREATE TYPE "MissionType" AS ENUM ('SERVICE', 'TRANSPORT');
+
+-- VehicleType enum
+CREATE TYPE "VehicleType" AS ENUM ('MOTO', 'CARRO', 'VAN');
+
+-- ============================================
+-- ALTER TABLE missions
+-- ============================================
+
+ALTER TABLE "missions" 
+ADD COLUMN "type" "MissionType" NOT NULL DEFAULT 'SERVICE',
+ADD COLUMN "vehicle_type" "VehicleType",
+ADD COLUMN "pickup_lat" DECIMAL(10, 8),
+ADD COLUMN "pickup_lng" DECIMAL(11, 8),
+ADD COLUMN "pickup_address" TEXT,
+ADD COLUMN "dropoff_lat" DECIMAL(10, 8),
+ADD COLUMN "dropoff_lng" DECIMAL(11, 8),
+ADD COLUMN "dropoff_address" TEXT,
+ADD COLUMN "estimated_distance_km" FLOAT,
+ADD COLUMN "estimated_duration_min" INTEGER,
+ADD COLUMN "estimated_price" DECIMAL(10, 2);
+
+-- Índices para busca geoespacial
+CREATE INDEX "missions_type_idx" ON "missions"("type");
+CREATE INDEX "missions_pickup_location_idx" ON "missions"("pickup_lat", "pickup_lng");
+CREATE INDEX "missions_status_idx" ON "missions"("status");
+
+-- ============================================
+-- ALTER TABLE notification_registry
+-- ============================================
+
+ALTER TABLE "notification_registry"
+ADD COLUMN "heading" FLOAT,
+ADD COLUMN "current_vehicle" TEXT,
+ADD COLUMN "vehicle_plate" TEXT,
+ADD COLUMN "vehicle_type" "VehicleType",
+ADD COLUMN "service_radius" INTEGER DEFAULT 10;
+
+-- Índice geoespacial otimizado
+CREATE INDEX "notification_registry_location_idx" 
+ON "notification_registry"("latitude", "longitude", "is_available");
+
+-- ============================================
+-- CREATE TABLE driver_locations
+-- ============================================
+
+CREATE TABLE "driver_locations" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "driver_id" UUID NOT NULL UNIQUE,
+  "latitude" DECIMAL(10, 8) NOT NULL,
+  "longitude" DECIMAL(11, 8) NOT NULL,
+  "heading" FLOAT,
+  "speed" FLOAT,
+  "status" TEXT DEFAULT 'available',
+  "mission_id" UUID,
+  "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT "driver_locations_driver_id_fkey" 
+    FOREIGN KEY ("driver_id") REFERENCES "users"("id") ON DELETE CASCADE,
+  CONSTRAINT "driver_locations_mission_id_fkey" 
+    FOREIGN KEY ("mission_id") REFERENCES "missions"("id") ON DELETE SET NULL
+);
+
+CREATE INDEX "driver_locations_driver_id_idx" ON "driver_locations"("driver_id");
+CREATE INDEX "driver_locations_location_idx" ON "driver_locations"("latitude", "longitude");
+
+-- ============================================
+-- CREATE TABLE location_history
+-- ============================================
+
+CREATE TABLE "location_history" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "driver_id" UUID NOT NULL,
+  "latitude" DECIMAL(10, 8) NOT NULL,
+  "longitude" DECIMAL(11, 8) NOT NULL,
+  "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "mission_id" UUID,
+  
+  CONSTRAINT "location_history_driver_id_fkey" 
+    FOREIGN KEY ("driver_id") REFERENCES "users"("id") ON DELETE CASCADE,
+  CONSTRAINT "location_history_mission_id_fkey" 
+    FOREIGN KEY ("mission_id") REFERENCES "missions"("id") ON DELETE SET NULL
+);
+
+CREATE INDEX "location_history_driver_id_idx" ON "location_history"("driver_id");
+CREATE INDEX "location_history_mission_id_idx" ON "location_history"("mission_id");
+CREATE INDEX "location_history_timestamp_idx" ON "location_history"("timestamp");
+
+-- ============================================
+-- UPDATE EXISTING DATA
+-- ============================================
+
+-- Atualizar missões existentes para SERVICE (default)
+UPDATE "missions" SET "type" = 'SERVICE' WHERE "type" IS NULL;
+
+-- ============================================
+-- COMMENTs para documentação
+-- ============================================
+
+COMMENT ON COLUMN "missions"."type" IS 'Tipo de missão: SERVICE (profissional) ou TRANSPORT (corrida)';
+COMMENT ON COLUMN "missions"."vehicle_type" IS 'Tipo de veículo para TRANSPORT (MOTO/CARRO/VAN)';
+COMMENT ON COLUMN "missions"."pickup_lat" IS 'Latitude do ponto de coleta/origem';
+COMMENT ON COLUMN "missions"."dropoff_lat" IS 'Latitude do ponto de destino (apenas TRANSPORT)';
+COMMENT ON COLUMN "notification_registry"."heading" IS 'Direção em graus (0-360) para rotação do ícone no mapa';
+COMMENT ON COLUMN "notification_registry"."service_radius" IS 'Raio de atendimento em km (default: 10)';
+```
+
+Execute a migração:
+```bash
+cd backend
+npx prisma migrate dev --name add_transport_features
+npx prisma generate
+```
+
+---
+
+## ⚙️ PASSO 2: Lógica de Negócio (Backend)
+
+### Arquivo: `backend/src/services/PricingService.ts`
+
+```typescript
+import { VehicleType } from '@prisma/client';
+
+/**
+ * Configuração de precificação por tipo de veículo
+ */
+interface PricingConfig {
+  base_fee: number;           // Taxa base
+  cost_per_km: number;        // Custo por km
+  cost_per_minute: number;    // Custo por minuto
+  minimum_price: number;      // Preço mínimo
+}
+
+export const PRICING_CONFIG: Record<VehicleType | 'DEFAULT', PricingConfig> = {
+  MOTO: {
+    base_fee: 3.50,
+    cost_per_km: 1.20,
+    cost_per_minute: 0.30,
+    minimum_price: 8.00
+  },
+  CARRO: {
+    base_fee: 5.00,
+    cost_per_km: 2.00,
+    cost_per_minute: 0.45,
+    minimum_price: 12.00
+  },
+  VAN: {
+    base_fee: 8.00,
+    cost_per_km: 3.50,
+    cost_per_minute: 0.60,
+    minimum_price: 20.00
+  },
+  DEFAULT: {
+    base_fee: 5.00,
+    cost_per_km: 2.00,
+    cost_per_minute: 0.45,
+    minimum_price: 12.00
+  }
+};
+
+/**
+ * Fórmula de Haversine para cálculo de distância entre coordenadas
+ */
+export function calculateDistance(
+  lat1: number, 
+  lng1: number, 
+  lat2: number, 
+  lng2: number
+): number {
+  const R = 6371; // Raio da Terra em km
+  
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  
+  return R * c; // Distância em km
+}
+
+/**
+ * Estima duração da viagem baseado na distância
+ * Assumindo velocidade média de 30 km/h em trânsito urbano
+ */
+export function estimateDuration(distanceKm: number): number {
+  const averageSpeedKmh = 30;
+  return Math.round((distanceKm / averageSpeedKmh) * 60); // Minutos
+}
+
+/**
+ * Calcula preço estimado da corrida
+ */
+export function calculatePrice(
+  distanceKm: number,
+  durationMin: number,
+  vehicleType: VehicleType | null = null
+): {
+  total: number;
+  breakdown: {
+    base_fee: number;
+    distance_cost: number;
+    duration_cost: number;
+  };
+} {
+  const config = vehicleType 
+    ? PRICING_CONFIG[vehicleType] 
+    : PRICING_CONFIG.DEFAULT;
+
+  const distanceCost = distanceKm * config.cost_per_km;
+  const durationCost = durationMin * config.cost_per_minute;
+  const subtotal = config.base_fee + distanceCost + durationCost;
+  
+  const total = Math.max(subtotal, config.minimum_price);
+
+  return {
+    total: parseFloat(total.toFixed(2)),
+    breakdown: {
+      base_fee: config.base_fee,
+      distance_cost: parseFloat(distanceCost.toFixed(2)),
+      duration_cost: parseFloat(durationCost.toFixed(2))
+    }
+  };
+}
+
+/**
+ * Calcula preço com 30% antecipado e 70% restante
+ */
+export function calculateSplitPrice(
+  distanceKm: number,
+  durationMin: number,
+  vehicleType: VehicleType | null = null
+): {
+  total: number;
+  upfront: number;      // 30%
+  remaining: number;    // 70%
+  breakdown: any;
+} {
+  const priceCalc = calculatePrice(distanceKm, durationMin, vehicleType);
+  
+  const upfront = parseFloat((priceCalc.total * 0.30).toFixed(2));
+  const remaining = parseFloat((priceCalc.total * 0.70).toFixed(2));
+
+  return {
+    total: priceCalc.total,
+    upfront,
+    remaining,
+    breakdown: priceCalc.breakdown
+  };
+}
+
+/**
+ * Interface para resultado completo
+ */
+export interface RideEstimate {
+  distanceKm: number;
+  durationMin: number;
+  price: {
+    total: number;
+    upfront: number;
+    remaining: number;
+    breakdown: {
+      base_fee: number;
+      distance_cost: number;
+      duration_cost: number;
+    };
+  };
+  pickup: { lat: number; lng: number };
+  dropoff: { lat: number; lng: number };
+}
+
+/**
+ * Calcula estimativa completa da corrida
+ */
+export function estimateRide(
+  pickupLat: number,
+  pickupLng: number,
+  dropoffLat: number,
+  dropoffLng: number,
+  vehicleType: VehicleType | null = null
+): RideEstimate {
+  const distanceKm = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
+  const durationMin = estimateDuration(distanceKm);
+  const price = calculateSplitPrice(distanceKm, durationMin, vehicleType);
+
+  return {
+    distanceKm: parseFloat(distanceKm.toFixed(2)),
+    durationMin,
+    price,
+    pickup: { lat: pickupLat, lng: pickupLng },
+    dropoff: { lat: dropoffLat, lng: dropoffLng }
+  };
+}
+```
+
+---
+
+### Arquivo: `backend/src/controllers/RideController.ts`
+
+```typescript
+import { Request, Response } from 'express';
+import { PrismaClient, MissionType, VehicleType } from '@prisma/client';
+import { 
+  estimateRide,
+  calculateSplitPrice,
+  calculateDistance
+} from '../services/PricingService';
+import { generateValidationCode } from '../utils/codeGenerator';
+
+const prisma = new PrismaClient();
+
+/**
+ * POST /api/ride/request
+ * Solicita uma nova corrida de transporte
+ */
+export const requestRide = async (req: Request, res: Response) => {
+  try {
+    const {
+      user_id,
+      pickup_lat,
+      pickup_lng,
+      pickup_address,
+      dropoff_lat,
+      dropoff_lng,
+      dropoff_address,
+      vehicle_type
+    } = req.body;
+
+    // Validação
+    if (!user_id || !pickup_lat || !pickup_lng || !dropoff_lat || !dropoff_lng) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios ausentes: user_id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng'
+      });
+    }
+
+    if (!vehicle_type || !['MOTO', 'CARRO', 'VAN'].includes(vehicle_type)) {
+      return res.status(400).json({
+        error: 'vehicle_type inválido. Use: MOTO, CARRO ou VAN'
+      });
+    }
+
+    // Calcular estimativa
+    const estimate = estimateRide(
+      pickup_lat,
+      pickup_lng,
+      dropoff_lat,
+      dropoff_lng,
+      vehicle_type as VehicleType
+    );
+
+    // Gerar códigos de validação
+    const validationCode = generateValidationCode();
+    const completionCode = generateValidationCode();
+
+    // Criar missão no banco
+    const mission = await prisma.missions.create({
+      data: {
+        user_id,
+        type: MissionType.TRANSPORT,
+        vehicle_type: vehicle_type as VehicleType,
+        
+        // Coordenadas
+        pickup_lat: pickup_lat,
+        pickup_lng: pickup_lng,
+        pickup_address: pickup_address || null,
+        dropoff_lat: dropoff_lat,
+        dropoff_lng: dropoff_lng,
+        dropoff_address: dropoff_address || null,
+        
+        // Métricas
+        estimated_distance_km: estimate.distanceKm,
+        estimated_duration_min: estimate.durationMin,
+        estimated_price: estimate.price.total,
+        
+        // Precificação
+        price_upfront: estimate.price.upfront,
+        price_total: estimate.price.total,
+        
+        // Outros campos
+        title: `Corrida ${vehicle_type}`,
+        description: `De: ${pickup_address || 'Origem'}\nPara: ${dropoff_address || 'Destino'}`,
+        category: 'transport',
+        status: 'PENDING',
+        validation_code: validationCode,
+        completion_code: completionCode
+      },
+      include: {
+        user: {
+          select: { name: true, phone: true }
+        }
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      mission_id: mission.id,
+      estimate: {
+        distance_km: estimate.distanceKm,
+        duration_min: estimate.durationMin,
+        price: {
+          total: estimate.price.total,
+          upfront: estimate.price.upfront,
+          remaining: estimate.price.remaining,
+          breakdown: estimate.price.breakdown
+        }
+      },
+      mission: {
+        id: mission.id,
+        status: mission.status,
+        validation_code: mission.validation_code
+      }
+    });
+
+  } catch (error) {
+    console.error('Erro ao solicitar corrida:', error);
+    res.status(500).json({
+      error: 'Erro ao processar solicitação de corrida',
+      details: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+};
+
+/**
+ * POST /api/ride/estimate
+ * Apenas calcula estimativa sem criar missão
+ */
+export const estimateRidePrice = async (req: Request, res: Response) => {
+  try {
+    const {
+      pickup_lat,
+      pickup_lng,
+      dropoff_lat,
+      dropoff_lng,
+      vehicle_type
+    } = req.body;
+
+    if (!pickup_lat || !pickup_lng || !dropoff_lat || !dropoff_lng) {
+      return res.status(400).json({
+        error: 'Coordenadas obrigatórias'
+      });
+    }
+
+    const estimate = estimateRide(
+      pickup_lat,
+      pickup_lng,
+      dropoff_lat,
+      dropoff_lng,
+      vehicle_type as VehicleType
+    );
+
+    res.json({
+      success: true,
+      estimate: {
+        distance_km: estimate.distanceKm,
+        duration_min: estimate.durationMin,
+        price: {
+          total: estimate.price.total,
+          upfront: estimate.price.upfront,
+          remaining: estimate.price.remaining,
+          breakdown: estimate.price.breakdown
+        },
+        route: {
+          pickup: estimate.pickup,
+          dropoff: estimate.dropoff
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Erro ao estimar corrida:', error);
+    res.status(500).json({ error: 'Erro ao calcular estimativa' });
+  }
+};
+```
+
+---
+
+### Arquivo: `backend/src/controllers/ProviderController.ts`
+
+```typescript
+import { Request, Response } from 'express';
+import { PrismaClient, VehicleType } from '@prisma/client';
+import { calculateDistance } from '../services/PricingService';
+
+const prisma = new PrismaClient();
+
+/**
+ * POST /api/providers/nearby
+ * Busca profissionais/motoristas próximos
+ */
+export const getNearbyProviders = async (req: Request, res: Response) => {
+  try {
+    const {
+      lat,
+      lng,
+      radius = 10,        // Raio em km (default: 10km)
+      vehicle_type,       // MOTO, CARRO, VAN ou null para serviços
+      category            // Categoria do serviço (para SERVICE)
+    } = req.body;
+
+    if (!lat || !lng) {
+      return res.status(400).json({
+        error: 'Coordenadas (lat, lng) são obrigatórias'
+      });
+    }
+
+    // Buscar todos os profissionais online
+    const onlineProviders = await prisma.notification_registry.findMany({
+      where: {
+        is_available: true,
+        latitude: { not: null },
+        longitude: { not: null }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            // rating, reviews_count (se existir)
+          }
+        }
+      }
+    });
+
+    // Filtrar por raio e tipo de veículo/categoria
+    const nearbyProviders = onlineProviders.filter(provider => {
+      // Calcular distância
+      const distance = calculateDistance(
+        lat,
+        lng,
+        Number(provider.latitude),
+        Number(provider.longitude)
+      );
+
+      // Verificar se está dentro do raio
+      const withinRadius = distance <= (provider.service_radius || radius);
+
+      // Verificar tipo de veículo (para transporte)
+      const vehicleMatch = vehicle_type 
+        ? provider.vehicle_type === vehicle_type
+        : true;
+
+      // Verificar categoria (para serviços)
+      const categoryMatch = category
+        ? true // Implementar filtro por categoria se necessário
+        : true;
+
+      return withinRadius && vehicleMatch && categoryMatch;
+    });
+
+    // Ordenar por distância
+    nearbyProviders.sort((a, b) => {
+      const distA = calculateDistance(
+        lat, lng, Number(a.latitude), Number(a.longitude)
+      );
+      const distB = calculateDistance(
+        lat, lng, Number(b.latitude), Number(b.longitude)
+      );
+      return distA - distB;
+    });
+
+    // Formatar resposta
+    const providersWithDistance = nearbyProviders.map(provider => ({
+      id: provider.user_id,
+      name: provider.user.name,
+      distance_km: parseFloat(
+        calculateDistance(
+          lat, lng, Number(provider.latitude), Number(provider.longitude)
+        ).toFixed(2)
+      ),
+      location: {
+        lat: Number(provider.latitude),
+        lng: Number(provider.longitude),
+        heading: provider.heading || 0
+      },
+      vehicle: {
+        type: provider.vehicle_type,
+        model: provider.current_vehicle,
+        plate: provider.vehicle_plate
+      },
+      service_radius: provider.service_radius,
+      is_available: provider.is_available
+    }));
+
+    res.json({
+      success: true,
+      count: providersWithDistance.length,
+      providers: providersWithDistance,
+      search_params: {
+        center: { lat, lng },
+        radius_km: radius,
+        vehicle_type,
+        category
+      }
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar profissionais próximos:', error);
+    res.status(500).json({
+      error: 'Erro ao buscar profissionais',
+      details: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+};
+
+/**
+ * POST /api/providers/update-location
+ * Atualiza localização em tempo real do motorista
+ */
+export const updateDriverLocation = async (req: Request, res: Response) => {
+  try {
+    const {
+      driver_id,
+      latitude,
+      longitude,
+      heading,
+      speed,
+      status = 'available'
+    } = req.body;
+
+    if (!driver_id || !latitude || !longitude) {
+      return res.status(400).json({
+        error: 'driver_id, latitude e longitude são obrigatórios'
+      });
+    }
+
+    // Atualizar notification_registry
+    await prisma.notification_registry.upsert({
+      where: { user_id: driver_id },
+      update: {
+        latitude: latitude,
+        longitude: longitude,
+        heading: heading || null,
+        last_seen: new Date()
+      },
+      create: {
+        user_id: driver_id,
+        latitude: latitude,
+        longitude: longitude,
+        heading: heading || null,
+        is_available: true
+      }
+    });
+
+    // Atualizar driver_locations (para rastreamento em tempo real)
+    await prisma.driver_locations.upsert({
+      where: { driver_id: driver_id },
+      update: {
+        latitude: latitude,
+        longitude: longitude,
+        heading: heading || null,
+        speed: speed || null,
+        status: status,
+        updated_at: new Date()
+      },
+      create: {
+        driver_id: driver_id,
+        latitude: latitude,
+        longitude: longitude,
+        heading: heading || null,
+        speed: speed || null,
+        status: status
+      }
+    });
+
+    // Salvar no histórico (a cada 30 segundos ou ao mudar de missão)
+    if (Math.random() < 0.1) { // 10% das atualizações
+      await prisma.location_history.create({
+        data: {
+          driver_id: driver_id,
+          latitude: latitude,
+          longitude: longitude,
+          mission_id: null // Preencher quando em missão
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Localização atualizada com sucesso',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar localização:', error);
+    res.status(500).json({ error: 'Erro ao atualizar localização' });
+  }
+};
+```
+
+---
+
+### Arquivo: `backend/src/routes/ride.routes.ts`
+
+```typescript
+import express from 'express';
+import {
+  requestRide,
+  estimateRidePrice
+} from '../controllers/RideController';
+import {
+  getNearbyProviders,
+  updateDriverLocation
+} from '../controllers/ProviderController';
+
+const router = express.Router();
+
+// Ride endpoints
+router.post('/request', requestRide);
+router.post('/estimate', estimateRidePrice);
+
+// Provider endpoints
+router.post('/providers/nearby', getNearbyProviders);
+router.post('/providers/location', updateDriverLocation);
+
+export default router;
+```
+
+---
+
+### Arquivo: `backend/src/server.ts` (atualização)
+
+```typescript
+import express from 'express';
+import rideRoutes from './routes/ride.routes';
+
+const app = express();
+
+// Middlewares
+app.use(express.json());
+
+// Rotas
+app.use('/api/ride', rideRoutes);
+app.use('/api', rideRoutes); // Também acessível via /api/
+
+// ... resto do servidor
+```
+
+---
+
+## 🔄 PASSO 4: Integração Firebase Realtime Database
+
+### Arquivo: `backend/src/services/FirebaseService.ts`
+
+```typescript
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getDatabase } from 'firebase-admin/database';
+import { ServiceAccount } from 'firebase-admin';
+
+// Inicializar Firebase Admin
+const serviceAccount: ServiceAccount = {
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+};
+
+initializeApp({
+  credential: cert(serviceAccount),
+  databaseURL: process.env.FIREBASE_DATABASE_URL // ex: https://seu-app.firebaseio.com
+});
+
+const db = getDatabase();
+
+/**
+ * Atualiza localização do motorista no Firebase em tempo real
+ */
+export async function updateDriverLocationFirebase(
+  driverId: string,
+  location: {
+    lat: number;
+    lng: number;
+    heading?: number;
+    speed?: number;
+    status?: string;
+    mission_id?: string;
+  }
+): Promise<void> {
+  try {
+    const driverRef = db.ref(`drivers/${driverId}/location`);
+    
+    await driverRef.set({
+      lat: location.lat,
+      lng: location.lng,
+      heading: location.heading || 0,
+      speed: location.speed || 0,
+      status: location.status || 'available',
+      mission_id: location.mission_id || null,
+      timestamp: Date.now()
+    });
+
+    console.log(`📍 Firebase: Localização atualizada para driver ${driverId}`);
+  } catch (error) {
+    console.error('Erro ao atualizar Firebase:', error);
+    throw error;
+  }
+}
+
+/**
+ * Remove motorista do Firebase (offline)
+ */
+export async function removeDriverFromFirebase(driverId: string): Promise<void> {
+  try {
+    const driverRef = db.ref(`drivers/${driverId}`);
+    await driverRef.remove();
+    console.log(`📴 Firebase: Driver ${driverId} removido`);
+  } catch (error) {
+    console.error('Erro ao remover driver do Firebase:', error);
+  }
+}
+
+/**
+ * Atualiza status da missão em tempo real
+ */
+export async function updateMissionStatusFirebase(
+  missionId: string,
+  status: string,
+  driverId?: string
+): Promise<void> {
+  try {
+    const missionRef = db.ref(`missions/${missionId}`);
+    
+    await missionRef.update({
+      status: status,
+      driver_id: driverId || null,
+      updated_at: Date.now()
+    });
+
+    console.log(`📋 Firebase: Missão ${missionId} atualizada para ${status}`);
+  } catch (error) {
+    console.error('Erro ao atualizar missão no Firebase:', error);
+  }
+}
+```
+
+---
+
+### Atualização no Controller para usar Firebase
+
+```typescript
+// No ProviderController.ts, adicione:
+import { updateDriverLocationFirebase } from '../services/FirebaseService';
+
+// Dentro de updateDriverLocation:
+await updateDriverLocationFirebase(driver_id, {
+  lat: latitude,
+  lng: longitude,
+  heading: heading,
+  speed: speed,
+  status: status,
+  mission_id: null // ou mission_id atual
+});
+```
+
+---
+
+## 📊 Resumo das Implementações
+
+| Componente | Status | Arquivos |
+|------------|--------|----------|
+| **Schema Prisma** | ✅ Completo | `schema.prisma`, `migration.sql` |
+| **PricingService** | ✅ Completo | `PricingService.ts` |
+| **RideController** | ✅ Completo | `RideController.ts` |
+| **ProviderController** | ✅ Completo | `ProviderController.ts` |
+| **Firebase Integration** | ✅ Completo | `FirebaseService.ts` |
+| **Rotas** | ✅ Completo | `ride.routes.ts` |
+
+---
+
+## 🚀 Próximos Passos (Passo 3 - SDUI)
+
+Quando você estiver pronto, posso implementar:
+1. **Endpoint `/sdui/home`** com componente `map_view`
+2. **Bottom Sheet** com botões "Viajar" e "Serviços"
+3. **Fluxo de seleção de origem/destino**
+4. **Cards de opções de veículo** com preços
+
+Quer que eu continue com o Passo 3 agora?  Perfeito! Vou continuar com o **Passo 3: Interface SDUI Baseada em Mapa**.
+
+---
+
+## 🗺️ PASSO 3: Interface SDUI Baseada em Mapa
+
+### Arquivo: `ai_service/src/index.ts`
+
+```typescript
+import express from 'express';
+import { PrismaClient, VehicleType } from '@prisma/client';
+import { 
+  estimateRide, 
+  calculateSplitPrice,
+  calculateDistance 
+} from '../../backend/src/services/PricingService';
+
+const router = express.Router();
+const prisma = new PrismaClient();
+
+/**
+ * GET /sdui/home
+ * Retorna interface principal com mapa e bottom sheet
+ */
+router.get('/home', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+    
+    // Buscar profissionais online para mostrar no mapa
+    const nearbyProviders = await prisma.notification_registry.findMany({
+      where: {
+        is_available: true
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            role: true
+          }
+        }
+      },
+      take: 50 // Limite para performance
+    });
+
+    // Converter para formato de markers
+    const markers = nearbyProviders.map(provider => ({
+      id: provider.user_id,
+      type: provider.user.role === 'provider' ? 'provider' : 'driver',
+      position: {
+        lat: Number(provider.latitude),
+        lng: Number(provider.longitude)
+      },
+      heading: provider.heading || 0,
+      vehicle: {
+        type: provider.vehicle_type,
+        model: provider.current_vehicle,
+        plate: provider.vehicle_plate
+      },
+      metadata: {
+        name: provider.user.name,
+        rating: 5.0, // Implementar quando tiver sistema de rating
+        isAvailable: provider.is_available
+      }
+    }));
+
+    const sduiResponse = {
+      screen: {
+        type: 'container',
+        props: {
+          style: {
+            flex: 1,
+            backgroundColor: '#FFFFFF'
+          }
+        },
+        children: [
+          // Mapa principal
+          {
+            type: 'map_view',
+            props: {
+              id: 'main_map',
+              user_location: 'current', // Solicita localização do usuário
+              initial_position: {
+                lat: -22.9068, // Rio de Janeiro (default)
+                lng: -43.1729,
+                zoom: 13
+              },
+              markers: markers,
+              clusters: true, // Agrupar markers próximos
+              traffic_layer: true,
+              compass_enabled: true,
+              zoom_controls: true,
+              rotate_enabled: true,
+              tilt_enabled: true,
+              on_map_click: {
+                action: 'show_location_picker',
+                target: 'origin_picker'
+              },
+              on_marker_click: {
+                action: 'show_provider_details',
+                source: 'marker.metadata'
+              },
+              on_user_location_update: {
+                action: 'update_user_position',
+                debounce_ms: 1000
+              }
+            }
+          },
+          
+          // Bottom Sheet Principal
+          {
+            type: 'bottom_sheet',
+            props: {
+              id: 'main_bottom_sheet',
+              initial_state: 'expanded',
+              snap_points: ['30%', '80%'],
+              background_color: '#FFFFFF',
+              corner_radius: 24,
+              shadow: {
+                color: '#00000020',
+                offset: { x: 0, y: -4 },
+                radius: 16
+              },
+              children: [
+                // Handle indicador
+                {
+                  type: 'view',
+                  props: {
+                    style: {
+                      align_items: 'center',
+                      padding: 16,
+                      border_bottom_width: 1,
+                      border_bottom_color: '#EEEEEE'
+                    },
+                    children: [
+                      {
+                        type: 'view',
+                        props: {
+                          style: {
+                            width: 40,
+                            height: 4,
+                            background_color: '#DDDDDD',
+                            border_radius: 2
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                
+                // Conteúdo principal do Bottom Sheet
+                {
+                  type: 'view',
+                  props: {
+                    style: {
+                      padding: 16,
+                      flex: 1
+                    },
+                    children: [
+                      // Título
+                      {
+                        type: 'text',
+                        props: {
+                          text: 'O que você precisa?',
+                          style: {
+                            font_size: 24,
+                            font_weight: 'bold',
+                            color: '#1A1A1A',
+                            margin_bottom: 24
+                          }
+                        }
+                      },
+                      
+                      // Botões principais
+                      {
+                        type: 'view',
+                        props: {
+                          style: {
+                            flex_direction: 'row',
+                            justify_content: 'space_between'
+                          },
+                          children: [
+                            // Botão Viajar (Transporte)
+                            {
+                              type: 'card',
+                              props: {
+                                style: {
+                                  flex: 1,
+                                  margin_right: 8,
+                                  padding: 24,
+                                  background_color: '#6366F1', // Purple primary
+                                  border_radius: 16,
+                                  align_items: 'center',
+                                  justify_content: 'center',
+                                  shadow: {
+                                    color: '#6366F140',
+                                    offset: { x: 0, y: 8 },
+                                    radius: 12
+                                  }
+                                },
+                                on_press: {
+                                  action: 'navigate',
+                                  screen: 'transport_home',
+                                  params: { mode: 'transport' }
+                                },
+                                children: [
+                                  {
+                                    type: 'icon',
+                                    props: {
+                                      name: 'car',
+                                      size: 48,
+                                      color: '#FFFFFF'
+                                    }
+                                  },
+                                  {
+                                    type: 'text',
+                                    props: {
+                                      text: 'Viajar',
+                                      style: {
+                                        font_size: 18,
+                                        font_weight: 'bold',
+                                        color: '#FFFFFF',
+                                        margin_top: 12
+                                      }
+                                    }
+                                  },
+                                  {
+                                    type: 'text',
+                                    props: {
+                                      text: 'Moto, Carro, Van',
+                                      style: {
+                                        font_size: 12,
+                                        color: '#FFFFFFCC',
+                                        margin_top: 4
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            
+                            // Botão Serviços (Profissionais)
+                            {
+                              type: 'card',
+                              props: {
+                                style: {
+                                  flex: 1,
+                                  margin_left: 8,
+                                  padding: 24,
+                                  background_color: '#10B981', // Green
+                                  border_radius: 16,
+                                  align_items: 'center',
+                                  justify_content: 'center',
+                                  shadow: {
+                                    color: '#10B98140',
+                                    offset: { x: 0, y: 8 },
+                                    radius: 12
+                                  }
+                                },
+                                on_press: {
+                                  action: 'navigate',
+                                  screen: 'services_home',
+                                  params: { mode: 'service' }
+                                },
+                                children: [
+                                  {
+                                    type: 'icon',
+                                    props: {
+                                      name: 'wrench',
+                                      size: 48,
+                                      color: '#FFFFFF'
+                                    }
+                                  },
+                                  {
+                                    type: 'text',
+                                    props: {
+                                      text: 'Serviços',
+                                      style: {
+                                        font_size: 18,
+                                        font_weight: 'bold',
+                                        color: '#FFFFFF',
+                                        margin_top: 12
+                                      }
+                                    }
+                                  },
+                                  {
+                                    type: 'text',
+                                    props: {
+                                      text: 'Técnicos, Reparos',
+                                      style: {
+                                        font_size: 12,
+                                        color: '#FFFFFFCC',
+                                        margin_top: 4
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      
+                      // Histórico recente (opcional)
+                      {
+                        type: 'view',
+                        props: {
+                          style: {
+                            margin_top: 24
+                          },
+                          children: [
+                            {
+                              type: 'text',
+                              props: {
+                                text: 'Recentes',
+                                style: {
+                                  font_size: 16,
+                                  font_weight: '600',
+                                  color: '#666666',
+                                  margin_bottom: 12
+                                }
+                              }
+                            },
+                            {
+                              type: 'horizontal_scroll',
+                              props: {
+                                children: [
+                                  {
+                                    type: 'chip',
+                                    props: {
+                                      text: 'Hotéis',
+                                      icon: 'hotel',
+                                      on_press: {
+                                        action: 'set_destination',
+                                        value: 'Hotéis'
+                                      }
+                                    }
+                                  },
+                                  {
+                                    type: 'chip',
+                                    props: {
+                                      text: 'Aeroporto',
+                                      icon: 'airplane',
+                                      on_press: {
+                                        action: 'set_destination',
+                                        value: 'Aeroporto'
+                                      }
+                                    }
+                                  },
+                                  {
+                                    type: 'chip',
+                                    props: {
+                                      text: 'Casa',
+                                      icon: 'home',
+                                      on_press: {
+                                        action: 'set_destination',
+                                        value: 'Casa'
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          
+          // Floating Action Button (para alternar entre modos)
+          {
+            type: 'floating_action_button',
+            props: {
+              position: {
+                bottom: 80,
+                right: 16
+              },
+              icon: 'menu',
+              background_color: '#6366F1',
+              size: 56,
+              on_press: {
+                action: 'toggle_menu'
+              }
+            }
+          },
+          
+          // Botão de localização atual
+          {
+            type: 'floating_action_button',
+            props: {
+              position: {
+                bottom: 16,
+                right: 16
+              },
+              icon: 'locate',
+              background_color: '#FFFFFF',
+              border_color: '#DDDDDD',
+              border_width: 1,
+              size: 56,
+              on_press: {
+                action: 'center_on_user_location'
+              }
+            }
+          }
+        ]
+      },
+      metadata: {
+        title: 'Home',
+        requires_location: true,
+        refresh_on_focus: true,
+        providers_count: markers.length
+      }
+    };
+
+    res.json(sduiResponse);
+
+  } catch (error) {
+    console.error('Erro ao gerar SDUI home:', error);
+    res.status(500).json({
+      error: 'Erro ao carregar interface',
+      details: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+});
+
+/**
+ * GET /sdui/transport/home
+ * Tela de seleção de origem/destino para transporte
+ */
+router.get('/transport/home', async (req, res) => {
+  try {
+    const sduiResponse = {
+      screen: {
+        type: 'container',
+        props: {
+          style: { flex: 1, background_color: '#FFFFFF' }
+        },
+        children: [
+          // Mapa com seletores de origem/destino
+          {
+            type: 'map_view',
+            props: {
+              id: 'transport_map',
+              user_location: 'current',
+              initial_position: {
+                lat: -22.9068,
+                lng: -43.1729,
+                zoom: 13
+              },
+              interactive: true,
+              on_map_long_press: {
+                action: 'show_pin_selection',
+                target: 'destination'
+              }
+            }
+          },
+          
+          // Bottom Sheet para inputs de origem/destino
+          {
+            type: 'bottom_sheet',
+            props: {
+              id: 'transport_input_sheet',
+              initial_state: 'expanded',
+              snap_points: ['60%', '90%'],
+              background_color: '#FFFFFF',
+              corner_radius: 24,
+              children: [
+                // Handle
+                {
+                  type: 'view',
+                  props: {
+                    style: {
+                      align_items: 'center',
+                      padding: 16,
+                      border_bottom_width: 1,
+                      border_bottom_color: '#EEEEEE'
+                    },
+                    children: [
+                      {
+                        type: 'view',
+                        props: {
+                          style: {
+                            width: 40,
+                            height: 4,
+                            background_color: '#DDDDDD',
+                            border_radius: 2
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                
+                // Conteúdo
+                {
+                  type: 'scroll_view',
+                  props: {
+                    style: { padding: 16 },
+                    children: [
+                      // Título
+                      {
+                        type: 'text',
+                        props: {
+                          text: 'Solicitar Transporte',
+                          style: {
+                            font_size: 24,
+                            font_weight: 'bold',
+                            color: '#1A1A1A',
+                            margin_bottom: 24
+                          }
+                        }
+                      },
+                      
+                      // Campo Origem
+                      {
+                        type: 'card',
+                        props: {
+                          style: {
+                            padding: 16,
+                            margin_bottom: 12,
+                            border_radius: 12,
+                            background_color: '#F8FAFC',
+                            border_width: 1,
+                            border_color: '#E2E8F0'
+                          },
+                          children: [
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', align_items: 'center' },
+                                children: [
+                                  {
+                                    type: 'icon',
+                                    props: {
+                                      name: 'map_pin',
+                                      size: 20,
+                                      color: '#6366F1'
+                                    }
+                                  },
+                                  {
+                                    type: 'text_input',
+                                    props: {
+                                      id: 'origin_input',
+                                      placeholder: 'Origem',
+                                      placeholder_color: '#94A3B8',
+                                      font_size: 16,
+                                      flex: 1,
+                                      margin_left: 12,
+                                      on_focus: {
+                                        action: 'open_location_search',
+                                        target: 'origin'
+                                      },
+                                      on_current_location_press: {
+                                        action: 'use_current_location',
+                                        target: 'origin'
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      
+                      // Campo Destino
+                      {
+                        type: 'card',
+                        props: {
+                          style: {
+                            padding: 16,
+                            margin_bottom: 24,
+                            border_radius: 12,
+                            background_color: '#F8FAFC',
+                            border_width: 1,
+                            border_color: '#E2E8F0'
+                          },
+                          children: [
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', align_items: 'center' },
+                                children: [
+                                  {
+                                    type: 'icon',
+                                    props: {
+                                      name: 'flag',
+                                      size: 20,
+                                      color: '#10B981'
+                                    }
+                                  },
+                                  {
+                                    type: 'text_input',
+                                    props: {
+                                      id: 'destination_input',
+                                      placeholder: 'Destino',
+                                      placeholder_color: '#94A3B8',
+                                      font_size: 16,
+                                      flex: 1,
+                                      margin_left: 12,
+                                      on_focus: {
+                                        action: 'open_location_search',
+                                        target: 'destination'
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      
+                      // Botão Solicitar
+                      {
+                        type: 'button',
+                        props: {
+                          text: 'Buscar Motoristas',
+                          style: {
+                            background_color: '#6366F1',
+                            padding: 16,
+                            border_radius: 12,
+                            margin_bottom: 16
+                          },
+                          text_style: {
+                            color: '#FFFFFF',
+                            font_size: 18,
+                            font_weight: 'bold'
+                          },
+                          on_press: {
+                            action: 'request_ride_estimate',
+                            validate: ['origin_input', 'destination_input']
+                          }
+                        }
+                      },
+                      
+                      // Mensagem informativa
+                      {
+                        type: 'text',
+                        props: {
+                          text: 'Você pagará 30% ao solicitar e 70% após a corrida',
+                          style: {
+                            font_size: 12,
+                            color: '#64748B',
+                            text_align: 'center'
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      metadata: {
+        title: 'Solicitar Transporte',
+        requires_location: true
+      }
+    };
+
+    res.json(sduiResponse);
+
+  } catch (error) {
+    console.error('Erro ao gerar SDUI transport home:', error);
+    res.status(500).json({ error: 'Erro ao carregar interface' });
+  }
+});
+
+/**
+ * POST /sdui/transport/estimate
+ * Retorna estimativa de preço após selecionar origem/destino
+ */
+router.post('/transport/estimate', async (req, res) => {
+  try {
+    const {
+      origin_lat,
+      origin_lng,
+      origin_address,
+      destination_lat,
+      destination_lng,
+      destination_address
+    } = req.body;
+
+    // Validar coordenadas
+    if (!origin_lat || !origin_lng || !destination_lat || !destination_lng) {
+      return res.status(400).json({
+        error: 'Coordenadas de origem e destino são obrigatórias'
+      });
+    }
+
+    // Calcular estimativas para cada tipo de veículo
+    const estimates = {
+      MOTO: estimateRide(
+        origin_lat,
+        origin_lng,
+        destination_lat,
+        destination_lng,
+        VehicleType.MOTO
+      ),
+      CARRO: estimateRide(
+        origin_lat,
+        origin_lng,
+        destination_lat,
+        destination_lng,
+        VehicleType.CARRO
+      ),
+      VAN: estimateRide(
+        origin_lat,
+        origin_lng,
+        destination_lat,
+        destination_lng,
+        VehicleType.VAN
+      )
+    };
+
+    const sduiResponse = {
+      screen: {
+        type: 'container',
+        props: {
+          style: { flex: 1, background_color: '#FFFFFF' }
+        },
+        children: [
+          // Mapa com rota
+          {
+            type: 'map_view',
+            props: {
+              id: 'route_map',
+              user_location: 'current',
+              initial_position: {
+                lat: origin_lat,
+                lng: origin_lng,
+                zoom: 14
+              },
+              markers: [
+                {
+                  id: 'origin',
+                  position: { lat: origin_lat, lng: origin_lng },
+                  icon: 'map_pin',
+                  color: '#6366F1',
+                  label: 'Você'
+                },
+                {
+                  id: 'destination',
+                  position: { lat: destination_lat, lng: destination_lng },
+                  icon: 'flag',
+                  color: '#10B981',
+                  label: 'Destino'
+                }
+              ],
+              polyline: {
+                points: [
+                  { lat: origin_lat, lng: origin_lng },
+                  { lat: destination_lat, lng: destination_lng }
+                ],
+                color: '#6366F1',
+                width: 4,
+                pattern: 'solid'
+              }
+            }
+          },
+          
+          // Bottom Sheet com opções de veículo
+          {
+            type: 'bottom_sheet',
+            props: {
+              id: 'vehicle_options_sheet',
+              initial_state: 'expanded',
+              snap_points: ['70%', '90%'],
+              background_color: '#FFFFFF',
+              corner_radius: 24,
+              children: [
+                // Handle
+                {
+                  type: 'view',
+                  props: {
+                    style: {
+                      align_items: 'center',
+                      padding: 16,
+                      border_bottom_width: 1,
+                      border_bottom_color: '#EEEEEE'
+                    },
+                    children: [
+                      {
+                        type: 'view',
+                        props: {
+                          style: {
+                            width: 40,
+                            height: 4,
+                            background_color: '#DDDDDD',
+                            border_radius: 2
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                
+                // Conteúdo
+                {
+                  type: 'scroll_view',
+                  props: {
+                    style: { padding: 16 },
+                    children: [
+                      // Resumo da rota
+                      {
+                        type: 'card',
+                        props: {
+                          style: {
+                            padding: 16,
+                            margin_bottom: 16,
+                            border_radius: 12,
+                            background_color: '#F0F9FF',
+                            border_left_width: 4,
+                            border_left_color: '#6366F1'
+                          },
+                          children: [
+                            {
+                              type: 'text',
+                              props: {
+                                text: 'Resumo da Corrida',
+                                style: {
+                                  font_size: 16,
+                                  font_weight: 'bold',
+                                  color: '#0F172A',
+                                  margin_bottom: 8
+                                }
+                              }
+                            },
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', justify_content: 'space_between' },
+                                children: [
+                                  { type: 'text', props: { text: '📍 Origem:', style: { color: '#475569' } } },
+                                  { type: 'text', props: { text: origin_address || 'Endereço de origem', style: { font_weight: '500' } } }
+                                ]
+                              }
+                            },
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', justify_content: 'space_between', margin_top: 4 },
+                                children: [
+                                  { type: 'text', props: { text: '🏁 Destino:', style: { color: '#475569' } } },
+                                  { type: 'text', props: { text: destination_address || 'Endereço de destino', style: { font_weight: '500' } } }
+                                ]
+                              }
+                            },
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', justify_content: 'space_between', margin_top: 12, padding_top: 12, border_top_width: 1, border_top_color: '#BFDBFE' },
+                                children: [
+                                  { 
+                                    type: 'view',
+                                    props: {
+                                      style: { flex_direction: 'row', align_items: 'center' },
+                                      children: [
+                                        { type: 'icon', props: { name: 'ruler', size: 16, color: '#3B82F6' } },
+                                        { type: 'text', props: { text: ` ${estimates.MOTO.distanceKm} km`, style: { margin_left: 4, font_weight: 'bold' } } }
+                                      ]
+                                    }
+                                  },
+                                  { 
+                                    type: 'view',
+                                    props: {
+                                      style: { flex_direction: 'row', align_items: 'center' },
+                                      children: [
+                                        { type: 'icon', props: { name: 'clock', size: 16, color: '#3B82F6' } },
+                                        { type: 'text', props: { text: ` ${estimates.MOTO.durationMin} min`, style: { margin_left: 4, font_weight: 'bold' } } }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      
+                      // Título Opções
+                      {
+                        type: 'text',
+                        props: {
+                          text: 'Escolha seu veículo',
+                          style: {
+                            font_size: 20,
+                            font_weight: 'bold',
+                            color: '#1A1A1A',
+                            margin_bottom: 16
+                          }
+                        }
+                      },
+                      
+                      // Card Moto
+                      {
+                        type: 'card',
+                        props: {
+                          id: 'vehicle_moto',
+                          style: {
+                            padding: 16,
+                            margin_bottom: 12,
+                            border_radius: 16,
+                            background_color: '#FFFFFF',
+                            border_width: 2,
+                            border_color: '#E0E7FF'
+                          },
+                          on_press: {
+                            action: 'select_vehicle',
+                            value: 'MOTO',
+                            params: {
+                              origin_lat,
+                              origin_lng,
+                              origin_address,
+                              destination_lat,
+                              destination_lng,
+                              destination_address,
+                              estimate: estimates.MOTO
+                            }
+                          },
+                          children: [
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', justify_content: 'space_between', align_items: 'center' },
+                                children: [
+                                  {
+                                    type: 'view',
+                                    props: {
+                                      style: { flex_direction: 'row', align_items: 'center' },
+                                      children: [
+                                        {
+                                          type: 'container',
+                                          props: {
+                                            style: {
+                                              width: 50,
+                                              height: 50,
+                                              border_radius: 12,
+                                              background_color: '#E0E7FF',
+                                              align_items: 'center',
+                                              justify_content: 'center',
+                                              margin_right: 12
+                                            },
+                                            children: [
+                                              { type: 'icon', props: { name: 'motorcycle', size: 28, color: '#6366F1' } }
+                                            ]
+                                          }
+                                        },
+                                        {
+                                          type: 'view',
+                                          props: {
+                                            style: { flex: 1 },
+                                            children: [
+                                              { type: 'text', props: { text: 'Moto', style: { font_size: 18, font_weight: 'bold' } } },
+                                              { type: 'text', props: { text: 'Rápido e econômico', style: { font_size: 12, color: '#64748B' } } }
+                                            ]
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    type: 'view',
+                                    props: {
+                                      style: { align_items: 'flex_end' },
+                                      children: [
+                                        { 
+                                          type: 'text', 
+                                          props: { 
+                                            text: `R$ ${estimates.MOTO.price.total.toFixed(2).replace('.', ',')}`,
+                                            style: { font_size: 24, font_weight: 'bold', color: '#6366F1' } 
+                                          } 
+                                        },
+                                        { 
+                                          type: 'text', 
+                                          props: { 
+                                            text: `${estimates.MOTO.price.upfront.toFixed(2).replace('.', ',')} + ${estimates.MOTO.price.remaining.toFixed(2).replace('.', ',')}`,
+                                            style: { font_size: 12, color: '#94A3B8' } 
+                                          } 
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      
+                      // Card Carro
+                      {
+                        type: 'card',
+                        props: {
+                          id: 'vehicle_carro',
+                          style: {
+                            padding: 16,
+                            margin_bottom: 12,
+                            border_radius: 16,
+                            background_color: '#FFFFFF',
+                            border_width: 2,
+                            border_color: '#E0E7FF'
+                          },
+                          on_press: {
+                            action: 'select_vehicle',
+                            value: 'CARRO',
+                            params: {
+                              origin_lat,
+                              origin_lng,
+                              origin_address,
+                              destination_lat,
+                              destination_lng,
+                              destination_address,
+                              estimate: estimates.CARRO
+                            }
+                          },
+                          children: [
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', justify_content: 'space_between', align_items: 'center' },
+                                children: [
+                                  {
+                                    type: 'view',
+                                    props: {
+                                      style: { flex_direction: 'row', align_items: 'center' },
+                                      children: [
+                                        {
+                                          type: 'container',
+                                          props: {
+                                            style: {
+                                              width: 50,
+                                              height: 50,
+                                              border_radius: 12,
+                                              background_color: '#E0E7FF',
+                                              align_items: 'center',
+                                              justify_content: 'center',
+                                              margin_right: 12
+                                            },
+                                            children: [
+                                              { type: 'icon', props: { name: 'car', size: 28, color: '#6366F1' } }
+                                            ]
+                                          }
+                                        },
+                                        {
+                                          type: 'view',
+                                          props: {
+                                            style: { flex: 1 },
+                                            children: [
+                                              { type: 'text', props: { text: 'Carro', style: { font_size: 18, font_weight: 'bold' } } },
+                                              { type: 'text', props: { text: 'Confortável e seguro', style: { font_size: 12, color: '#64748B' } } }
+                                            ]
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    type: 'view',
+                                    props: {
+                                      style: { align_items: 'flex_end' },
+                                      children: [
+                                        { 
+                                          type: 'text', 
+                                          props: { 
+                                            text: `R$ ${estimates.CARRO.price.total.toFixed(2).replace('.', ',')}`,
+                                            style: { font_size: 24, font_weight: 'bold', color: '#6366F1' } 
+                                          } 
+                                        },
+                                        { 
+                                          type: 'text', 
+                                          props: { 
+                                            text: `${estimates.CARRO.price.upfront.toFixed(2).replace('.', ',')} + ${estimates.CARRO.price.remaining.toFixed(2).replace('.', ',')}`,
+                                            style: { font_size: 12, color: '#94A3B8' } 
+                                          } 
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      
+                      // Card Van
+                      {
+                        type: 'card',
+                        props: {
+                          id: 'vehicle_van',
+                          style: {
+                            padding: 16,
+                            margin_bottom: 16,
+                            border_radius: 16,
+                            background_color: '#FFFFFF',
+                            border_width: 2,
+                            border_color: '#E0E7FF'
+                          },
+                          on_press: {
+                            action: 'select_vehicle',
+                            value: 'VAN',
+                            params: {
+                              origin_lat,
+                              origin_lng,
+                              origin_address,
+                              destination_lat,
+                              destination_lng,
+                              destination_address,
+                              estimate: estimates.VAN
+                            }
+                          },
+                          children: [
+                            {
+                              type: 'view',
+                              props: {
+                                style: { flex_direction: 'row', justify_content: 'space_between', align_items: 'center' },
+                                children: [
+                                  {
+                                    type: 'view',
+                                    props: {
+                                      style: { flex_direction: 'row', align_items: 'center' },
+                                      children: [
+                                        {
+                                          type: 'container',
+                                          props: {
+                                            style: {
+                                              width: 50,
+                                              height: 50,
+                                              border_radius: 12,
+                                              background_color: '#E0E7FF',
+                                              align_items: 'center',
+                                              justify_content: 'center',
+                                              margin_right: 12
+                                            },
+                                            children: [
+                                              { type: 'icon', props: { name: 'truck', size: 28, color: '#6366F1' } }
+                                            ]
+                                          }
+                                        },
+                                        {
+                                          type: 'view',
+                                          props: {
+                                            style: { flex: 1 },
+                                            children: [
+                                              { type: 'text', props: { text: 'Van', style: { font_size: 18, font_weight: 'bold' } } },
+                                              { type: 'text', props: { text: 'Grande capacidade', style: { font_size: 12, color: '#64748B' } } }
+                                            ]
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    type: 'view',
+                                    props: {
+                                      style: { align_items: 'flex_end' },
+                                      children: [
+                                        { 
+                                          type: 'text', 
+                                          props: { 
+                                            text: `R$ ${estimates.VAN.price.total.toFixed(2).replace('.', ',')}`,
+                                            style: { font_size: 24, font_weight: 'bold', color: '#6366F1' } 
+                                          } 
+                                        },
+                                        { 
+                                          type: 'text', 
+                                          props: { 
+                                            text: `${estimates.VAN.price.upfront.toFixed(2).replace('.', ',')} + ${estimates.VAN.price.remaining.toFixed(2).replace('.', ',')}`,
+                                            style: { font_size: 12, color: '#94A3B8' } 
+                                          } 
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      
+                      // Botão Confirmar
+                      {
+                        type: 'button',
+                        props: {
+                          text: 'Confirmar Corrida',
+                          style: {
+                            background_color: '#6366F1',
+                            padding: 18,
+                            border_radius: 12
+                          },
+                          text_style: {
+                            color: '#FFFFFF',
+                            font_size: 18,
+                            font_weight: 'bold'
+                          },
+                          on_press: {
+                            action: 'confirm_ride_selection'
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      metadata: {
+        title: 'Escolha seu Veículo',
+        estimates: {
+          MOTO: estimates.MOTO,
+          CARRO: estimates.CARRO,
+          VAN: estimates.VAN
+        },
+        route: {
+          origin: { lat: origin_lat, lng: origin_lng, address: origin_address },
+          destination: { lat: destination_lat, lng: destination_lng, address: destination_address },
+          distance_km: estimates.MOTO.distanceKm,
+          duration_min: estimates.MOTO.durationMin
+        }
+      }
+    };
+
+    res.json(sduiResponse);
+
+  } catch (error) {
+    console.error('Erro ao calcular estimativa:', error);
+    res.status(500).json({ error: 'Erro ao calcular estimativa' });
+  }
+});
+
+/**
+ * GET /sdui/services/home
+ * Tela de seleção de serviços (modo profissional)
+ */
+router.get('/services/home', async (req, res) => {
+  try {
+    // Categorias de serviços disponíveis
+    const serviceCategories = [
+      { id: 'repair', name: 'Reparos', icon: 'wrench', color: '#10B981' },
+      { id: 'cleaning', name: 'Limpeza', icon: 'broom', color: '#3B82F6' },
+      { id: 'beauty', name: 'Beleza', icon: 'scissors', color: '#F59E0B' },
+      { id: 'moving', name: 'Mudança', icon: 'box', color: '#8B5CF6' },
+      { id: 'electrician', name: 'Elétrica', icon: 'zap', color: '#EF4444' },
+      { id: 'plumbing', name: 'Hidráulica', icon: 'droplet', color: '#06B6D4' },
+      { id: 'painting', name: 'Pintura', icon: 'paintbrush', color: '#EC4899' },
+      { id: 'gardening', name: 'Jardinagem', icon: 'leaf', color: '#22C55E' }
+    ];
+
+    const sduiResponse = {
+      screen: {
+        type: 'container',
+        props: {
+          style: { flex: 1, background_color: '#FFFFFF' }
+        },
+        children: [
+          // Mapa com profissionais
+          {
+            type: 'map_view',
+            props: {
+              id: 'services_map',
+              user_location: 'current',
+              initial_position: {
+                lat: -22.9068,
+                lng: -43.1729,
+                zoom: 13
+              },
+              markers: [], // Serão carregados dinamicamente
+              on_map_click: {
+                action: 'show_location_picker',
+                target: 'service_location'
+              }
+            }
+          },
+          
+          // Bottom Sheet de categorias
+          {
+            type: 'bottom_sheet',
+            props: {
+              id: 'services_sheet',
+              initial_state: 'expanded',
+              snap_points: ['50%', '85%'],
+              background_color: '#FFFFFF',
+              corner_radius: 24,
+              children: [
+                // Handle
+                {
+                  type: 'view',
+                  props: {
+                    style: {
+                      align_items: 'center',
+                      padding: 16,
+                      border_bottom_width: 1,
+                      border_bottom_color: '#EEEEEE'
+                    },
+                    children: [
+                      {
+                        type: 'view',
+                        props: {
+                          style: {
+                            width: 40,
+                            height: 4,
+                            background_color: '#DDDDDD',
+                            border_radius: 2
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                
+                // Conteúdo
+                {
+                  type: 'scroll_view',
+                  props: {
+                    style: { padding: 16 },
+                    children: [
+                      // Título
+                      {
+                        type: 'text',
+                        props: {
+                          text: 'Serviços Disponíveis',
+                          style: {
+                            font_size: 24,
+                            font_weight: 'bold',
+                            color: '#1A1A1A',
+                            margin_bottom: 20
+                          }
+                        }
+                      },
+                      
+                      // Grid de Categorias
+                      {
+                        type: 'grid',
+                        props: {
+                          columns: 4,
+                          spacing: 12,
+                          children: serviceCategories.map(category => ({
+                            type: 'card',
+                            props: {
+                              style: {
+                                padding: 16,
+                                border_radius: 12,
+                                align_items: 'center',
+                                background_color: '#FFFFFF',
+                                border_width: 1,
+                                border_color: '#F0F0F0'
+                              },
+                              on_press: {
+                                action: 'select_service_category',
+                                value: category.id
+                              },
+                              children: [
+                                {
+                                  type: 'container',
+                                  props: {
+                                    style: {
+                                      width: 50,
+                                      height: 50,
+                                      border_radius: 12,
+                                      background_color: `${category.color}10`,
+                                      align_items: 'center',
+                                      justify_content: 'center',
+                                      margin_bottom: 8
+                                    },
+                                    children: [
+                                      { type: 'icon', props: { name: category.icon, size: 24, color: category.color } }
+                                    ]
+                                  }
+                                },
+                                {
+                                  type: 'text',
+                                  props: {
+                                    text: category.name,
+                                    style: {
+                                      font_size: 12,
+                                      font_weight: '500',
+                                      text_align: 'center',
+                                      color: '#333333'
+                                    },
+                                    number_of_lines: 2
+                                  }
+                                }
+                              ]
+                            }
+                          }))
+                        }
+                      },
+                      
+                      // Campo de busca
+                      {
+                        type: 'card',
+                        props: {
+                          style: {
+                            padding: 12,
+                            margin_top: 20,
+                            border_radius: 12,
+                            background_color: '#F8FAFC'
+                          },
+                          children: [
+                            {
+                              type: 'text_input',
+                              props: {
+                                placeholder: 'Buscar serviço ou profissional...',
+                                prefix_icon: 'search',
+                                font_size: 14,
+                                on_change: {
+                                  action: 'search_services',
+                                  debounce_ms: 300
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      metadata: {
+        title: 'Serviços',
+        categories: serviceCategories
+      }
+    };
+
+    res.json(sduiResponse);
+
+  } catch (error) {
+    console.error('Erro ao gerar SDUI services:', error);
+    res.status(500).json({ error: 'Erro ao carregar serviços' });
+  }
+});
+
+export default router;
+```
+
+---
+
+## 📦 Arquivo: `ai_service/src/server.ts` (Configuração)
+
+```typescript
+import express from 'express';
+import cors from 'cors';
+import sduiRoutes from './index';
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Rotas SDUI
+app.use('/sdui', sduiRoutes);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'ai-sdui' });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 SDUI Service rodando na porta ${PORT}`);
+});
+```
+
+---
+
+## 📋 Arquivo: `ai_service/package.json`
+
+```json
+{
+  "name": "ai-sdui-service",
+  "version": "1.0.0",
+  "description": "SDUI Service for Dynamic UI Generation",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "@prisma/client": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "@types/cors": "^2.8.13",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0"
+  }
+}
+```
+
+---
+
+## 📝 Arquivo: `ai_service/tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+```
+
+---
+
+## 🎨 Mapeamento de Componentes SDUI → Flutter
+
+Para o app Flutter consumir essa SDUI, você precisará de um parser. Aqui está um exemplo simplificado:
+
+### Arquivo: `lib/sdui/sdui_parser.dart`
+
+```dart
+import 'package:flutter/material.dart';
+
+class SDUIParser {
+  static Widget parse(dynamic json) {
+    if (json == null) return const SizedBox();
+    
+    final type = json['type'] as String?;
+    final props = json['props'] as Map<String, dynamic>?;
+    
+    switch (type) {
+      case 'container':
+        return _parseContainer(props, json['children']);
+      
+      case 'map_view':
+        return _parseMapView(props);
+      
+      case 'bottom_sheet':
+        return _parseBottomSheet(props, json['children']);
+      
+      case 'text':
+        return _parseText(props);
+      
+      case 'button':
+        return _parseButton(props);
+      
+      case 'card':
+        return _parseCard(props, json['children']);
+      
+      case 'text_input':
+        return _parseTextInput(props);
+      
+      default:
+        return const SizedBox();
+    }
+  }
+  
+  static Widget _parseContainer(Map<String, dynamic>? props, dynamic children) {
+    final style = props?['style'] as Map<String, dynamic>?;
+    return Container(
+      color: _parseColor(style?['background_color']),
+      child: Column(
+        children: (children as List<dynamic>?)?.map(parse).toList() ?? [],
+      ),
+    );
+  }
+  
+  // Implementar demais parsers...
+}
+```
+
+---
+
+## 📊 Resumo Completo da Implementação
+
+| Passo | Componente | Status | Arquivos |
+|-------|-----------|--------|----------|
+| **1** | Schema Prisma | ✅ | `schema.prisma`, `migration.sql` |
+| **2** | PricingService | ✅ | `PricingService.ts` |
+| **2** | RideController | ✅ | `RideController.ts` |
+| **2** | ProviderController | ✅ | `ProviderController.ts` |
+| **2** | FirebaseService | ✅ | `FirebaseService.ts` |
+| **3** | SDUI Home | ✅ | `ai_service/src/index.ts` |
+| **3** | SDUI Transport | ✅ | `ai_service/src/index.ts` |
+| **3** | SDUI Services | ✅ | `ai_service/src/index.ts` |
+| **4** | Firebase Realtime | ✅ | `FirebaseService.ts` |
+
+---
+
+## 🚀 Próximos Passos Recomendados
+
+1. **Testar a API de estimativa**:
+   ```bash
+   curl -X POST http://localhost:3000/api/ride/estimate \
+     -H "Content-Type: application/json" \
+     -d '{
+       "pickup_lat": -22.9068,
+       "pickup_lng": -43.1729,
+       "dropoff_lat": -22.9747,
+       "dropoff_lng": -43.1858,
+       "vehicle_type": "CARRO"
+     }'
+   ```
+
+2. **Configurar Firebase Realtime Database** no console Firebase
+
+3. **Implementar o parser SDUI no Flutter** para consumir as interfaces dinâmicas
+
+4. **Adicionar autenticação** nas rotas SDUI (validar `x-user-id`)
+
+Quer que eu detalhe alguma parte específica ou implemente o parser Flutter completo?
