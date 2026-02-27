@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>101 Service - Splash</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#427cf0",
+                        "brand-yellow": "#FFD700",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        @keyframes pulse-gentle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-gentle {
+            animation: pulse-gentle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display antialiased">
+<!-- Main Container - Vibrant Brand Yellow Splash -->
+<div class="relative flex h-screen w-full flex-col items-center justify-between bg-brand-yellow overflow-hidden">
+<!-- Top Spacer for iOS look (simulating status bar space) -->
+<div class="h-14 w-full"></div>
+<!-- Center Content: Logo and Typography -->
+<div class="flex flex-col items-center justify-center gap-6">
+<!-- Brand Logo Circle -->
+<div class="flex items-center justify-center bg-white aspect-square rounded-full h-32 w-32 shadow-xl shadow-black/10">
+<div class="flex flex-col items-center justify-center text-slate-900">
+<span class="material-symbols-outlined text-5xl font-bold" style="font-variation-settings: 'FILL' 1, 'wght' 700;">build</span>
+</div>
+</div>
+<!-- Branding Text -->
+<div class="flex flex-col items-center space-y-1">
+<h1 class="text-slate-900 text-4xl font-bold tracking-tight">101 Service</h1>
+<p class="text-slate-800/70 text-lg font-medium">Your service, simplified</p>
+</div>
+</div>
+<!-- Bottom Section: Loading & Footer -->
+<div class="w-full max-w-xs px-6 pb-20 flex flex-col items-center gap-8">
+<!-- Progress Bar Container -->
+<div class="w-full space-y-3">
+<div class="flex justify-between items-end px-1">
+<p class="text-slate-900 text-sm font-semibold uppercase tracking-wider">Initialising</p>
+<p class="text-slate-900 text-xs font-bold">45%</p>
+</div>
+<!-- Track -->
+<div class="h-1.5 w-full bg-black/10 rounded-full overflow-hidden">
+<!-- Progress Fill -->
+<div class="h-full bg-slate-900 rounded-full" style="width: 45%;"></div>
+</div>
+</div>
+<!-- Versioning & Copyright -->
+<div class="flex flex-col items-center gap-1">
+<p class="text-slate-900/60 text-xs font-semibold">VERSION 1.0.0</p>
+<p class="text-slate-900/40 text-[10px] font-medium uppercase tracking-widest">© 2024 101 Service Inc.</p>
+</div>
+</div>
+<!-- Decorative Subtle Gradients to give depth like iOS -->
+<div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-white/20 to-transparent pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-black/5 to-transparent pointer-events-none"></div>
+<!-- Background Abstract Pattern (Subtle) -->
+<div class="absolute inset-0 z-[-1] opacity-5">
+<svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="40" id="grid" patternunits="userSpaceOnUse" width="40">
+<path d="M 40 0 L 0 0 0 40" fill="none" stroke="black" stroke-width="1"></path>
+</pattern>
+</defs>
+<rect fill="url(#grid)" height="100%" width="100%"></rect>
+</svg>
+</div>
+</div>
+</body></html>

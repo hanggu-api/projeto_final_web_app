@@ -43,7 +43,7 @@ class _ServiceRequestScreenFixedState extends State<ServiceRequestScreenFixed> {
   double? _latitude;
   double? _longitude;
   String? _address;
-  double _priceEstimated = 150.00;
+  final double _priceEstimated = 150.00;
   final List<String> _imageKeys = [];
   String? _videoKey;
   final List<String> _audioKeys = [];

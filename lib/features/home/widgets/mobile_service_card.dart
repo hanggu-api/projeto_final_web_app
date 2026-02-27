@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
@@ -151,7 +152,6 @@ class _MobileServiceCardState extends State<MobileServiceCard>
   Timer? _searchTickTimer;
   int _searchCountdown = 20;
   String? _trackingHeadline = "Iniciando busca...";
-  String? _trackingSubtitle = "Aguardando enquanto conectamos você.";
 
   String _getDynamicSearchMessage() {
     if (_searchCountdown > 15) return "Notificando prestador...";
@@ -184,36 +184,68 @@ class _MobileServiceCardState extends State<MobileServiceCard>
     });
   }
 
+  /// Sprint 3: Lê service_logs via Supabase SDK em vez do endpoint legado /service/:id/tracking
   Future<void> _fetchTrackingHeadline(String serviceId) async {
     try {
-      final api = ApiService();
-      final res = await api.get('/service/$serviceId/tracking');
-      
-      if (mounted) {
-        setState(() {
-          _trackingHeadline = res['headline'];
-          final timeline = res['timeline'] as List?;
-          if (timeline != null && timeline.isNotEmpty) {
-            _trackingSubtitle = timeline[0]['message'];
-          } else {
-            _trackingSubtitle = "Localizando o melhor profissional...";
-          }
+      final rows = await Supabase.instance.client
+          .from('service_logs')
+          .select('action, message, created_at')
+          .eq('service_id', serviceId)
+          .order('created_at', ascending: false)
+          .limit(5);
 
-          if (res['provider'] != null) {
-            _streamDetails ??= {};
-            _streamDetails!['provider_name'] = res['provider']['name'];
-            _streamDetails!['provider_avatar'] = res['provider']['avatar'];
-            _streamDetails!['provider_id'] = res['provider']['id'];
-            _streamDetails!['provider_rating'] = res['provider']['rating'];
-            _streamDetails!['provider_reviews'] = res['provider']['reviews'];
-            resolveProviderAvatar();
-          }
+      if (!mounted) return;
+
+      final List<dynamic> logs = rows;
+
+      if (logs.isEmpty) {
+        setState(() {
+          _trackingHeadline = 'Buscando prestadores...';
         });
+        return;
+      }
+
+      final latest = logs.first as Map<String, dynamic>;
+      final eventType = (latest['action'] as String? ?? '').toUpperCase();
+      final message = latest['message'] as String?;
+
+      // Verificar se prestador foi encontrado
+      final accepted = logs.any((r) =>
+          ((r as Map)['action'] as String?)?.toUpperCase().contains('ACCEPTED') == true ||
+          (r['action'] as String?)?.toUpperCase().contains('PROVIDER_ASSIGNED') == true);
+
+      setState(() {
+        _trackingHeadline = _headlineFn(eventType, message);
+      });
+
+      if (accepted) {
+        _trackingTimer?.cancel();
+        _searchTickTimer?.cancel();
       }
     } catch (e) {
-      if (e.toString().contains('404') && mounted && widget.onRefreshNeeded != null) {
-        widget.onRefreshNeeded!();
-      }
+      debugPrint('[MobileCard] _fetchTrackingHeadline erro: $e');
+    }
+  }
+
+  String _headlineFn(String eventType, String? message) {
+    switch (eventType) {
+      case 'CREATED':
+      case 'SERVICE_CREATED':
+        return 'Serviço criado. Procurando prestadores...';
+      case 'DISPATCH_STARTED':
+        return 'Buscando prestadores próximos...';
+      case 'PROVIDER_NOTIFIED':
+        return 'Prestador notificado. Aguardando resposta...';
+      case 'PROVIDER_ACCEPTED':
+      case 'ACCEPTED':
+      case 'PROVIDER_ASSIGNED':
+        return 'Prestador encontrado! 🎉';
+      case 'PROVIDER_REJECTED':
+        return 'Buscando próximo prestador...';
+      case 'DISPATCH_TIMEOUT':
+        return 'Reiniciando busca...';
+      default:
+        return message ?? 'Processando...';
     }
   }
 
@@ -1171,15 +1203,16 @@ class _MobileServiceCardState extends State<MobileServiceCard>
               if (id != null) {
                 try {
                   if (scheduledAt != null) {
-                     await api.confirmSchedule(id, _toDate(scheduledAt) ?? DateTime.now());
+                    await api.confirmSchedule(id, _toDate(scheduledAt) ?? DateTime.now());
                   } else {
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Data de agendamento não encontrada.')));
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Data de agendamento não encontrada.')));
                   }
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agendamento confirmado!')));
-                  }
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agendamento confirmado!')));
                 } catch (e) {
-                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
                 }
               }
             },
@@ -1428,7 +1461,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
     if (confirm != true) return;
     try {
       final api = ApiService();
-      await api.confirmServiceCompletion(serviceId);
+      await api.completeService(serviceId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Serviço confirmado com sucesso!'), backgroundColor: Colors.green));
         context.push('/review/$serviceId');
@@ -1466,7 +1499,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: 7,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final date = DateTime.now().add(Duration(days: index));
               final isSelected = _selectedDate.day == date.day && _selectedDate.month == date.month;
@@ -1502,10 +1535,14 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                     if (id != null) {
                       await ApiService().proposeSchedule(id, newDate);
                       await DataGateway().sendChatMessage(id, 'Não posso no horário proposto. Podemos fazer em: ${DateFormat("dd/MM 'às' HH:mm").format(newDate)}?', 'text');
+                      if (!mounted) return;
                       setState(() => _isSchedulingCounter = false);
-                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sugestão enviada com sucesso!')));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sugestão enviada com sucesso!')));
                     }
-                  } catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e'))); }
+                  } catch (e) { 
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e'))); 
+                  }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryPurple, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                 child: const Text('ENVIAR SUGESTÃO', style: TextStyle(fontWeight: FontWeight.bold)),

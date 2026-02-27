@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>101 Service - Master Briefing</title>
+<!-- BEGIN: External Scripts -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- END: External Scripts -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandYellow: '#FFD700',
+            brandBlack: '#121212',
+            brandDarkBlue: '#1A1C1E',
+          },
+          fontFamily: {
+            manrope: ['Manrope', 'sans-serif'],
+          },
+          borderRadius: {
+            'ios': '24px',
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Styling -->
+<style data-purpose="typography">
+    body {
+      font-family: 'Manrope', sans-serif;
+      background-color: #F8F9FA;
+    }
+    h1, h2, h3 {
+      letter-spacing: -0.02em;
+    }
+  </style>
+<style data-purpose="layout-utilities">
+    .ios-card {
+      background: white;
+      border-radius: 24px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    .section-header {
+      border-left: 4px solid #FFD700;
+      padding-left: 1rem;
+      margin-bottom: 1.25rem;
+    }
+  </style>
+<!-- END: Custom Styling -->
+</head>
+<body class="bg-gray-50 text-brandDarkBlue antialiased">
+<!-- BEGIN: Header -->
+<header class="bg-brandYellow p-6 pt-12 pb-8 rounded-b-[40px] shadow-sm" data-purpose="main-header">
+<div class="max-w-md mx-auto">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-bold uppercase tracking-widest text-brandBlack opacity-70">Project Documentation</span>
+<div class="w-8 h-8 bg-brandBlack rounded-full flex items-center justify-center">
+<span class="text-brandYellow text-[10px] font-bold">101</span>
+</div>
+</div>
+<h1 class="text-3xl font-extrabold text-brandBlack leading-tight">101 Service: The Hybrid Marketplace</h1>
+<p class="mt-2 text-brandBlack font-medium opacity-90 italic">Master Briefing &amp; Product Requirements Document</p>
+</div>
+</header>
+<!-- END: Header -->
+<!-- BEGIN: Main Content -->
+<main class="max-w-md mx-auto p-4 -mt-6 space-y-6 pb-20">
+<!-- BEGIN: Vision Section -->
+<section class="ios-card" data-purpose="app-vision">
+<div class="section-header">
+<h2 class="text-xl font-extrabold">App Title &amp; Vision</h2>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed">
+        101 Service is a revolutionary hybrid platform unifying mobility and professional services. It bridges the gap between on-demand transportation (cars/bikes) and local expert services (barbers, electricians, etc.) into one seamless iOS experience.
+      </p>
+</section>
+<!-- END: Vision Section -->
+<!-- BEGIN: Visual Identity Section -->
+<section class="ios-card" data-purpose="visual-identity">
+<div class="section-header">
+<h2 class="text-xl font-extrabold">Visual Identity</h2>
+</div>
+<div class="grid grid-cols-2 gap-3 text-xs">
+<div class="p-3 bg-brandYellow rounded-xl border border-black/10">
+<p class="font-bold text-brandBlack">Brand Color</p>
+<p class="text-brandBlack/70">#FFD700 (Vibrant)</p>
+</div>
+<div class="p-3 bg-brandBlack rounded-xl text-white">
+<p class="font-bold">Typography</p>
+<p class="opacity-70">Manrope (Modern Sans)</p>
+</div>
+</div>
+<ul class="mt-4 space-y-2 text-sm text-gray-600">
+<li class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-brandYellow rounded-full"></span>
+          Large rounded corners (24px - 40px)
+        </li>
+<li class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-brandYellow rounded-full"></span>
+          Clean whitespace &amp; high-legibility icons
+        </li>
+</ul>
+</section>
+<!-- END: Visual Identity Section -->
+<!-- BEGIN: Core Functionalities -->
+<section class="ios-card" data-purpose="core-functionality">
+<div class="section-header">
+<h2 class="text-xl font-extrabold">Core Functionalities</h2>
+</div>
+<!-- Mobility Sub-section -->
+<div class="mb-4">
+<h3 class="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Mobility Flow</h3>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+<span class="text-sm font-semibold">Categories</span>
+<div class="flex gap-1">
+<span class="px-2 py-0.5 bg-brandYellow text-[10px] font-bold rounded">X</span>
+<span class="px-2 py-0.5 bg-brandYellow text-[10px] font-bold rounded">COMFORT</span>
+<span class="px-2 py-0.5 bg-brandBlack text-white text-[10px] font-bold rounded">BLACK</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Payment Logic Sub-section -->
+<div class="mb-4">
+<h3 class="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">The '30/70 Rule' Logic</h3>
+<div class="p-4 bg-brandYellow/10 rounded-xl border border-brandYellow/30">
+<div class="flex justify-between items-center mb-2">
+<div class="text-center">
+<p class="text-lg font-extrabold text-brandBlack">30%</p>
+<p class="text-[10px] font-bold uppercase">Upfront</p>
+</div>
+<div class="h-px bg-brandYellow flex-1 mx-4"></div>
+<div class="text-center">
+<p class="text-lg font-extrabold text-brandBlack">70%</p>
+<p class="text-[10px] font-bold uppercase">Completion</p>
+</div>
+</div>
+<p class="text-[11px] text-gray-500 italic">Applies to mobile professional services to ensure provider commitment.</p>
+</div>
+</div>
+<!-- Security Sub-section -->
+<div class="mb-2">
+<h3 class="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Security &amp; Verification</h3>
+<div class="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+<div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center font-bold text-red-500 border border-red-200">6</div>
+<p class="text-sm text-red-700 font-medium leading-tight">6-Digit verification code required to finalize any service.</p>
+</div>
+</div>
+</section>
+<!-- END: Core Functionalities -->
+<!-- BEGIN: User Flows Section -->
+<section class="ios-card" data-purpose="user-flows">
+<div class="section-header">
+<h2 class="text-xl font-extrabold">Key User Flows</h2>
+</div>
+<div class="grid grid-cols-1 gap-2">
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-brandYellow flex items-center justify-center font-bold text-xs">01</div>
+<span class="text-sm font-semibold">Splash &amp; Onboarding</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-brandYellow flex items-center justify-center font-bold text-xs">02</div>
+<span class="text-sm font-semibold">Discovery Home (Mobility vs Services)</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-brandYellow flex items-center justify-center font-bold text-xs">03</div>
+<span class="text-sm font-semibold">Booking &amp; Real-time Tracking</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-brandYellow flex items-center justify-center font-bold text-xs">04</div>
+<span class="text-sm font-semibold">Secure Payment (Pix/Credit Card)</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-brandBlack text-white flex items-center justify-center font-bold text-xs">05</div>
+<span class="text-sm font-semibold">Driver/Provider Dashboard</span>
+</div>
+</div>
+</section>
+<!-- END: User Flows Section -->
+<!-- BEGIN: Technical Specs Section -->
+<section class="ios-card bg-brandDarkBlue text-white" data-purpose="technical-requirements">
+<div class="section-header !border-brandYellow">
+<h2 class="text-xl font-extrabold text-white">Technical Stack</h2>
+</div>
+<div class="space-y-4 text-sm">
+<div class="flex gap-3">
+<div class="text-brandYellow">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<p class="font-bold">Geolocation</p>
+<p class="opacity-60">High-precision real-time tracking for vehicles and providers.</p>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="text-brandYellow">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<p class="font-bold">Notifications</p>
+<p class="opacity-60">FCM/APNs for immediate booking updates and arrival pings.</p>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="text-brandYellow">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<p class="font-bold">Payments</p>
+<p class="opacity-60">Stripe/Adyen integration with Split-Payment support (Pix/CC).</p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Technical Specs Section -->
+</main>
+<!-- END: Main Content -->
+<!-- BEGIN: Bottom CTA -->
+<div class="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-lg border-t border-gray-100">
+<div class="max-w-md mx-auto">
+<button class="w-full bg-brandBlack text-brandYellow font-extrabold py-4 rounded-2xl shadow-lg active:scale-95 transition-transform" data-purpose="export-documentation">
+        EXPORT BRIEFING (.PDF)
+      </button>
+</div>
+</div>
+<!-- END: Bottom CTA -->
+</body></html>

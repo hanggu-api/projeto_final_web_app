@@ -132,7 +132,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
     _hasResponded = true;
     
     // Notify backend and close modal
-    await _api.post('/services/${widget.serviceId}/skip', {});
+    await _api.rejectService(widget.serviceId);
     
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();
@@ -433,7 +433,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
       // ✅ REGISTRAR ACCEPTED ANTES DA CHAMADA DA API (Feedback imediato para o Maestro parar o ciclo)
       await _api.logServiceEvent(serviceId, 'ACCEPTED', 'Offer Modal - User Tapped Accept');
       
-      await _api.post('/services/$serviceId/accept', {}); 
+      await _api.acceptService(serviceId); 
       
       debugPrint('ServiceOfferModal: API acceptService success!');
       _hasResponded = true;
@@ -489,7 +489,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
       _notificationPlayer.stop();
 
       try {
-        await _api.post('/services/$serviceId/skip', {}); // Treat manual reject as a skip
+        await _api.rejectService(serviceId); 
         
         // --- Log REJECTED Event (Audit v11) ---
          _api.logServiceEvent(serviceId, 'REJECTED', 'Offer Modal - User Tapped Reject');
@@ -653,6 +653,9 @@ const SizedBox.shrink(),
                                       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
                                   subdomains: const ['a', 'b', 'c', 'd'],
                                   userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
                                 ),
                                 PolylineLayer(
                                   polylines: [
@@ -1006,3 +1009,4 @@ const SizedBox.shrink(),
     );
   }
 }
+

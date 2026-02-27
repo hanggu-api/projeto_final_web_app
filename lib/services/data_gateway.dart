@@ -13,25 +13,39 @@ class DataGateway {
   DataGateway._internal();
 
   final ApiService _api = ApiService();
-  final RealtimeService _realtime = RealtimeService();
+  // --- Caches de Stream para evitar múltiplas instâncias ---
+  final Map<String, Stream<Map<String, dynamic>>> _serviceStreams = {};
+  final Map<String, Stream<List<dynamic>>> _chatStreams = {};
+  final Map<String, Stream<List<Map<String, dynamic>>>> _notificationStreams = {};
 
-  /// Carrega detalhes do serviço via API (D1) como fallback ou carga inicial.
+  /// Carrega detalhes do serviço diretamente do Supabase (sem backend legado).
   Future<Map<String, dynamic>> getServiceDetails(String serviceId) async {
-    debugPrint('📦 [DataGateway] Carregando serviço $serviceId via API (D1)');
+    debugPrint('📦 [DataGateway] Carregando serviço $serviceId via Supabase SDK');
     try {
-      final response = await _api.get('/services/$serviceId');
-      return response['service'] ?? response;
+      final response = await Supabase.instance.client
+          .from('service_requests_new')
+          .select('*, users!client_id(full_name, avatar_url), providers!provider_id(users!user_id(full_name, avatar_url)), service_categories!category_id(name)')
+          .eq('id', serviceId)
+          .maybeSingle();
+      return response ?? {};
     } catch (e) {
-      debugPrint('❌ [DataGateway] Erro ao carregar serviço via API: $e');
+      debugPrint('❌ [DataGateway] Erro ao carregar serviço via Supabase: $e');
       rethrow;
     }
   }
 
-  /// Retorna um Stream do serviço diretamente do Supabase.
+  /// Retorna um Stream do serviço diretamente do Supabase com proteção de Múltiplos Listeners
   /// Tabela: service_requests_new
   Stream<Map<String, dynamic>> watchService(String serviceId) {
-    debugPrint('🔥 [DataGateway] Iniciando watchService (Supabase) para $serviceId');
-    return Supabase.instance.client
+    if (_serviceStreams.containsKey(serviceId)) {
+      debugPrint('♻️ [DataGateway] Reutilizando watchService (Supabase) ativo para $serviceId');
+      return _serviceStreams[serviceId]!;
+    }
+
+    debugPrint('🔥 [DataGateway] Iniciando NOVO watchService (Supabase) para $serviceId');
+    
+    // Cria um Stream broadcast único
+    final Stream<Map<String, dynamic>> stream = Supabase.instance.client
         .from('service_requests_new')
         .stream(primaryKey: ['id'])
         .eq('id', serviceId)
@@ -45,14 +59,24 @@ class DataGateway {
         .handleError((e) {
           debugPrint('⚠️ [DataGateway] Erro no stream do serviço: $e');
           throw e; 
-        });
+        })
+        .asBroadcastStream();
+
+    _serviceStreams[serviceId] = stream;
+    return stream;
   }
 
   /// Retorna um Stream de mensagens do chat diretamente do Supabase.
   /// Tabela: chat_messages
   Stream<List<dynamic>> watchChat(String serviceId) {
-    debugPrint('🔥 [DataGateway] Iniciando watchChat (Supabase) para $serviceId');
-    return Supabase.instance.client
+    if (_chatStreams.containsKey(serviceId)) {
+      debugPrint('♻️ [DataGateway] Reutilizando watchChat (Supabase) ativo para $serviceId');
+      return _chatStreams[serviceId]!;
+    }
+
+    debugPrint('🔥 [DataGateway] Iniciando NOVO watchChat (Supabase) para $serviceId');
+    
+    final Stream<List<dynamic>> stream = Supabase.instance.client
         .from('chat_messages')
         .stream(primaryKey: ['id'])
         .eq('service_id', serviceId)
@@ -62,18 +86,27 @@ class DataGateway {
         })
         .handleError((e) {
           debugPrint('⚠️ [DataGateway] Erro no stream do chat: $e');
-           return <dynamic>[]; 
-        });
+          return <dynamic>[]; 
+        })
+        .asBroadcastStream();
+
+    _chatStreams[serviceId] = stream;
+    return stream;
   }
 
   /// Retorna um Stream de notificações do usuário do Supabase.
   /// Tabela: notifications
   Stream<List<Map<String, dynamic>>> watchNotifications(String uid) {
-    debugPrint('🔥 [DataGateway] Iniciando watchNotifications para $uid');
+    if (_notificationStreams.containsKey(uid)) {
+      debugPrint('♻️ [DataGateway] Reutilizando watchNotifications para $uid');
+      return _notificationStreams[uid]!;
+    }
+
+    debugPrint('🔥 [DataGateway] Iniciando NOVO watchNotifications para $uid');
     
     // Tratativa para UID sendo Integer historicamente, e Supabase Auth id sendo UUID:
     // O ideal será buscar pelo user_id interno, mas se `uid` for o UUID (string longa):
-    return Supabase.instance.client
+    final Stream<List<Map<String, dynamic>>> stream = Supabase.instance.client
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', uid) // Assume que o banco sabe rotear via supabase_uid ou id dependendo do schema atual
@@ -81,7 +114,11 @@ class DataGateway {
         .limit(50)
         .map((snapshot) {
           return snapshot.map((data) => data).toList();
-        });
+        })
+        .asBroadcastStream();
+        
+    _notificationStreams[uid] = stream;
+    return stream;
   }
 
   /// Marca notificação como lida
@@ -96,16 +133,40 @@ class DataGateway {
     }
   }
 
-  /// Envia mensagens via API do Backend.
+  /// Envia mensagem de chat diretamente pelo Supabase SDK.
   Future<void> sendChatMessage(String serviceId, String content, String type) async {
-    await _api.post('/chat/$serviceId/messages', {
-      'content': content,
-      'type': type,
-    });
+    try {
+      final userId = ApiService().userId;
+      await Supabase.instance.client.from('chat_messages').insert({
+        'service_id': serviceId,
+        'sender_id': userId,
+        'content': content,
+        'type': type,
+        'sent_at': DateTime.now().toIso8601String(),
+      }).timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw ApiException(message: 'Não foi possível enviar a mensagem (Timeout).', statusCode: 408);
+    } catch (e) {
+      debugPrint('❌ [DataGateway] Erro ao enviar mensagem: $e');
+      throw ApiException(message: 'Falha ao enviar mensagem no chat.', statusCode: 500);
+    }
+  }
+
+  /// Limpa os caches de streams caso recarregados / desconectados 
+  void closeAndRemoveStream(String type, String id) {
+     if (type == 'service') {
+        _serviceStreams.remove(id);
+     } else if (type == 'chat') {
+        _chatStreams.remove(id);
+     } else if (type == 'notification') {
+        _notificationStreams.remove(id);
+     }
   }
 
   void reset() {
     _api.clearToken();
-    _realtime.dispose();
+    _serviceStreams.clear();
+    _chatStreams.clear();
+    _notificationStreams.clear();
   }
 }

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>101 Service - O Prestador Chegou</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#427cf0",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .map-blur {
+            backdrop-filter: blur(4px);
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex h-screen w-full flex-col overflow-hidden max-w-md mx-auto bg-white shadow-2xl">
+<!-- Background Map -->
+<div class="absolute inset-0 z-0">
+<div class="w-full h-full bg-cover bg-center grayscale opacity-60" data-alt="Map showing city streets and location marker" data-location="São Paulo, Brazil" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBSspY37e60k4DuuCvD8s2ARBAGeP2lJjQaEtLEl0f1kVf1SWr6zWW_qyhafVIjPY8R15iRx7V2G7XuguYjWVQ2ZwVPFJAzvRtot-Oufn_lpu6VrCb2NoS7QO6s3kNBHyzIp7FaOGLXhlNkUnC0r4t5iu0snige-v-lPgjP1nsc4JasFwsxxlWMIuC56os4gD25taVqXbC4y3Sznw8lMegNWmNcuJPhRAEBvXPt3Pddxcw8kYRXhzhdJyuHIjScqEr8AQFzzhyG7OY')">
+</div>
+<div class="absolute inset-0 map-blur"></div>
+</div>
+<!-- Header -->
+<div class="relative z-10 flex items-center p-4 justify-between bg-white/80 backdrop-blur-md border-b border-slate-200/50">
+<div class="text-slate-900 flex size-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm border border-slate-100">
+<span class="material-symbols-outlined">arrow_back</span>
+</div>
+<h2 class="text-slate-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">101 Service</h2>
+</div>
+<!-- Main Content (Floating UI) -->
+<div class="relative z-10 flex-1 flex flex-col justify-end p-4 pb-24">
+<!-- Notification Card -->
+<div class="bg-white rounded-xl shadow-xl p-6 border border-slate-100 space-y-6">
+<!-- Arrival Badge -->
+<div class="flex flex-col items-center">
+<div class="w-12 h-1.5 bg-slate-200 rounded-full mb-4"></div>
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+{No local}
+                    </div>
+<h1 class="text-2xl font-extrabold text-slate-900 text-center leading-tight">O Prestador Chegou!</h1>
+</div>
+<!-- Provider Profile -->
+<div class="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+<div class="relative">
+<img class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm" data-alt="Professional headshot of Ricardo Silva electrician" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjz4C86AQeBkU9oMV57dx85SwXQHLEYFP7ufa13QRXtBJ0XsGH-Jc2sRUmp2u1KEhCx25PnOUjYeFwoF9g_U7FPZZoTEMqo4I3k_XojOR0Yuc9kTdVB_X4Mgf5W1X5p-koBQveA8ZGR6HUOkmM1FecR-94Mm8LfAlRVaAUZ-QC_8SCQgCGuD2pZbn-vKHQhZvvYwBHj1KrXwoQyTbd267lUnQNgm3i-zc4vYaBueIJH6csgtYfqkoAlft3VNyE4VZih-ctOLFlyeg"/>
+<div class="absolute -bottom-1 -right-1 bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+                            PRO
+                        </div>
+</div>
+<div class="flex-1">
+<h3 class="font-bold text-slate-900 text-lg">Ricardo Silva</h3>
+<p class="text-slate-500 text-sm">Eletricista Residencial</p>
+<div class="flex items-center gap-1 mt-1 text-yellow-500">
+<span class="material-symbols-outlined text-sm fill-current">star</span>
+<span class="text-sm font-bold text-slate-700">4.9</span>
+<span class="text-xs text-slate-400 font-normal">(124 avaliações)</span>
+</div>
+</div>
+</div>
+<!-- Payment Reminder Card -->
+<div class="bg-primary/5 border border-primary/20 rounded-xl p-4">
+<div class="flex items-center justify-between mb-2">
+<span class="text-slate-600 text-sm font-medium">Pagamento Pendente (70%)</span>
+<span class="text-primary font-bold">R$ 140,00</span>
+</div>
+<div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[30%]"></div>
+</div>
+<p class="text-[11px] text-slate-500 mt-2 leading-relaxed italic">
+                        *Lembre-se: O restante do pagamento deve ser confirmado agora que o prestador está no local para iniciar o serviço.
+                    </p>
+</div>
+<!-- Action Buttons -->
+<div class="space-y-3 pt-2">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">verified_user</span>
+                        Confirmar e Ir ao Encontro
+                    </button>
+<button class="w-full bg-white border border-slate-200 text-slate-700 font-bold py-4 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">chat_bubble</span>
+                        Enviar Mensagem
+                    </button>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<div class="relative z-20 flex gap-2 border-t border-slate-200 bg-white/95 backdrop-blur-md px-4 pb-6 pt-3">
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">home</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-wide">Início</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-primary" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined fill-current">description</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-wide">Pedidos</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">chat</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-wide">Mensagens</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">person</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-wide">Perfil</p>
+</a>
+</div>
+</div>
+</body></html>

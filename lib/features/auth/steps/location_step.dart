@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../core/theme/app_theme.dart';
 
 class LocationStep extends StatefulWidget {
   final GlobalKey<FormState> formKey;
@@ -226,9 +228,12 @@ class _LocationStepState extends State<LocationStep> {
                       ),
                       children: [
                         TileLayer(
-                        urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
-                        userAgentPackageName: 'com.play101.app',
-                      ),
+                          urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
+                          userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
+                        ),
                         // Fixed marker at center
                         // Note: MarkerLayer with a fixed marker at center is tricky if we want the map to move under it.
                         // Actually, the previous implementation had a "Center" widget with an Icon over the map.
@@ -288,9 +293,7 @@ class _LocationStepState extends State<LocationStep> {
             // ADDRESS FIELD
             TextFormField(
               controller: widget.addressController,
-              decoration: InputDecoration(
-                labelText: 'Endereço Completo',
-                prefixIcon: const Icon(Icons.map),
+              decoration: AppTheme.inputDecoration('Endereço Completo', Icons.map).copyWith(
                 suffixIcon: _isGeocoding
                     ? const Padding(
                         padding: EdgeInsets.all(12.0),
@@ -301,7 +304,6 @@ class _LocationStepState extends State<LocationStep> {
                         ),
                       )
                     : null,
-                border: const OutlineInputBorder(),
                 helperText: 'Rua, Número, Bairro, Cidade - UF',
               ),
               maxLines: 2,
@@ -315,3 +317,4 @@ class _LocationStepState extends State<LocationStep> {
     );
   }
 }
+

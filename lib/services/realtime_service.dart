@@ -218,7 +218,7 @@ class RealtimeService {
           if (_lastLocationUpdate == null ||
               now.difference(_lastLocationUpdate!).inSeconds >= 10) {
             _lastLocationUpdate = now;
-            _updateLocationInFirebase(position);
+            _updateLocationInSupabase(position);
             
             // Check if we moved significantly (> 500m) to update the D1 Registry
             if (ApiService().isLoggedIn) {
@@ -249,11 +249,23 @@ class RealtimeService {
     AppLogger.viagem('Atualizações de localização encerradas');
   }
 
-  Future<void> _updateLocationInFirebase(Position position) async {
+  Future<void> _updateLocationInSupabase(Position position) async {
     if (_currentUserId == null) return;
+    
+    // Só envia para provider_locations se o usuário for um prestador
+    // Motoristas (uber) são gerenciados pelas funções específicas na DriverHomeScreen
+    final api = ApiService();
+    if (api.role != 'provider' && !api.isMedical && !api.isFixedLocation) {
+      return;
+    }
+
     try {
-      // TODO: Usar Supabase Location Table ou Presence State para syncar GPS do Provider
-      // Supabase.instance.client.from('provider_locations').upsert(...)
+      await Supabase.instance.client.from('provider_locations').upsert({
+        'provider_id': _currentUserId,
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
     } catch (e) {
       AppLogger.erro('Erro ao enviar localização para o Supabase', e);
     }

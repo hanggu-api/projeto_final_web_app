@@ -1,4 +1,3 @@
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,11 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
 import '../../services/media_service.dart';
-import 'package:service_101/services/notification_service.dart' as ns;
 
 class ClientSettingsScreen extends StatefulWidget {
   const ClientSettingsScreen({super.key});
@@ -108,7 +107,7 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Foto de perfil atualizada!')),
           );
-          await _loadProfile(); // Await reload
+          await _loadProfile();
           setState(() => _isUploadingAvatar = false);
         }
       }
@@ -126,88 +125,12 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => _EditProfileSheet(
         user: _user,
         onSave: _updateProfile,
         onPickAvatar: _pickAndUploadAvatar,
         isUploadingAvatar: _isUploadingAvatar,
-      ),
-    );
-  }
-
-  void _showActivityLog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Histórico de Atividades',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Expanded(
-              child: FutureBuilder<List<dynamic>>(
-                future: _api.getMyServices(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Erro: ${snapshot.error}'));
-                  }
-                  final services = snapshot.data ?? [];
-                  if (services.isEmpty) {
-                    return const Center(
-                      child: Text('Nenhuma atividade encontrada.'),
-                    );
-                  }
-                  return ListView.separated(
-                    controller: scrollController,
-                    itemCount: services.length,
-                    separatorBuilder: (_, _) => const Divider(),
-                    itemBuilder: (context, index) {
-                      final service = services[index];
-                      final date = DateTime.tryParse(
-                        service['created_at'] ?? '',
-                      );
-                      final formattedDate = date != null
-                          ? DateFormat('dd/MM/yyyy HH:mm').format(date)
-                          : '';
-                      return ListTile(
-                        leading: const Icon(
-                          LucideIcons.history,
-                          color: Colors.grey,
-                        ),
-                        title: Text(
-                          service['description'] ?? 'Serviço sem descrição',
-                        ),
-                        subtitle: Text('$formattedDate • ${service['status']}'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // Could navigate to details if needed
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -220,147 +143,281 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppTheme.backgroundLight,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 120),
               child: Column(
                 children: [
-                   // Custom Yellow Header
+                  // NEW HARMONIZED HEADER
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.only(
-                      top: 60,
-                      bottom: 40,
-                      left: 24,
-                      right: 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryYellow,
-                      borderRadius: const BorderRadius.vertical(
-                        bottom: Radius.circular(32),
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 32),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(32),
+                        bottomRight: Radius.circular(32),
                       ),
                     ),
                     child: Column(
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            IconButton(
-                              icon: Icon(Icons.arrow_back, color: AppTheme.darkBlueText),
-                              onPressed: () => context.pop(),
+                            GestureDetector(
+                              onTap: () => context.pop(),
+                              child: const Icon(LucideIcons.chevronLeft, color: AppTheme.textDark),
                             ),
                             Text(
-                              'Configurações',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.darkBlueText,
+                              'Profile',
+                              style: GoogleFonts.manrope(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                            const Icon(LucideIcons.settings, color: AppTheme.textDark, size: 20),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        
+                        // Avatar Section
+                        Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryYellow.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: CircleAvatar(
+                                radius: 56,
+                                backgroundColor: AppTheme.backgroundLight,
+                                backgroundImage: _user!['avatar_url'] != null && !_isUploadingAvatar
+                                    ? CachedNetworkImageProvider(_user!['avatar_url'])
+                                    : null,
+                                child: _isUploadingAvatar
+                                    ? const CircularProgressIndicator(strokeWidth: 2)
+                                    : (_user!['avatar_url'] == null
+                                        ? Text(
+                                            (_user!['name'] ?? 'U')[0].toUpperCase(),
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 40,
+                                              color: AppTheme.textDark,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          )
+                                        : null),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _pickAndUploadAvatar,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryYellow,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: const Icon(LucideIcons.edit2, color: AppTheme.textDark, size: 14),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
-                        if (_user != null) ...[
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                            ),
-                            child: CircleAvatar(
-                              radius: 50,
-                              backgroundColor: Colors.white,
-                              backgroundImage: _user!['avatar_url'] != null && !_isUploadingAvatar
-                                  ? CachedNetworkImageProvider(_user!['avatar_url'])
-                                  : null,
-                              child: _isUploadingAvatar
-                                  ? const CircularProgressIndicator()
-                                  : (_user!['avatar_url'] == null
-                                      ? Text(
-                                          (_user!['name'] ?? 'U')[0].toUpperCase(),
-                                          style: const TextStyle(
-                                            fontSize: 36,
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        )
-                                      : null),
-                            ),
+                        
+                        const SizedBox(height: 20),
+                        Text(
+                          _user!['name'] ?? 'Usuário',
+                          style: GoogleFonts.manrope(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.textDark,
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _user!['name'] ?? 'Usuário',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
+                        ),
+                        Text(
+                          'Membro desde ${DateFormat('MMMM yyyy').format(DateTime.now())}', // Mock date for now
+                          style: GoogleFonts.manrope(
+                            color: AppTheme.textMuted,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
-                          Text(
-                            _user!['email'] ?? '',
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: _editProfile,
-                            icon: const Icon(LucideIcons.edit2, size: 18),
-                            label: const Text('Editar Perfil'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              elevation: 0,
-                              minimumSize: const Size(200, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
 
-                  // Settings List
+                  const SizedBox(height: 16),
+
+                  // BALANCE CARD
                   Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        _buildSettingTile(
-                          icon: LucideIcons.history,
-                          color: Colors.blue,
-                          title: 'Histórico de Atividades',
-                          onTap: _showActivityLog,
-                        ),
-                        if (_api.role == 'provider') ...[
-                           if (_user?['is_fixed_location'] == true) ...[
-                            const SizedBox(height: 16),
-                            _buildSettingTile(
-                              icon: LucideIcons.calendarClock,
-                              color: Colors.deepPurple,
-                              title: 'Horário de Funcionamento',
-                              onTap: () => context.push('/provider-schedule-settings'),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SALDO DISPONÍVEL',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.textMuted,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'R\$ 250,00',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.primaryYellow,
+                                ),
+                              ),
+                            ],
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () {},
+                            icon: const Icon(LucideIcons.plusCircle, size: 18),
+                            label: Text(
+                              'ADICIONAR',
+                              style: GoogleFonts.manrope(fontWeight: FontWeight.w900, fontSize: 12),
                             ),
-                          ],
-                          const SizedBox(height: 16),
-                          _buildSettingTile(
-                            icon: LucideIcons.layers,
-                            color: Colors.orange,
-                            title: 'Permissões Avançadas',
-                            subtitle: 'Habilitar sobreposição de tela',
-                            onTap: () => ns.NotificationService().showOverlayExplanationAndRequest(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryYellow,
+                              foregroundColor: AppTheme.textDark,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        _buildSettingTile(
-                          icon: LucideIcons.logOut,
-                          color: Colors.red,
-                          title: 'Sair',
-                          onTap: _logout,
-                          textColor: Colors.red,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // SETTINGS LIST
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.grey.shade100),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                            child: Text(
+                              'ACCOUNT SETTINGS',
+                              style: GoogleFonts.manrope(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.textMuted,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ),
+                          _buildSettingItem(
+                            icon: LucideIcons.user,
+                            label: 'Personal Information',
+                            onTap: _editProfile,
+                          ),
+                          _buildSettingItem(
+                            icon: LucideIcons.creditCard,
+                            label: 'Payment Methods',
+                            onTap: () {},
+                          ),
+                          _buildSettingItem(
+                            icon: LucideIcons.mapPin,
+                            label: 'My Addresses',
+                            onTap: () {},
+                          ),
+                          _buildSettingItem(
+                            icon: LucideIcons.shieldCheck,
+                            label: 'Security & Privacy',
+                            onTap: () {},
+                            isLast: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.grey.shade100),
+                      ),
+                      child: _buildSettingItem(
+                        icon: LucideIcons.helpCircle,
+                        label: 'Help & Support',
+                        onTap: () {},
+                        isLast: true,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // LOGOUT
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: TextButton.icon(
+                        onPressed: _logout,
+                        icon: const Icon(LucideIcons.logOut, color: Colors.red),
+                        label: Text(
+                          'LOGOUT',
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w900,
+                            color: Colors.red,
+                            letterSpacing: 1,
+                          ),
                         ),
-                      ],
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  Text(
+                    'Version 1.0.42 (Production)',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textMuted,
                     ),
                   ),
                 ],
@@ -369,43 +426,48 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
     );
   }
 
-  Widget _buildSettingTile({
+  Widget _buildSettingItem({
     required IconData icon,
-    required Color color,
-    required String title,
-    String? subtitle,
+    required String label,
     required VoidCallback onTap,
-    Color? textColor,
+    bool isLast = false,
+    Color? color,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: color),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: textColor ?? Colors.black87,
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          border: isLast ? null : Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
         ),
-        subtitle: subtitle != null ? Text(subtitle) : null,
-        trailing: const Icon(Icons.chevron_right, size: 20),
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (color ?? AppTheme.textDark).withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: color ?? AppTheme.textDark),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.manrope(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: color ?? AppTheme.textDark,
+                ),
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, size: 18, color: Colors.grey.shade300),
+          ],
+        ),
       ),
     );
   }
-
 }
 
 class _EditProfileSheet extends StatefulWidget {
@@ -450,13 +512,6 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      if (!_emailController.text.contains('@')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email inválido')),
-        );
-        return;
-      }
-      
       setState(() => _isSaving = true);
       await widget.onSave(
         _nameController.text,
@@ -469,12 +524,16 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        left: 16,
-        right: 16,
-        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+        left: 24,
+        right: 24,
+        top: 32,
       ),
       child: Form(
         key: _formKey,
@@ -482,92 +541,85 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Editar Perfil',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.textDark),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
             
-            // Avatar Header inside Modal
-            Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Theme.of(context).primaryColor,
-                    backgroundImage: widget.user?['avatar_url'] != null && !widget.isUploadingAvatar
-                        ? CachedNetworkImageProvider(widget.user!['avatar_url'])
-                        : null,
-                    child: widget.isUploadingAvatar
-                        ? const CircularProgressIndicator()
-                        : (widget.user?['avatar_url'] == null
-                            ? Text(
-                                (widget.user?['name'] ?? 'U')[0].toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  color: Colors.black87,
-                                ),
-                              )
-                            : null),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        widget.onPickAvatar();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.camera_alt,
-                          size: 20,
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _buildField(
+              controller: _nameController,
+              label: 'NOME COMPLETO',
+              icon: LucideIcons.user,
             ),
             const SizedBox(height: 16),
-
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Nome'),
-              validator: (v) => v?.isNotEmpty == true ? null : 'Nome obrigatório',
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
+            _buildField(
               controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              validator: (v) => v?.isNotEmpty == true ? null : 'Email obrigatório',
+              label: 'EMAIL',
+              icon: LucideIcons.mail,
+              keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 8),
-            TextFormField(
+            const SizedBox(height: 16),
+            _buildField(
               controller: _phoneController,
-              decoration: const InputDecoration(labelText: 'Telefone'),
+              label: 'TELEFONE',
+              icon: LucideIcons.phone,
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.black87,
+            
+            const SizedBox(height: 40),
+            SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.textDark,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: _isSaving 
+                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                    : Text('SALVAR ALTERAÇÕES', style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16)),
               ),
-              child: _isSaving 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
-                  : const Text('Salvar'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.textMuted, letterSpacing: 1),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.textDark),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, size: 20, color: AppTheme.textDark),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppTheme.primaryYellow, width: 2)),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+          validator: (v) => v?.isNotEmpty == true ? null : 'Campo obrigatório',
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 
 class ProfessionStep extends StatefulWidget {
@@ -295,10 +296,7 @@ class _ProfessionStepState extends State<ProfessionStep> {
         TextField(
           key: const Key('profession_search_field'),
           controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Buscar profissão...',
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          decoration: AppTheme.inputDecoration('Buscar profissão...', Icons.search).copyWith(
             helperText: 'Digite pelo menos 3 letras para buscar',
           ),
         ),
@@ -353,7 +351,7 @@ class _ProfessionStepState extends State<ProfessionStep> {
                       onTap: () => widget.onSelect(profession),
                       selected: isSelected,
                       tileColor: isSelected
-                          ? Colors.purple.withAlpha(20)
+                          ? Colors.blue.withAlpha(20)
                           : null,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),

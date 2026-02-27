@@ -1,6 +1,9 @@
+// VERSION: 2658-FIX-V2
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
 
 class ReviewScreen extends StatefulWidget {
@@ -16,14 +19,46 @@ class _ReviewScreenState extends State<ReviewScreen> {
   int _rating = 0;
   final TextEditingController _commentController = TextEditingController();
   bool _isLoading = false;
+  Map<String, dynamic>? _serviceDetails;
+  final List<String> _selectedTags = [];
+  
+  final List<String> _availableTags = [
+    'Carro limpo',
+    'Ótima conversa',
+    'Direção segura',
+    'Educado',
+    'Excelente serviço',
+    'No horário'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchServiceDetails();
+  }
+
+  Future<void> _fetchServiceDetails() async {
+    try {
+      final details = await ApiService().getServiceDetails(widget.serviceId);
+      if (mounted) {
+        setState(() {
+          _serviceDetails = details;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar detalhes do serviço: $e');
+    }
+  }
 
   Future<void> _submitReview() async {
     if (_rating == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, selecione uma nota de 1 a 5.'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, selecione uma nota de 1 a 5.'),
+          ),
+        );
+      }
       return;
     }
 
@@ -42,7 +77,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Avaliação enviada com sucesso!')),
         );
-        // Navigate back to home or dashboard
         context.go('/');
       }
     } catch (e) {
@@ -54,13 +88,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
           );
           context.go('/');
         } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Erro ao enviar avaliação: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao enviar avaliação: $e')),
+          );
         }
       }
-    }
- finally {
+    } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -69,82 +102,211 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final driverName = _serviceDetails?['provider_name'] ?? 
+                      _serviceDetails?['providers']?['users']?['full_name'] ?? 
+                      'o motorista';
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Avaliar Serviço'),
-        automaticallyImplyLeading: false, // Prevent going back without rating
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'Avaliação',
+          style: GoogleFonts.manrope(
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textDark,
+          ),
+        ),
+        automaticallyImplyLeading: false,
+        actions: [
+          TextButton(
+            onPressed: () => context.go('/'),
+            child: Text(
+              'Pular',
+              style: GoogleFonts.manrope(
+                color: AppTheme.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.check_circle_outline,
-              size: 80,
-              color: Colors.green,
+            const SizedBox(height: 20),
+            Text(
+              'Como foi sua viagem?',
+              style: GoogleFonts.manrope(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textDark,
+              ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Serviço Concluído!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            const SizedBox(height: 24),
+            
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade100),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryYellow,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(LucideIcons.user, size: 30, color: AppTheme.textDark),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Você viajou com',
+                          style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                        Text(
+                          driverName,
+                          style: GoogleFonts.manrope(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Como foi sua experiência?',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 32),
+            
+            const SizedBox(height: 40),
+            
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
-                return IconButton(
-                  icon: Icon(
-                    index < _rating ? Icons.star : Icons.star_border,
-                    color: Colors.amber,
-                    size: 40,
+                final isSelected = index < _rating;
+                return GestureDetector(
+                  onTap: () => setState(() => _rating = index + 1),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(
+                      isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: isSelected ? Colors.amber : Colors.grey.shade300,
+                      size: 50,
+                    ),
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _rating = index + 1;
-                    });
-                  },
                 );
               }),
             ),
-            const SizedBox(height: 32),
+            
+            const SizedBox(height: 40),
+            
+            if (_rating > 0) ...[
+              Text(
+                'O que mais você gostou?',
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: _availableTags.map((tag) {
+                  final isSelected = _selectedTags.contains(tag);
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedTags.remove(tag);
+                        } else {
+                          _selectedTags.add(tag);
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.primaryBlue : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Text(
+                        tag,
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? Colors.white : AppTheme.textDark,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 32),
+            ],
+            
             TextField(
               controller: _commentController,
-              decoration: const InputDecoration(
-                labelText: 'Comentário (opcional)',
-                border: OutlineInputBorder(),
-                hintText: 'Escreva sobre o serviço...',
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Pode nos contar mais?',
+                hintStyle: GoogleFonts.manrope(color: AppTheme.textMuted),
+                filled: true,
+                fillColor: const Color(0xFFF9FAFB),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.all(16),
               ),
-              maxLines: 3,
             ),
-            const SizedBox(height: 32),
+            
+            const SizedBox(height: 40),
+            
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 56,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submitReview,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[600],
+                  backgroundColor: AppTheme.primaryBlue,
                   foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
+                    : Text(
                         'Enviar Avaliação',
-                        style: TextStyle(fontSize: 16),
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => context.go('/'),
-              child: const Text('Pular Avaliação'),
-            ),
+            const SizedBox(height: 40),
           ],
         ),
       ),

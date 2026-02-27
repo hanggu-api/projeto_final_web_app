@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'api_service.dart';
 
 class RemoteConfigService {
-  static final _api = ApiService();
   
   // Cache constants
   static const String _kConfigCacheKey = 'app_config_cache';
@@ -37,13 +37,17 @@ class RemoteConfigService {
     }
   }
 
-  /// Pull latest config from API and save to SharedPreferences
+  /// Pull latest config from Supabase and save to SharedPreferences
   static Future<void> _fetchRemoteConfig() async {
     try {
-      final response = await _api.get('/config');
+      final client = Supabase.instance.client;
+      final List<dynamic> response = await client.from('app_configs').select('key, value');
       
-      if (response['success'] == true && response['config'] != null) {
-        final newConfigs = response['config'] as Map<String, dynamic>;
+      if (response.isNotEmpty) {
+        final Map<String, dynamic> newConfigs = {};
+        for (var item in response) {
+          newConfigs[item['key']] = item['value'];
+        }
         
         // Update memory
         _configs = newConfigs;
@@ -52,10 +56,10 @@ class RemoteConfigService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_kConfigCacheKey, json.encode(_configs));
         
-        debugPrint('✅ [RemoteConfig] Sincronizado com backend com sucesso.');
+        debugPrint('✅ [RemoteConfig] Sincronizado com Supabase com sucesso.');
       }
     } catch (e) {
-      debugPrint('⚠️ [RemoteConfig] Erro ao buscar configs remotos: $e');
+      debugPrint('⚠️ [RemoteConfig] Erro ao buscar configs remotos do Supabase: $e');
     }
   }
 

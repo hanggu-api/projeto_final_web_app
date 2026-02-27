@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/utils/navigation_helper.dart';
@@ -64,7 +61,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   Uint8List? _providerAvatarBytes;
   
   // Review State
-  int _rating = 0;
+  final int _rating = 0;
   final _commentController = TextEditingController();
   bool _submittingReview = false;
   bool _reviewSubmittedSuccessfully = false;
@@ -77,9 +74,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   String get _currentStatus => _streamStatus ?? widget.status;
   Map<String, dynamic> get _currentDetails => {...?widget.details, ...?_streamDetails};
 
-  bool _isSchedulingCounter = false;
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  final bool _isSchedulingCounter = false;
+  final DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  final TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
 
   Timer? _refreshTimer;
   String? _travelHeadline;
@@ -401,7 +398,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         border: Border.all(color: borderColor, width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             offset: const Offset(0, 4),
             blurRadius: 16,
           )
@@ -577,7 +574,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
             },
             icon: Icon(LucideIcons.messageCircle, color: AppTheme.primaryBlue),
             style: IconButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+              backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
             ),
           ),

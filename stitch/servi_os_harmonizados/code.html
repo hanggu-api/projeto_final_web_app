@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#FFD700", // Adjusted to the vibrant yellow requested
+                        "background-light": "#f8f9fc",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-white/90 dark:bg-background-dark/90 backdrop-blur-xl px-4 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between mb-5">
+<div class="flex items-center gap-3"><div class="bg-primary w-11 h-11 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transform -rotate-3">
+<span class="material-symbols-outlined text-slate-900 font-bold text-2xl">handyman</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-xl font-900 tracking-tight text-slate-900 dark:text-white leading-none">101 SERVICE</h1>
+<span class="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1">Premium Support</span>
+</div></div>
+<button class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">person</span>
+</button>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400 text-xl">search</span>
+</div>
+<input class="w-full bg-slate-100/50 dark:bg-slate-800/50 border-none rounded-2xl py-4 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-slate-500" placeholder="Qual serviço você procura?" type="text"/>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto pb-24">
+<!-- Serviços Fixos -->
+<section class="mt-6">
+<div class="px-4 flex items-center justify-between mb-3">
+<h2 class="text-lg font-bold text-slate-900 dark:text-white">Serviços Fixos</h2>
+<button class="text-primary font-semibold text-sm">Ver todos</button>
+</div>
+<div class="flex overflow-x-auto px-4 gap-3 no-scrollbar"><!-- Barbeiro -->
+<div class="flex-shrink-0 w-32 bg-white dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center gap-3 shadow-sm hover:border-primary/50 transition-all group active:scale-95">
+<div class="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300 group-hover:text-slate-900 text-2xl">content_cut</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-slate-900 dark:text-white">Barbeiro</span>
+<span class="text-[9px] font-bold text-primary uppercase tracking-widest mt-1">Fixa</span>
+</div>
+</div>
+<!-- Cabeleireiro -->
+<div class="flex-shrink-0 w-32 bg-white dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center gap-3 shadow-sm hover:border-primary/50 transition-all group active:scale-95">
+<div class="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300 group-hover:text-slate-900 text-2xl">face_3</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-slate-900 dark:text-white">Cabelo</span>
+<span class="text-[9px] font-bold text-primary uppercase tracking-widest mt-1">Fixa</span>
+</div>
+</div>
+<!-- Manicure -->
+<div class="flex-shrink-0 w-32 bg-white dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center gap-3 shadow-sm hover:border-primary/50 transition-all group active:scale-95">
+<div class="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300 group-hover:text-slate-900 text-2xl">back_hand</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-slate-900 dark:text-white">Manicure</span>
+<span class="text-[9px] font-bold text-primary uppercase tracking-widest mt-1">Fixa</span>
+</div>
+</div></div>
+</section>
+<!-- Serviços Móveis -->
+<section class="mt-8">
+<div class="px-4 flex items-center justify-between mb-3">
+<h2 class="text-lg font-bold text-slate-900 dark:text-white">Serviços Móveis</h2>
+<button class="text-primary font-semibold text-sm">Ver todos</button>
+</div>
+<div class="grid grid-cols-3 gap-3 px-4"><div class="bg-slate-900 dark:bg-slate-800 p-5 rounded-2xl flex flex-col items-center gap-3 shadow-lg active:scale-95 transition-transform">
+<div class="bg-primary/20 p-3 rounded-xl">
+<span class="material-symbols-outlined text-primary text-2xl">plumbing</span>
+</div>
+<span class="text-[10px] font-black text-white tracking-widest uppercase">Encanador</span>
+</div>
+<div class="bg-slate-900 dark:bg-slate-800 p-5 rounded-2xl flex flex-col items-center gap-3 shadow-lg active:scale-95 transition-transform border-b-2 border-primary">
+<div class="bg-primary/20 p-3 rounded-xl">
+<span class="material-symbols-outlined text-primary text-2xl">bolt</span>
+</div>
+<span class="text-[10px] font-black text-white tracking-widest uppercase">Elétrica</span>
+</div>
+<div class="bg-slate-900 dark:bg-slate-800 p-5 rounded-2xl flex flex-col items-center gap-3 shadow-lg active:scale-95 transition-transform">
+<div class="bg-primary/20 p-3 rounded-xl">
+<span class="material-symbols-outlined text-primary text-2xl">minor_crash</span>
+</div>
+<span class="text-[10px] font-black text-white tracking-widest uppercase">Mecânico</span>
+</div></div>
+</section>
+<!-- Prestadores Próximos -->
+<section class="mt-8 px-4">
+<h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Prestadores Próximos</h2>
+<div class="space-y-4"><!-- Provider 1 -->
+<div class="flex gap-4 p-4 bg-white dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-700/50 shadow-sm">
+<div class="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA03I90GcYo-h7mB9eQKZs-qYyabiL-sBVNahEZ9bzPI-HCegBFwwgaBUCCueH0nchL32_EY8nBuRcUt5u6QtbSpmjRStCH288OXOcZNUkcMmqPrNZZjw7l8ki6Qq6ZFVz3LhM-XaLZMBgiQmWCOPnjAe-4wo1o9tQ-SexYEUuE-g9YwozAlXAkv-b5VEOLY-dbpnVdN-cgVhiu-T6wlQABlDtSia2FHLbpvf05tdK2CbpNWehj-a2iJDItOmjSw_ADI4O0Yd0PMfQ"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<h3 class="font-800 text-slate-900 dark:text-white leading-tight">Studio VIP Barber</h3>
+<div class="flex items-center gap-1 bg-primary px-2 py-0.5 rounded-lg text-[10px] font-black text-slate-900">
+<span class="material-symbols-outlined text-[12px] font-variation-fill">star</span>
+4.9
+</div>
+</div>
+<p class="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wide">
+<span class="material-symbols-outlined text-[14px] text-primary">location_on</span>
+1.2 km • Brooklin
+</p>
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1.5 rounded-lg uppercase">
+Livre às 14:00
+</span>
+<span class="material-symbols-outlined text-primary text-lg">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Provider 2 -->
+<div class="flex gap-4 p-4 bg-white dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-700/50 shadow-sm">
+<div class="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6e5N7HYcQSTEMnqpBHDrXRKCoon4LEmAaYxNtxUQrYFLqS9rNKXI_EnlSxurI35_k6WJdSt3hU2KZlXkktdRKPZbtx6Q4D053TG8lMekvZnZX7epbo-shcuIfqyxfxzVl0YNZ5S1yEZUYuUBD6rsSm2WX-PRhXpM68qni-52-A0Ok0d3sPqJAZyMGUOc7u9tmdJYUAvCzGOYxBNtEtOI2dT1gSif8PaCkWtkUpwdu4a-VHoOqUDB3ZKHJMPX5-kjh1J5ZhLwOM7U"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<h3 class="font-800 text-slate-900 dark:text-white leading-tight">Eletro Volt Pro</h3>
+<div class="flex items-center gap-1 bg-primary px-2 py-0.5 rounded-lg text-[10px] font-black text-slate-900">
+<span class="material-symbols-outlined text-[12px] font-variation-fill">star</span>
+4.7
+</div>
+</div>
+<p class="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wide">
+<span class="material-symbols-outlined text-[14px] text-primary">location_on</span>
+2.5 km • Itaim
+</p>
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1.5 rounded-lg uppercase">
+Hoje 16:30
+</span>
+<span class="material-symbols-outlined text-primary text-lg">chevron_right</span>
+</div>
+</div>
+</div></div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 px-6 py-4 pb-8">
+<div class="flex items-center justify-between max-w-md mx-auto"><a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">home</span>
+<span class="text-[9px] font-black uppercase tracking-widest">Início</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined font-variation-fill text-2xl">search</span>
+<span class="text-[9px] font-black uppercase tracking-widest">Busca</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">calendar_today</span>
+<span class="text-[9px] font-black uppercase tracking-widest">Agendas</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl text-[26px]">chat_bubble</span>
+<span class="text-[9px] font-black uppercase tracking-widest">Chat</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+<span class="text-[9px] font-black uppercase tracking-widest">Perfil</span>
+</a></div>
+</nav>
+<style>
+        .font-variation-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</body></html>

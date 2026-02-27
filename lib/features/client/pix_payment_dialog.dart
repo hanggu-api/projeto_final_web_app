@@ -260,29 +260,29 @@ class _PixPaymentDialogState extends State<PixPaymentDialog> {
                 onPressed: () async {
                   try {
                     await ApiService().testApprovePayment(widget.serviceId);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Pagamento confirmado via TESTE!'),
-                          backgroundColor: Colors.blue,
-                        ),
-                      );
-                      // Force close dialog on test confirmation
-                      _timer?.cancel();
-                      if (mounted && !_isPopped && Navigator.of(context).canPop()) {
-                        _isPopped = true;
-                        Navigator.of(context).pop(true);
-                      }
+                    if (!context.mounted) return;
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Pagamento confirmado via TESTE!'),
+                        backgroundColor: Colors.blue,
+                      ),
+                    );
+                    
+                    // Force close dialog on test confirmation
+                    _timer?.cancel();
+                    if (!_isPopped && Navigator.of(context).canPop()) {
+                      _isPopped = true;
+                      Navigator.of(context).pop(true);
                     }
                   } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Erro ao confirmar: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Erro ao confirmar: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 },
                 style: ElevatedButton.styleFrom(

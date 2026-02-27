@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>101 Service - Configurações de Notificações</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#FFD700", /* Vibrant Yellow as requested */
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .ios-switch:checked + .switch-bg {
+            background-color: #FFD700;
+        }
+        .ios-switch:checked + .switch-bg .switch-dot {
+            transform: translateX(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header Section -->
+<header class="sticky top-0 z-50 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between p-4 max-w-lg mx-auto w-full">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-symbols-outlined align-middle">arrow_back_ios_new</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">Notificações</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-lg mx-auto px-4 py-6">
+<div class="mb-6">
+<h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-2 mb-3">Preferências de Notificação</h2>
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden border border-slate-100 dark:border-slate-800">
+<!-- Alertas de Serviço -->
+<div class="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 last:border-0">
+<div class="flex items-center gap-4">
+<div class="bg-primary/20 text-slate-900 dark:text-primary p-2.5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">notifications_active</span>
+</div>
+<div>
+<p class="text-base font-semibold leading-tight">Alertas de Serviço</p>
+<p class="text-xs text-slate-500 mt-1">Status de pedidos e agendamentos</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer ios-switch" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+</label>
+</div>
+<!-- Mensagens do Chat -->
+<div class="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 last:border-0">
+<div class="flex items-center gap-4">
+<div class="bg-primary/20 text-slate-900 dark:text-primary p-2.5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">chat_bubble</span>
+</div>
+<div>
+<p class="text-base font-semibold leading-tight">Mensagens do Chat</p>
+<p class="text-xs text-slate-500 mt-1">Novas conversas com profissionais</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer ios-switch" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+</label>
+</div>
+<!-- Promoções e Ofertas -->
+<div class="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 last:border-0">
+<div class="flex items-center gap-4">
+<div class="bg-primary/20 text-slate-900 dark:text-primary p-2.5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">sell</span>
+</div>
+<div>
+<p class="text-base font-semibold leading-tight">Promoções e Ofertas</p>
+<p class="text-xs text-slate-500 mt-1">Cupons exclusivos e descontos</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer ios-switch" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+</label>
+</div>
+<!-- Atualizações do App -->
+<div class="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 last:border-0">
+<div class="flex items-center gap-4">
+<div class="bg-primary/20 text-slate-900 dark:text-primary p-2.5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">system_update</span>
+</div>
+<div>
+<p class="text-base font-semibold leading-tight">Atualizações do App</p>
+<p class="text-xs text-slate-500 mt-1">Novas funcionalidades e melhorias</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer ios-switch" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Help Section -->
+<div class="bg-primary/10 rounded-xl p-4 border border-primary/20">
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary">info</span>
+<p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    Você pode gerenciar as notificações do sistema diretamente nas configurações do seu aparelho iOS ou Android para maior controle.
+                </p>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="sticky bottom-0 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 pb-safe shadow-lg">
+<div class="flex max-w-lg mx-auto h-16">
+<a class="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-medium mt-1 uppercase tracking-tighter">Início</span>
+</a>
+<a class="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-medium mt-1 uppercase tracking-tighter">Busca</span>
+</a>
+<a class="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-[10px] font-medium mt-1 uppercase tracking-tighter">Pedidos</span>
+</a>
+<a class="flex-1 flex flex-col items-center justify-center text-primary transition-colors" href="#">
+<span class="material-symbols-outlined fill-1" style="font-variation-settings: 'FILL' 1">person</span>
+<span class="text-[10px] font-bold mt-1 uppercase tracking-tighter">Perfil</span>
+</a>
+</div>
+</nav>
+</body></html>

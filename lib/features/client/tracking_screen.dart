@@ -585,7 +585,7 @@ class _TrackingScreenState extends State<TrackingScreen>
         ),
       );
 
-      await _api.confirmServiceCompletion(widget.serviceId);
+      await _api.completeService(widget.serviceId);
 
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop(); // Close loading

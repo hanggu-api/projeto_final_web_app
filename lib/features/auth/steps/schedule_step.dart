@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 
 class ScheduleStep extends StatefulWidget {
   final Map<int, Map<String, dynamic>> schedule;
@@ -230,6 +231,8 @@ class _ScheduleStepState extends State<ScheduleStep>
                       widget.schedule[index]?['is_enabled'] ?? false;
 
                   return Card(
+                    color: AppTheme.lightGray,
+                    elevation: 0,
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -238,6 +241,7 @@ class _ScheduleStepState extends State<ScheduleStep>
                           Row(
                             children: [
                               Checkbox(
+                                activeColor: AppTheme.darkBlueText,
                                 value: isEnabled,
                                 onChanged: (_) => _toggleDay(index),
                               ),

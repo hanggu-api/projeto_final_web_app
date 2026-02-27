@@ -28,7 +28,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
   Uint8List? _avatarBytes;
   String? _userName;
   int? _currentUserId;
-  int _unreadCount = 0;
+  final int _unreadCount = 0;
   
   // Schedule State
   List<Map<String, dynamic>> _slots = [];
@@ -861,6 +861,8 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                             if (confirm == true && mounted) {
                               try {
                                 await ApiService().confirmPaymentManual(slot['service_id'].toString());
+                                if (!context.mounted) return;
+                                
                                 Navigator.pop(context); // Fecha o modal de detalhes
                                 _loadSchedule(_selectedDate); // Recarrega a agenda
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -870,6 +872,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                                   ),
                                 );
                               } catch (e) {
+                                if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('Erro ao finalizar: $e'), 

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#FFD700",
+                        "primary-dark": "#E6C200",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.75rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<title>101 Service - Atividade</title>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex min-h-screen w-full flex-col max-w-md mx-auto bg-background-light dark:bg-background-dark shadow-xl overflow-x-hidden">
+<!-- Header -->
+<header class="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 pt-4 pb-2">
+<div class="flex items-center justify-between mb-4">
+<button class="flex size-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">Atividade</h1>
+<div class="size-10"></div> <!-- Spacer for symmetry -->
+</div>
+<!-- Tabs -->
+<div class="flex gap-8 px-2">
+<a class="relative flex flex-col items-center pb-2 text-sm font-bold text-slate-900 dark:text-slate-100" href="#">
+<span>Viagens</span>
+<div class="absolute bottom-0 h-1 w-full bg-primary rounded-full"></div>
+</a>
+<a class="flex flex-col items-center pb-2 text-sm font-medium text-slate-500 dark:text-slate-400" href="#">
+<span>Serviços</span>
+</a>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+<!-- Date Divider -->
+<p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">Recentemente</p>
+<!-- Trip Card 1 -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex gap-4">
+<div class="size-14 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20">
+<img class="w-full h-full object-cover" data-alt="Map thumbnail showing route in São Paulo" data-location="São Paulo, Brazil" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFBvv6smTDs96BZ_SBq7PnXZlHrKEkV8Cu9_rCz1ng7yoNnvj7aGF3SQ0zPqMFr0sau8pHOtJICdyhjqHW7U41lg3LD-kIY6OMW3_D-paNFNbUiyj6QdkN5HCZL4c_C6vDIpVV1dp5uKYyBAEczl3IaviuLs1I1a1dm6TVn7kHwCSZWFv21PdvI8G8PMAz-QUE37440qQwzxiuDm0xyYHD6q7FdldUzAYGVGlXhQ-67z-TUn04jtqmo-BtvSEmq85DVexPjwvE5Zw"/>
+</div>
+<div class="flex flex-col">
+<h3 class="font-bold text-base leading-tight">Rua Oscar Freire, 1234</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Hyundai HB20 • ABC1234</p>
+</div>
+</div>
+<p class="font-bold text-base">R$ 24,90</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-800">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-green-500 font-bold">check_circle</span>
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400">12 Out, 14:30 • Concluída</span>
+</div>
+<button class="text-xs font-bold text-primary-dark">Detalhes</button>
+</div>
+</div>
+<!-- Trip Card 2 -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex gap-4">
+<div class="size-14 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20">
+<img class="w-full h-full object-cover" data-alt="Map thumbnail showing route in Avenida Paulista" data-location="Avenida Paulista, São Paulo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxoSZXZ9iCzi6kJFAW15eaQJlLLyD2E9GFMOqcch2qkytr57rEuA2fcNWP0cqrvzuMhRM4WwcsAlhDhupgII3z9bTIso1i7RDC-T2LwyX7nIOeOTz_9Z262X_Pd_hpBssXnw3a9gSvwOlRSNSZZgPNwb6WhB8QXddWBq5BRNcpNnSbBJhgiFDArapILk_oHXX-oj64WgFEvaJNkNhnLuvd7YIv1yrxuUsyfSI0Qsyb8ClrZeXcKcRPUpZe7m86wF74r1nvY1iRnv0"/>
+</div>
+<div class="flex flex-col">
+<h3 class="font-bold text-base leading-tight">Av. Paulista, 1000</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Toyota Corolla • XYZ5678</p>
+</div>
+</div>
+<p class="font-bold text-base">R$ 18,50</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-800">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-green-500 font-bold">check_circle</span>
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400">10 Out, 09:15 • Concluída</span>
+</div>
+<button class="text-xs font-bold text-primary-dark">Detalhes</button>
+</div>
+</div>
+<!-- Date Divider -->
+<p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1 pt-2">Semana Passada</p>
+<!-- Trip Card 3 -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3 opacity-80">
+<div class="flex justify-between items-start">
+<div class="flex gap-4">
+<div class="size-14 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-slate-400">directions_car</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-bold text-base leading-tight">Aeroporto de Congonhas</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Honda Civic • DEF9012</p>
+</div>
+</div>
+<p class="font-bold text-base">R$ 42,00</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-800">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-green-500 font-bold">check_circle</span>
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400">05 Out, 18:45 • Concluída</span>
+</div>
+<button class="text-xs font-bold text-primary-dark">Detalhes</button>
+</div>
+</div>
+<!-- Trip Card 4 (Cancelled Example) -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3 opacity-80">
+<div class="flex justify-between items-start">
+<div class="flex gap-4">
+<div class="size-14 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-slate-400">directions_car</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-bold text-base leading-tight text-slate-400 line-through">Shopping Eldorado</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Cancelada pelo usuário</p>
+</div>
+</div>
+<p class="font-bold text-base text-slate-400">R$ 0,00</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-800">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-red-500 font-bold">cancel</span>
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400">04 Out, 11:20</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="sticky bottom-0 bg-white dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 flex justify-around items-center px-2 py-3">
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">home</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">Início</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<div class="flex flex-col items-center text-primary">
+<span class="material-symbols-outlined fill-1">history</span>
+<span class="text-[10px] font-bold uppercase">Atividade</span>
+</div>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">chat</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">Mensagens</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">account_circle</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">Perfil</span>
+</a>
+</nav>
+<!-- Safe Area for Mobile -->
+<div class="h-6 bg-white dark:bg-background-dark"></div>
+</div>
+</body></html>

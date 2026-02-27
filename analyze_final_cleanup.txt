@@ -1,0 +1,662 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 93.0.0 (96.0.0 available)
+  analyzer 10.0.1 (10.2.0 available)
+  app_links 6.4.1 (7.0.0 available)
+  archive 4.0.7 (4.0.9 available)
+  build_runner 2.10.5 (2.11.1 available)
+  built_value 8.12.3 (8.12.4 available)
+  camera 0.11.3 (0.11.4 available)
+  camera_android_camerax 0.6.29 (0.7.0+1 available)
+  camera_avfoundation 0.9.22+9 (0.10.0+2 available)
+  characters 1.4.0 (1.4.1 available)
+  dbus 0.7.11 (0.7.12 available)
+  ffi 2.1.5 (2.2.0 available)
+  firebase_analytics 12.1.1 (12.1.2 available)
+! flutter_jailbreak_detection 1.10.0 from git https://github.com/pdurasie-ecovery/flutter_jailbreak_detection.git at b0e4bb (overridden)
+  flutter_local_notifications 20.0.0 (20.1.0 available)
+  flutter_local_notifications_windows 2.0.0 (2.0.1 available)
+  flutter_riverpod 2.6.1 (3.2.1 available)
+  geocoding_android 4.0.1 (5.0.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  go_router 17.0.1 (17.1.0 available)
+  google_fonts 8.0.0 (8.0.2 available)
+  hooks 1.0.0 (1.0.1 available)
+  image 4.7.2 (4.8.0 available)
+  image_picker_android 0.8.13+13 (0.8.13+14 available)
+  json_annotation 4.10.0 (4.11.0 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.17.0 (1.18.1 available)
+  mgrs_dart 2.0.0 (3.0.0 available)
+  mobile_scanner 7.1.4 (7.2.0 available)
+  objective_c 9.2.5 (9.3.0 available)
+! package_info_plus 4.2.0 (overridden) (9.0.0 available)
+  package_info_plus_platform_interface 2.0.1 (3.2.1 available)
+  patrol 3.20.0 (4.1.1 available)
+  patrol_finders 2.9.0 (3.1.0 available)
+  patrol_log 0.5.0 (0.7.0 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  petitparser 7.0.1 (7.0.2 available)
+  posix 6.0.3 (6.5.0 available)
+  proj4dart 2.1.0 (3.0.0 available)
+  record_android 1.5.0 (1.5.1 available)
+! record_linux 1.3.0 (overridden)
+  record_macos 1.2.0 (1.2.1 available)
+! record_platform_interface 1.5.0 (overridden)
+  riverpod 2.6.1 (3.2.1 available)
+  source_span 1.10.1 (1.10.2 available)
+  test_api 0.7.7 (0.7.9 available)
+  timezone 0.10.1 (0.11.0 available)
+  unicode 0.3.1 (1.1.9 available)
+  url_launcher_ios 6.3.6 (6.4.1 available)
+  video_player 2.10.1 (2.11.0 available)
+  video_player_android 2.9.1 (2.9.4 available)
+  video_player_avfoundation 2.9.0 (2.9.3 available)
+  webview_flutter_wkwebview 3.23.5 (3.23.7 available)
+  win32 5.15.0 (6.0.0 available)
+  win32_registry 2.1.0 (3.0.0 available)
+Got dependencies!
+54 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing mobile_app...                                         
+
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:22:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:23:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:71:12 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:92:7 - avoid_print
+warning - The value of the field '_emailLastTs' isn't used - lib\features\auth\login_screen.dart:34:13 - unused_field
+warning - The value of the field '_passwordLastTs' isn't used - lib\features\auth\login_screen.dart:35:13 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\register_screen.dart:638:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\register_screen.dart:659:43 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\auth\steps\business_info_step.dart:124:21 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\auth\steps\location_step.dart:233:21 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:110:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:111:23 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:124:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:125:23 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:211:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:218:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:280:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:66:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:75:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:76:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:91:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:193:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:264:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:449:53 - deprecated_member_use
+warning - The value of the field '_serviceType' isn't used - lib\features\client\payment_screen.dart:31:11 - unused_field
+warning - The value of the field '_userPhone' isn't used - lib\features\client\payment_screen.dart:36:11 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\payment_screen.dart:669:43 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:264:44 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:272:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:274:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:279:44 - use_build_context_synchronously
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\client\scheduled_service_screen.dart:364:21 - deprecated_member_use
+warning - The value of the local variable 'clientDeparting' isn't used - lib\features\client\scheduled_service_screen.dart:537:16 - unused_local_variable
+warning - The value of the local variable 'paymentPending' isn't used - lib\features\client\scheduled_service_screen.dart:538:16 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:69:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:123:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:184:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:260:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:316:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:372:56 - deprecated_member_use
+warning - The value of the field '_aiCategoryName' isn't used - lib\features\client\service_request_screen_fixed.dart:52:11 - unused_field
+warning - The value of the field '_aiConfidence' isn't used - lib\features\client\service_request_screen_fixed.dart:54:11 - unused_field
+warning - The value of the field '_aiSuggestionMessage' isn't used - lib\features\client\service_request_screen_fixed.dart:58:11 - unused_field
+warning - The value of the field '_aiServiceType' isn't used - lib\features\client\service_request_screen_fixed.dart:59:11 - unused_field
+warning - The value of the field '_aiSuggestions' isn't used - lib\features\client\service_request_screen_fixed.dart:60:36 - unused_field
+warning - The value of the field '_needsDetails' isn't used - lib\features\client\service_request_screen_fixed.dart:64:14 - unused_field
+warning - The value of the field '_aiClassifying' isn't used - lib\features\client\service_request_screen_fixed.dart:65:14 - unused_field
+warning - The value of the field '_allProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:70:22 - unused_field
+warning - The value of the field '_filteredProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:71:22 - unused_field
+warning - The value of the field '_selectedTimeSlotData' isn't used - lib\features\client\service_request_screen_fixed.dart:72:25 - unused_field
+warning - The value of the field '_showTeach' isn't used - lib\features\client\service_request_screen_fixed.dart:76:14 - unused_field
+warning - The value of the field '_hasAiRun' isn't used - lib\features\client\service_request_screen_fixed.dart:77:14 - unused_field
+warning - The declaration '_classifyAi' isn't referenced - lib\features\client\service_request_screen_fixed.dart:481:16 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:486:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:487:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:488:16 - unused_element
+warning - The value of the local variable 'serviceName' isn't used - lib\features\client\service_request_screen_fixed.dart:566:11 - unused_local_variable
+warning - The value of the field '_isLoading' isn't used - lib\features\client\service_request_screen_mobile.dart:37:8 - unused_field
+warning - The value of the field '_suggestions' isn't used - lib\features\client\service_request_screen_mobile.dart:44:36 - unused_field
+warning - The value of the field '_expandedProviderIndex' isn't used - lib\features\client\service_request_screen_mobile.dart:70:8 - unused_field
+warning - The value of the field '_selectedProviderId' isn't used - lib\features\client\service_request_screen_mobile.dart:71:8 - unused_field
+warning - The value of the field '_isLoadingProfessions' isn't used - lib\features\client\service_request_screen_mobile.dart:77:8 - unused_field
+warning - The declaration '_searchAddress' isn't referenced - lib\features\client\service_request_screen_mobile.dart:404:16 - unused_element
+warning - The value of the local variable 'body' isn't used - lib\features\client\service_request_screen_mobile.dart:418:15 - unused_local_variable
+warning - The value of the local variable 'isFixed' isn't used - lib\features\client\service_request_screen_mobile.dart:449:17 - unused_local_variable
+warning - The declaration '_formatAddressData' isn't referenced - lib\features\client\service_request_screen_mobile.dart:485:10 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:490:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:491:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:492:16 - unused_element
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\client\service_request_screen_mobile.dart:1089:21 - deprecated_member_use
+  error - The class '_HomeScreenState' doesn't have an unnamed constructor - lib\features\home\home_screen.dart:37:38 - new_with_undefined_constructor_default
+  error - Missing concrete implementation of 'abstract class State<T extends StatefulWidget> with Diagnosticable.build' - lib\features\home\home_screen.dart:40:7 - non_abstract_class_inherits_abstract_member
+warning - The value of the field '_media' isn't used - lib\features\home\home_screen.dart:43:9 - unused_field
+   info - The private field _services could be 'final' - lib\features\home\home_screen.dart:44:17 - prefer_final_fields
+   info - The private field _isLoading could be 'final' - lib\features\home\home_screen.dart:45:8 - prefer_final_fields
+   info - The private field _lastStatuses could be 'final' - lib\features\home\home_screen.dart:46:23 - prefer_final_fields
+   info - The private field _isSavedPlacesExpanded could be 'final' - lib\features\home\home_screen.dart:48:8 - prefer_final_fields
+   info - The private field _isInServiceMode could be 'final' - lib\features\home\home_screen.dart:65:8 - prefer_final_fields
+   info - The private field _isServiceAiClassifying could be 'final' - lib\features\home\home_screen.dart:68:8 - prefer_final_fields
+   info - The private field _isLoadingServiceCandidates could be 'final' - lib\features\home\home_screen.dart:73:8 - prefer_final_fields
+   info - The private field _isCreatingService could be 'final' - lib\features\home\home_screen.dart:74:8 - prefer_final_fields
+   info - The private field _serviceCandidates could be 'final' - lib\features\home\home_screen.dart:75:30 - prefer_final_fields
+   info - The private field _selectedVehicleTypeId could be 'final' - lib\features\home\home_screen.dart:96:7 - prefer_final_fields
+warning - The declaration '_toggleTripMode' isn't referenced - lib\features\home\home_screen.dart:386:8 - unused_element
+warning - The declaration '_onSearchChanged' isn't referenced - lib\features\home\home_screen.dart:410:8 - unused_element
+warning - The declaration '_selectSearchResult' isn't referenced - lib\features\home\home_screen.dart:560:16 - unused_element
+warning - The declaration '_requestRide' isn't referenced - lib\features\home\home_screen.dart:736:16 - unused_element
+   info - Missing type annotation - lib\features\home\home_screen.dart:901:13 - strict_top_level_inference
+  error - Methods must have an explicit list of parameters - lib\features\home\home_screen.dart:901:13 - missing_method_parameters
+  error - Operator declarations must be preceded by the keyword 'operator' - lib\features\home\home_screen.dart:901:13 - missing_keyword_operator
+  error - The string '?' isn't a user-definable operator - lib\features\home\home_screen.dart:901:13 - invalid_operator
+  error - A function body must be provided - lib\features\home\home_screen.dart:901:15 - missing_function_body
+  error - Expected a class member - lib\features\home\home_screen.dart:901:15 - expected_class_member
+  error - Expected a class member - lib\features\home\home_screen.dart:901:22 - expected_class_member
+  error - Methods must have an explicit list of parameters - lib\features\home\home_screen.dart:901:24 - missing_method_parameters
+  error - The name of a constructor must match the name of the enclosing class - lib\features\home\home_screen.dart:901:24 - invalid_constructor_name
+   info - Empty constructor bodies should be written using a ';' rather than '{}' - lib\features\home\home_screen.dart:901:38 - empty_constructor_bodies
+  error - A function body must be provided - lib\features\home\home_screen.dart:901:38 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:901:39 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:902:13 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:902:15 - expected_executable
+  error - Unexpected text ';' - lib\features\home\home_screen.dart:902:27 - unexpected_token
+  error - Undefined name 'await' in function body not marked with 'async' - lib\features\home\home_screen.dart:903:9 - undefined_identifier_await
+  error - Functions must have an explicit list of parameters - lib\features\home\home_screen.dart:903:15 - missing_function_parameters
+  error - A function body must be provided - lib\features\home\home_screen.dart:903:21 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:903:21 - expected_executable
+   info - Missing type annotation - lib\features\home\home_screen.dart:903:22 - strict_top_level_inference
+  error - Undefined class 'bytes' - lib\features\home\home_screen.dart:903:40 - undefined_class
+  error - Expected an identifier - lib\features\home\home_screen.dart:903:50 - missing_identifier
+  error - Undefined class 'name' - lib\features\home\home_screen.dart:903:53 - undefined_class
+  error - Expected an identifier - lib\features\home\home_screen.dart:903:62 - missing_identifier
+  error - A function body must be provided - lib\features\home\home_screen.dart:903:69 - missing_function_body
+  error - Undefined name 'await' in function body not marked with 'async' - lib\features\home\home_screen.dart:904:9 - undefined_identifier_await
+  error - A function body must be provided - lib\features\home\home_screen.dart:904:28 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:905:7 - expected_executable
+   info - An uninitialized variable should have an explicit type annotation - lib\features\home\home_screen.dart:906:7 - prefer_typing_uninitialized_variables
+   info - Missing type annotation - lib\features\home\home_screen.dart:906:7 - strict_top_level_inference
+  error - 'return' can't be used as an identifier because it's a keyword - lib\features\home\home_screen.dart:906:7 - expected_identifier_but_got_keyword
+  error - Variables must be declared using the keywords 'const', 'final', 'var' or a type name - lib\features\home\home_screen.dart:906:7 - missing_const_final_var_or_type
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:907:5 - expected_executable
+  error - The await expression can only be used in an async function - lib\features\home\home_screen.dart:909:20 - await_in_wrong_context
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:910:16 - undefined_identifier
+   info - Missing type annotation - lib\features\home\home_screen.dart:934:5 - strict_top_level_inference
+  error - 'if' can't be used as an identifier because it's a keyword - lib\features\home\home_screen.dart:934:5 - expected_identifier_but_got_keyword
+   info - Missing type annotation - lib\features\home\home_screen.dart:934:9 - strict_top_level_inference
+  error - Expected to find ')' - lib\features\home\home_screen.dart:934:16 - expected_token
+  error - A function body must be provided - lib\features\home\home_screen.dart:934:25 - missing_function_body
+  error - Expected an identifier - lib\features\home\home_screen.dart:934:31 - missing_identifier
+   info - Missing type annotation - lib\features\home\home_screen.dart:936:5 - strict_top_level_inference
+  error - 'if' can't be used as an identifier because it's a keyword - lib\features\home\home_screen.dart:936:5 - expected_identifier_but_got_keyword
+  error - The name 'if' is already defined - lib\features\home\home_screen.dart:936:5 - duplicate_definition
+   info - Missing type annotation - lib\features\home\home_screen.dart:936:9 - strict_top_level_inference
+  error - Expected to find ')' - lib\features\home\home_screen.dart:936:16 - expected_token
+  error - The await expression can only be used in an async function - lib\features\home\home_screen.dart:937:7 - await_in_wrong_context
+  error - The await expression can only be used in an async function - lib\features\home\home_screen.dart:944:19 - await_in_wrong_context
+  error - The method 'pickImageMobile' isn't defined for the type 'Function' - lib\features\home\home_screen.dart:944:32 - undefined_method
+   info - Missing type annotation - lib\features\home\home_screen.dart:945:5 - strict_top_level_inference
+  error - 'if' can't be used as an identifier because it's a keyword - lib\features\home\home_screen.dart:945:5 - expected_identifier_but_got_keyword
+  error - The name 'if' is already defined - lib\features\home\home_screen.dart:945:5 - duplicate_definition
+   info - Missing type annotation - lib\features\home\home_screen.dart:945:9 - strict_top_level_inference
+  error - Expected to find ')' - lib\features\home\home_screen.dart:945:15 - expected_token
+  error - The await expression can only be used in an async function - lib\features\home\home_screen.dart:946:21 - await_in_wrong_context
+  error - The await expression can only be used in an async function - lib\features\home\home_screen.dart:947:7 - await_in_wrong_context
+  error - The method 'uploadAvatarBytes' isn't defined for the type 'Function' - lib\features\home\home_screen.dart:947:20 - undefined_method
+  error - The await expression can only be used in an async function - lib\features\home\home_screen.dart:948:7 - await_in_wrong_context
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:950:3 - expected_executable
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:959:16 - undefined_identifier
+  error - The method 'uploadAvatarBytes' isn't defined for the type 'Function' - lib\features\home\home_screen.dart:1009:22 - undefined_method
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1023:11 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:1024:30 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1030:11 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:1032:11 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:1042:30 - undefined_identifier
+  error - Undefined name '_lastStatuses' - lib\features\home\home_screen.dart:1043:45 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1044:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1045:9 - undefined_function
+  error - Undefined name '_services' - lib\features\home\home_screen.dart:1046:11 - undefined_identifier
+  error - Undefined name '_services' - lib\features\home\home_screen.dart:1084:11 - undefined_identifier
+  error - Undefined name '_isLoading' - lib\features\home\home_screen.dart:1102:11 - undefined_identifier
+  error - Undefined name '_lastStatuses' - lib\features\home\home_screen.dart:1103:11 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:1120:36 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1131:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1132:9 - undefined_function
+  error - Undefined name '_isLoading' - lib\features\home\home_screen.dart:1132:24 - undefined_identifier
+warning - The declaration '_checkUberEnabled' isn't referenced - lib\features\home\home_screen.dart:1138:16 - unused_element
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:1140:28 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1141:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1142:9 - undefined_function
+  error - Undefined name '_uberEnabled' - lib\features\home\home_screen.dart:1143:11 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:1157:23 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:1161:15 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:1162:21 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1181:13 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1182:11 - undefined_function
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:1183:13 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:1184:13 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1185:13 - undefined_identifier
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:1186:13 - undefined_identifier
+  error - Undefined name '_pickupController' - lib\features\home\home_screen.dart:1187:13 - undefined_identifier
+  error - Undefined name '_destinationController' - lib\features\home\home_screen.dart:1188:13 - undefined_identifier
+  error - Undefined name '_pickupLocation' - lib\features\home\home_screen.dart:1189:13 - undefined_identifier
+  error - Undefined name '_dropoffLocation' - lib\features\home\home_screen.dart:1190:13 - undefined_identifier
+  error - Undefined name '_pickupController' - lib\features\home\home_screen.dart:1193:51 - undefined_identifier
+  error - Undefined name '_pickupLocation' - lib\features\home\home_screen.dart:1193:83 - undefined_identifier
+  error - Undefined name '_pickupLocation' - lib\features\home\home_screen.dart:1193:118 - undefined_identifier
+  error - Undefined name '_destinationController' - lib\features\home\home_screen.dart:1194:52 - undefined_identifier
+  error - Undefined name '_dropoffLocation' - lib\features\home\home_screen.dart:1194:89 - undefined_identifier
+  error - Undefined name '_dropoffLocation' - lib\features\home\home_screen.dart:1194:125 - undefined_identifier
+  error - The function '_calculateRouteAndFare' isn't defined - lib\features\home\home_screen.dart:1197:11 - undefined_function
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1208:22 - undefined_identifier
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1208:52 - undefined_identifier
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1212:22 - undefined_identifier
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1212:52 - undefined_identifier
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1218:16 - undefined_identifier
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1220:16 - undefined_identifier
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1222:30 - undefined_identifier
+  error - Invalid reference to 'this' expression - lib\features\home\home_screen.dart:1225:61 - invalid_reference_to_this
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1230:7 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1253:33 - deprecated_member_use
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1306:9 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1307:7 - undefined_function
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1308:9 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:1309:9 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:1310:9 - undefined_identifier
+  error - Undefined name '_pickupLocation' - lib\features\home\home_screen.dart:1311:9 - undefined_identifier
+  error - Undefined name '_dropoffLocation' - lib\features\home\home_screen.dart:1312:9 - undefined_identifier
+  error - Undefined name '_pickupController' - lib\features\home\home_screen.dart:1313:9 - undefined_identifier
+  error - Undefined name '_destinationController' - lib\features\home\home_screen.dart:1314:9 - undefined_identifier
+  error - Undefined name '_routePolyline' - lib\features\home\home_screen.dart:1315:9 - undefined_identifier
+  error - Undefined name '_routeDistance' - lib\features\home\home_screen.dart:1316:9 - undefined_identifier
+  error - Undefined name '_routeDuration' - lib\features\home\home_screen.dart:1317:9 - undefined_identifier
+  error - Undefined name '_fareEstimate' - lib\features\home\home_screen.dart:1318:9 - undefined_identifier
+  error - Undefined name '_fareEstimatesByVehicle' - lib\features\home\home_screen.dart:1319:9 - undefined_identifier
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:1320:9 - undefined_identifier
+  error - Undefined name '_tripSubscription' - lib\features\home\home_screen.dart:1326:5 - undefined_identifier
+  error - Undefined name '_tripSubscription' - lib\features\home\home_screen.dart:1327:5 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1328:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1329:9 - undefined_function
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:1330:11 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:1331:11 - undefined_identifier
+  error - Undefined name '_tripSubscription' - lib\features\home\home_screen.dart:1335:11 - undefined_identifier
+  error - Undefined name '_tripSubscription' - lib\features\home\home_screen.dart:1336:11 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:1337:11 - undefined_identifier
+  error - Undefined name '_tripSubscription' - lib\features\home\home_screen.dart:1343:11 - undefined_identifier
+  error - Undefined name '_tripSubscription' - lib\features\home\home_screen.dart:1344:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1345:11 - undefined_function
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:1346:13 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:1347:13 - undefined_identifier
+warning - The declaration '_buildCategoryRow' isn't referenced - lib\features\home\home_screen.dart:1408:10 - unused_element
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1430:19 - undefined_function
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1431:21 - undefined_identifier
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:1432:21 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1442:19 - undefined_function
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:1443:21 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1444:21 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:1454:40 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1458:47 - deprecated_member_use
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:1464:40 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1468:47 - deprecated_member_use
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1480:16 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1486:13 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:1486:30 - undefined_identifier
+  error - Undefined name '_mapController' - lib\features\home\home_screen.dart:1502:32 - undefined_identifier
+  error - Undefined name '_currentPosition' - lib\features\home\home_screen.dart:1504:34 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1506:37 - undefined_function
+  error - Undefined name '_isMapReady' - lib\features\home\home_screen.dart:1506:52 - undefined_identifier
+  error - Undefined name '_routePolyline' - lib\features\home\home_screen.dart:1516:23 - undefined_identifier
+  error - Undefined name '_routePolyline' - lib\features\home\home_screen.dart:1520:35 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1528:28 - undefined_identifier
+  error - Undefined name '_currentPosition' - lib\features\home\home_screen.dart:1530:34 - undefined_identifier
+  error - Undefined name '_pickupLocation' - lib\features\home\home_screen.dart:1543:27 - undefined_identifier
+  error - Undefined name '_pickupLocation' - lib\features\home\home_screen.dart:1545:34 - undefined_identifier
+  error - Undefined name '_dropoffLocation' - lib\features\home\home_screen.dart:1550:27 - undefined_identifier
+  error - Undefined name '_dropoffLocation' - lib\features\home\home_screen.dart:1552:34 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1564:15 - undefined_identifier
+  error - Undefined name '_isSearching' - lib\features\home\home_screen.dart:1573:23 - undefined_identifier
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:1573:39 - undefined_identifier
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:1578:20 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1600:21 - undefined_identifier
+  error - Undefined name '_currentPosition' - lib\features\home\home_screen.dart:1610:49 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:1627:15 - undefined_identifier
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:1636:20 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:1645:30 - undefined_identifier
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:1645:60 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:1655:33 - undefined_identifier
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:1655:63 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:1656:36 - undefined_identifier
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:1656:66 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1706:40 - undefined_function
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:1706:55 - undefined_identifier
+  error - Undefined name '_isLoading' - lib\features\home\home_screen.dart:1782:27 - undefined_identifier
+  error - Undefined name '_services' - lib\features\home\home_screen.dart:1782:41 - undefined_identifier
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:1819:18 - undefined_identifier
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:1820:21 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1842:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1844:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1847:37 - deprecated_member_use
+  error - Undefined name '_unreadCount' - lib\features\home\home_screen.dart:1872:61 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1886:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1890:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1897:51 - deprecated_member_use
+warning - The declaration '_buildPlacesItem' isn't referenced - lib\features\home\home_screen.dart:1921:10 - unused_element
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1971:23 - undefined_function
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:1971:38 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:1979:23 - undefined_function
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:1979:38 - undefined_identifier
+  error - Undefined name '_isLoading' - lib\features\home\home_screen.dart:2043:9 - undefined_identifier
+  error - Undefined name '_services' - lib\features\home\home_screen.dart:2055:18 - undefined_identifier
+  error - Undefined name '_services' - lib\features\home\home_screen.dart:2058:25 - undefined_identifier
+warning - The declaration '_buildHeader' isn't referenced - lib\features\home\home_screen.dart:2102:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2112:31 - deprecated_member_use
+warning - The declaration '_buildNotificationBadge' isn't referenced - lib\features\home\home_screen.dart:2120:10 - unused_element
+warning - The declaration '_buildAddressCard' isn't referenced - lib\features\home\home_screen.dart:2155:10 - unused_element
+warning - The declaration '_buildPlacesListTile' isn't referenced - lib\features\home\home_screen.dart:2190:10 - unused_element
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2194:24 - undefined_function
+  error - Undefined name '_isSavedPlacesExpanded' - lib\features\home\home_screen.dart:2194:39 - undefined_identifier
+  error - Undefined name '_isSavedPlacesExpanded' - lib\features\home\home_screen.dart:2194:65 - undefined_identifier
+  error - Undefined name '_isSavedPlacesExpanded' - lib\features\home\home_screen.dart:2212:19 - undefined_identifier
+  error - Undefined name '_isSavedPlacesExpanded' - lib\features\home\home_screen.dart:2219:13 - undefined_identifier
+  error - Undefined name '_savedPlaces' - lib\features\home\home_screen.dart:2221:23 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2277:5 - undefined_function
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:2278:7 - undefined_identifier
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:2278:27 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:2279:7 - undefined_identifier
+  error - Undefined name '_isInServiceMode' - lib\features\home\home_screen.dart:2280:12 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2281:23 - undefined_identifier
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2282:9 - undefined_identifier
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:2283:9 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2284:9 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2285:9 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2286:9 - undefined_identifier
+  error - Undefined name '_serviceCandidates' - lib\features\home\home_screen.dart:2287:9 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2293:24 - undefined_identifier
+  error - Undefined name '_aiServiceType' - lib\features\home\home_screen.dart:2294:12 - undefined_identifier
+  error - Undefined name '_serviceAiDebounce' - lib\features\home\home_screen.dart:2300:6 - undefined_identifier
+  error - Undefined name '_serviceAiDebounce' - lib\features\home\home_screen.dart:2302:9 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2304:9 - undefined_function
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:2305:12 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2306:12 - undefined_identifier
+  error - Undefined name '_serviceCandidates' - lib\features\home\home_screen.dart:2307:12 - undefined_identifier
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2313:19 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2316:6 - undefined_function
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:2316:21 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:2318:25 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2320:40 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2321:12 - undefined_function
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2322:15 - undefined_identifier
+  error - Undefined name '_aiServiceType' - lib\features\home\home_screen.dart:2323:15 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2326:17 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2327:17 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2330:18 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2331:18 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2333:18 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2334:18 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2337:20 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2338:12 - undefined_function
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2339:14 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2345:13 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2345:22 - undefined_function
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:2345:37 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2348:10 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2354:9 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2356:5 - undefined_function
+  error - Undefined name '_isLoadingServiceCandidates' - lib\features\home\home_screen.dart:2356:20 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:2358:31 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2359:15 - undefined_identifier
+  error - Undefined name '_currentPosition' - lib\features\home\home_screen.dart:2360:14 - undefined_identifier
+  error - Undefined name '_currentPosition' - lib\features\home\home_screen.dart:2361:14 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2363:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2364:10 - undefined_function
+  error - Undefined name '_serviceCandidates' - lib\features\home\home_screen.dart:2365:13 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2371:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2371:20 - undefined_function
+  error - Undefined name '_isLoadingServiceCandidates' - lib\features\home\home_screen.dart:2371:35 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2379:28 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2386:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2422:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2430:51 - deprecated_member_use
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2438:35 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2449:43 - undefined_identifier
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2458:38 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2460:41 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2481:43 - deprecated_member_use
+  error - Undefined name '_isServiceAiClassifying' - lib\features\home\home_screen.dart:2487:17 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2499:24 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2535:9 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2535:38 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2535:62 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2536:28 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2542:5 - undefined_function
+  error - Undefined name '_isCreatingService' - lib\features\home\home_screen.dart:2542:20 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2545:22 - undefined_identifier
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2547:21 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2550:16 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2551:18 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2552:18 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:2555:28 - undefined_identifier
+  error - Undefined name '_currentPosition' - lib\features\home\home_screen.dart:2558:19 - undefined_identifier
+  error - Undefined name '_currentPosition' - lib\features\home\home_screen.dart:2559:20 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2566:21 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2576:13 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2577:12 - undefined_identifier
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2584:12 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2590:11 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2591:30 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:2596:11 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2597:9 - undefined_function
+  error - Undefined name '_isCreatingService' - lib\features\home\home_screen.dart:2597:24 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2613:21 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2637:38 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2637:53 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2648:31 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2648:55 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2649:43 - undefined_identifier
+  error - Undefined name '_isCreatingService' - lib\features\home\home_screen.dart:2664:40 - undefined_identifier
+  error - Undefined name '_isCreatingService' - lib\features\home\home_screen.dart:2671:36 - undefined_identifier
+  error - Undefined name '_isLoadingServiceCandidates' - lib\features\home\home_screen.dart:2692:20 - undefined_identifier
+  error - Undefined name '_serviceCandidates' - lib\features\home\home_screen.dart:2697:25 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2716:37 - undefined_identifier
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2717:56 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2719:49 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2719:64 - undefined_identifier
+  error - Undefined name '_aiCategoryId' - lib\features\home\home_screen.dart:2720:53 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2721:50 - undefined_identifier
+  error - Undefined name '_serviceCandidates' - lib\features\home\home_screen.dart:2739:32 - undefined_identifier
+  error - Undefined name '_serviceCandidates' - lib\features\home\home_screen.dart:2741:33 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2761:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2774:82 - deprecated_member_use
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2796:37 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2796:52 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2853:48 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2853:63 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2864:41 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2864:65 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2865:53 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2876:42 - undefined_identifier
+  error - Undefined name '_servicePromptController' - lib\features\home\home_screen.dart:2877:62 - undefined_identifier
+  error - Undefined name '_aiTaskName' - lib\features\home\home_screen.dart:2881:55 - undefined_identifier
+  error - Undefined name '_aiProfessionName' - lib\features\home\home_screen.dart:2881:70 - undefined_identifier
+  error - Undefined name '_aiCategoryId' - lib\features\home\home_screen.dart:2882:59 - undefined_identifier
+  error - Undefined name '_aiTaskPrice' - lib\features\home\home_screen.dart:2883:56 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:2926:40 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:2932:19 - undefined_identifier
+  error - Undefined name '_toggleTripMode' - lib\features\home\home_screen.dart:2937:30 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:2950:19 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:2959:20 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:2961:15 - undefined_function
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:2962:17 - undefined_identifier
+  error - Undefined name '_isInTripMode' - lib\features\home\home_screen.dart:2963:17 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2973:41 - deprecated_member_use
+  error - Undefined name '_pickupController' - lib\features\home\home_screen.dart:3001:27 - undefined_identifier
+  error - Undefined name '_pickupController' - lib\features\home\home_screen.dart:3001:63 - undefined_identifier
+  error - Undefined name '_destinationController' - lib\features\home\home_screen.dart:3014:27 - undefined_identifier
+  error - Undefined name '_destinationController' - lib\features\home\home_screen.dart:3014:68 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3042:52 - deprecated_member_use
+  error - Undefined name '_isSearching' - lib\features\home\home_screen.dart:3044:15 - undefined_identifier
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3049:25 - undefined_identifier
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:3050:36 - unnecessary_underscores
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3052:29 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:3063:29 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:3064:27 - undefined_function
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3065:30 - undefined_identifier
+  error - Undefined name '_isSearching' - lib\features\home\home_screen.dart:3066:30 - undefined_identifier
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3072:29 - undefined_identifier
+warning - The value of the local variable 'isPoi' isn't used - lib\features\home\home_screen.dart:3075:22 - unused_local_variable
+  error - The function '_selectSearchResult' isn't defined - lib\features\home\home_screen.dart:3135:31 - undefined_function
+  error - Undefined name '_pickupFocus' - lib\features\home\home_screen.dart:3135:57 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:3144:9 - undefined_identifier
+  error - Undefined name '_fareEstimate' - lib\features\home\home_screen.dart:3148:9 - undefined_identifier
+  error - Undefined name '_fareEstimatesByVehicle' - lib\features\home\home_screen.dart:3148:34 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3154:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3190:35 - deprecated_member_use
+  error - Undefined name '_vehicleTypes' - lib\features\home\home_screen.dart:3216:26 - undefined_identifier
+  error - Undefined name '_vehicleTypes' - lib\features\home\home_screen.dart:3218:30 - undefined_identifier
+  error - Undefined name '_selectedVehicleTypeId' - lib\features\home\home_screen.dart:3220:36 - undefined_identifier
+  error - Undefined name '_fareEstimatesByVehicle' - lib\features\home\home_screen.dart:3221:34 - undefined_identifier
+  error - Undefined name '_isRequestingTrip' - lib\features\home\home_screen.dart:3231:22 - undefined_identifier
+  error - Undefined name '_requestRide' - lib\features\home\home_screen.dart:3239:34 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:3315:23 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:3315:58 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:3341:35 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:3348:38 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:3348:93 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3362:73 - deprecated_member_use
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:3387:39 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:3387:61 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:3389:29 - undefined_identifier
+  error - Undefined name '_activeTripStatus' - lib\features\home\home_screen.dart:3403:23 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:3411:31 - undefined_identifier
+  error - Undefined name '_activeTrip' - lib\features\home\home_screen.dart:3414:33 - undefined_identifier
+  error - Undefined name '_api' - lib\features\home\home_screen.dart:3416:43 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:3419:35 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:3420:54 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\home_screen.dart:3425:35 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:3426:54 - undefined_identifier
+  error - Undefined name '_routeDistance' - lib\features\home\home_screen.dart:3468:11 - undefined_identifier
+  error - Undefined name '_routeDistance' - lib\features\home\home_screen.dart:3469:32 - undefined_identifier
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3474:45 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3475:12 - curly_braces_in_flow_control_structures
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:3480:9 - undefined_function
+  error - Undefined name '_selectedVehicleTypeId' - lib\features\home\home_screen.dart:3481:11 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3566:29 - deprecated_member_use
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:3569:44 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\home_screen.dart:3577:37 - undefined_identifier
+  error - The function 'setState' isn't defined - lib\features\home\home_screen.dart:3578:23 - undefined_function
+  error - Undefined name '_isSearchExpanded' - lib\features\home\home_screen.dart:3579:25 - undefined_identifier
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3580:25 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3610:45 - deprecated_member_use
+  error - Undefined name '_pickupController' - lib\features\home\home_screen.dart:3637:43 - undefined_identifier
+  error - The function '_onSearchChanged' isn't defined - lib\features\home\home_screen.dart:3638:49 - undefined_function
+  error - Undefined name '_destinationController' - lib\features\home\home_screen.dart:3656:43 - undefined_identifier
+  error - The function '_onSearchChanged' isn't defined - lib\features\home\home_screen.dart:3658:49 - undefined_function
+  error - Undefined name '_isSearching' - lib\features\home\home_screen.dart:3680:19 - undefined_identifier
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3685:24 - undefined_identifier
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3695:34 - undefined_identifier
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:3696:45 - unnecessary_underscores
+  error - Undefined name '_searchResults' - lib\features\home\home_screen.dart:3698:40 - undefined_identifier
+  error - The function '_selectSearchResult' isn't defined - lib\features\home\home_screen.dart:3736:20 - undefined_function
+  error - Expected a method, getter, setter or operator declaration - lib\features\home\home_screen.dart:3814:1 - expected_executable
+warning - The value of the field '_submittingReview' isn't used - lib\features\home\widgets\fixed_service_card.dart:66:8 - unused_field
+warning - The value of the field '_reviewSubmittedSuccessfully' isn't used - lib\features\home\widgets\fixed_service_card.dart:67:8 - unused_field
+warning - The value of the field '_isSchedulingCounter' isn't used - lib\features\home\widgets\fixed_service_card.dart:77:14 - unused_field
+warning - The value of the field '_selectedDate' isn't used - lib\features\home\widgets\fixed_service_card.dart:78:18 - unused_field
+warning - The value of the field '_selectedTime' isn't used - lib\features\home\widgets\fixed_service_card.dart:79:19 - unused_field
+warning - The value of the field '_travelSubtitle' isn't used - lib\features\home\widgets\fixed_service_card.dart:83:11 - unused_field
+warning - The value of the local variable 'priceEstimated' isn't used - lib\features\home\widgets\fixed_service_card.dart:377:11 - unused_local_variable
+warning - The value of the local variable 'dateText' isn't used - lib\features\home\widgets\fixed_service_card.dart:379:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\fixed_service_card.dart:401:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\fixed_service_card.dart:577:53 - deprecated_member_use
+warning - The declaration '_submitLocalReview' isn't referenced - lib\features\home\widgets\fixed_service_card.dart:780:16 - unused_element
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1211:42 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1214:62 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1538:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1540:75 - use_build_context_synchronously
+warning - The value of the field '_isPlaying' isn't used - lib\features\notifications\widgets\time_to_leave_modal.dart:21:8 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:79:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:84:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:97:47 - deprecated_member_use
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_fixed.dart:31:13 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:864:47 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:866:54 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:873:54 - use_build_context_synchronously
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_mobile.dart:60:13 - unused_field
+   info - 'timeLimit' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\features\provider\provider_home_mobile.dart:561:60 - deprecated_member_use
+warning - The value of the field '_userPhone' isn't used - lib\features\provider\provider_profile_content.dart:28:10 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:228:128 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:248:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:264:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:337:85 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:337:193 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_profile_content.dart:367:66 - use_build_context_synchronously
+warning - The value of the field '_api' isn't used - lib\features\provider\schedule_edit_screen.dart:15:20 - unused_field
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\service_details_screen_fixed.dart:949:21 - deprecated_member_use
+warning - The value of the field '_isLoadingRoute' isn't used - lib\features\provider\widgets\provider_service_card.dart:50:8 - unused_field
+warning - The value of the local variable 'statusColor' isn't used - lib\features\provider\widgets\provider_service_card.dart:165:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:287:46 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\provider_service_card.dart:401:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:506:71 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\provider\widgets\provider_service_card.dart:740:35 - unnecessary_underscores
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\scheduled_notification_modal.dart:423:21 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\service_offer_modal.dart:656:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:761:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:766:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:911:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:957:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:973:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:994:65 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1112:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1318:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1321:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:116:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:127:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:176:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:191:77 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:233:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:233:90 - deprecated_member_use
+warning - The value of the field '_vehicleColor' isn't used - lib\features\uber\driver_home_screen.dart:36:9 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\driver_home_screen.dart:148:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\driver_home_screen.dart:237:28 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:306:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:308:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:311:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:326:74 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:354:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:384:82 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:432:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:436:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:438:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:590:63 - deprecated_member_use
+warning - The declaration '_startSimulation' isn't referenced - lib\features\uber\driver_home_screen.dart:699:8 - unused_element
+warning - The declaration '_stopSimulation' isn't referenced - lib\features\uber\driver_home_screen.dart:726:8 - unused_element
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\driver_trip_screen.dart:109:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_trip_screen.dart:144:107 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_trip_screen.dart:266:46 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\uber_request_screen.dart:128:19 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_request_screen.dart:270:54 - deprecated_member_use
+warning - The name pi is shown, but isn't used - lib\features\uber\uber_tracking_screen.dart:11:25 - unused_shown_name
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\uber_tracking_screen.dart:100:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:231:70 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:234:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:344:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:353:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:424:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:48:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:75:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:155:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:371:39 - deprecated_member_use
+   info - Empty catch block - lib\services\analytics_service.dart:42:16 - empty_catches
+warning - The value of the field '_api' isn't used - lib\services\remote_config_service.dart:8:16 - unused_field
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\services\theme_service.dart:143:9 - deprecated_member_use
+   info - 'onBackground' is deprecated and shouldn't be used. Use onSurface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\services\theme_service.dart:146:9 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\services\theme_service.dart:186:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_bottom_nav.dart:90:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_bottom_nav.dart:94:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_bottom_nav.dart:115:36 - deprecated_member_use
+   info - Don't invoke 'print' in production code - test\test_supabase_relations.dart:19:7 - avoid_print
+   info - Don't invoke 'print' in production code - test\test_supabase_relations.dart:21:7 - avoid_print
+

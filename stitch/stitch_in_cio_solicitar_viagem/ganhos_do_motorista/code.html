@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>101 Service - Driver Earnings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#FFD700", // Vibrant Yellow for 101 Service
+                        "background-light": "#F8F9FA",
+                        "background-dark": "#121212",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .ios-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen pb-24">
+<!-- Header Section -->
+<header class="sticky top-0 z-10 bg-background-light/80 dark:bg-background-dark/80 ios-blur px-4 pt-6 pb-4 border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between mb-6">
+<div class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">chevron_left</span>
+</div>
+<h1 class="text-lg font-bold">Ganhos</h1>
+<div class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">help</span>
+</div>
+</div>
+<div class="text-center">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Total desta semana</p>
+<h2 class="text-4xl font-extrabold tracking-tight">R$ 1.250,00</h2>
+<div class="inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-bold">
+<span class="material-symbols-outlined text-xs">trending_up</span>
+                +12.5% vs última semana
+            </div>
+</div>
+</header>
+<main class="px-4 py-6 space-y-6">
+<!-- Action Button -->
+<button class="w-full bg-primary hover:brightness-105 active:scale-[0.98] transition-all text-black font-bold py-4 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined font-bold">account_balance_wallet</span>
+            Sacar para conta bancária
+        </button>
+<!-- Chart Section -->
+<section class="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-bold text-slate-800 dark:text-slate-100">Desempenho Diário</h3>
+<span class="text-xs font-medium text-slate-400">Seg, 12 Mai - Dom, 18 Mai</span>
+</div>
+<div class="grid grid-cols-7 gap-2 items-end h-40 px-2">
+<div class="flex flex-col items-center gap-2 h-full justify-end">
+<div class="w-full bg-primary/20 rounded-t-lg relative group" style="height: 60%;">
+<div class="absolute inset-0 bg-primary rounded-t-lg scale-y-0 group-hover:scale-y-100 origin-bottom transition-transform"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">S</span>
+</div>
+<div class="flex flex-col items-center gap-2 h-full justify-end">
+<div class="w-full bg-primary/20 rounded-t-lg" style="height: 75%;"></div>
+<span class="text-[10px] font-bold text-slate-400">T</span>
+</div>
+<div class="flex flex-col items-center gap-2 h-full justify-end">
+<div class="w-full bg-primary/20 rounded-t-lg" style="height: 40%;"></div>
+<span class="text-[10px] font-bold text-slate-400">Q</span>
+</div>
+<div class="flex flex-col items-center gap-2 h-full justify-end">
+<div class="w-full bg-primary/20 rounded-t-lg" style="height: 85%;"></div>
+<span class="text-[10px] font-bold text-slate-400">Q</span>
+</div>
+<div class="flex flex-col items-center gap-2 h-full justify-end">
+<div class="w-full bg-primary/20 rounded-t-lg" style="height: 50%;"></div>
+<span class="text-[10px] font-bold text-slate-400">S</span>
+</div>
+<div class="flex flex-col items-center gap-2 h-full justify-end">
+<div class="w-full bg-primary rounded-t-lg" style="height: 100%;"></div>
+<span class="text-[10px] font-bold text-slate-900 dark:text-slate-100">S</span>
+</div>
+<div class="flex flex-col items-center gap-2 h-full justify-end">
+<div class="w-full bg-primary/20 rounded-t-lg" style="height: 65%;"></div>
+<span class="text-[10px] font-bold text-slate-400">D</span>
+</div>
+</div>
+</section>
+<!-- Transactions List -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-slate-800 dark:text-slate-100">Atividade Recente</h3>
+<button class="text-primary text-sm font-bold">Ver tudo</button>
+</div>
+<div class="space-y-3">
+<!-- Trip Item 1 -->
+<div class="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a smiling service customer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBk98wEinHHa-LUzE1nKBvwvnq28xnc7Jdws8kAiboWNezB7OWmOMNze2ZOO72PJTg-dd-bRErEzVYJiXyMiQtx544KVTPTn3yHSOk5GSXhVE64vnnFrA-7PqhQ-QbXtux8x-vAOcCeLWvEEcQ_Kbpp32C1OT-eCl8yHqRLeB9RaEbrHvwOHGC3b3_VGRknnWEA4raXytaiMc3hMjwCyj2QVg8Spil10wjQ2XVR4N-dqXAYFwuluKub7G3ukX3-A2C6l7Zlv7K7p1g"/>
+</div>
+<div>
+<p class="font-bold text-slate-900 dark:text-slate-100">Limpeza Residencial</p>
+<p class="text-xs text-slate-500">Hoje, 14:30 • Maria S.</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-slate-100">R$ 180,00</p>
+<p class="text-[10px] font-bold text-green-500 uppercase">Concluído</p>
+</div>
+</div>
+<!-- Trip Item 2 -->
+<div class="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a happy customer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvUfP43C_6lUDhPhLaK3--86BrnLC0y7vUzPbbvoPjM1uOjg9Cz03wPuYEQUTh_amNVLK5sE0db6TrhM3-hzd1b6idh8xWug8VIdnTeFCybpakzdDoBUezlY0YYq8DD1BcUcSsUBtlCDwAh863fCfaGHpwzDufWGMckr-kqlWGxECuI5GP8CoNbBn7f882k7fO53ggoPwDGhgoZJGWT05XWWgqolp3kO21ttphVuagjtC0LaQ6Omeulf2TMmHYeFFfRJlHd_x66zE"/>
+</div>
+<div>
+<p class="font-bold text-slate-900 dark:text-slate-100">Manutenção Elétrica</p>
+<p class="text-xs text-slate-500">Hoje, 10:15 • João P.</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-slate-100">R$ 320,00</p>
+<p class="text-[10px] font-bold text-green-500 uppercase">Concluído</p>
+</div>
+</div>
+<!-- Trip Item 3 -->
+<div class="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a female client" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByfCup49pW_OxE93zD2Nh3z5TNMHAd03CdA3yCo9LAsHPE8-xtmXohk8SfjsxJQGJnew36V7bNjJvpzzcjIAo5DXctk2HhnGLvOLrxLE6Z2aD8ElvU4jPOQCkT6jfY01bD8wvMmol3pitQUSD7de5hYF9r0RExeTnO12VFN-A4TipnYUI3phZ8_JKorUbTJE-C53bM31YOdc9Jb33SVPtjxNrAzjB0RIBgQKNyxKanJQVnkXug1qtBWUPNZKvzvace0yGUoNtjD9U"/>
+</div>
+<div>
+<p class="font-bold text-slate-900 dark:text-slate-100">Montagem de Móveis</p>
+<p class="text-xs text-slate-500">Ontem, 16:45 • Ana K.</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-slate-100">R$ 150,00</p>
+<p class="text-[10px] font-bold text-green-500 uppercase">Concluído</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 ios-blur border-t border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between z-20">
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-bold">Início</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined fill-[1]">payments</span>
+<span class="text-[10px] font-bold">Ganhos</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="text-[10px] font-bold">Atividade</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="text-[10px] font-bold">Perfil</span>
+</a>
+</nav>
+</body></html>

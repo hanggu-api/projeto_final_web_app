@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/input_formatters.dart';
 
 class BusinessInfoStep extends StatefulWidget {
@@ -117,8 +119,11 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
+                          urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
                           userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
                         ),
                         const MarkerLayer(
                           markers: [
@@ -166,11 +171,7 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
             // FIELDS
             TextFormField(
               controller: widget.addressController,
-              decoration: const InputDecoration(
-                labelText: 'Endereço Completo',
-                prefixIcon: Icon(Icons.map),
-                border: OutlineInputBorder(),
-              ),
+              decoration: AppTheme.inputDecoration('Endereço Completo', Icons.map),
               validator: (v) =>
                   v?.isEmpty == true ? 'Informe o endereço' : null,
             ),
@@ -178,11 +179,7 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
 
             TextFormField(
               controller: widget.businessNameController,
-              decoration: const InputDecoration(
-                labelText: 'Nome do Local (Barbearia)',
-                prefixIcon: Icon(Icons.store),
-                border: OutlineInputBorder(),
-              ),
+              decoration: AppTheme.inputDecoration('Nome do Local (Barbearia)', Icons.store),
               validator: (v) =>
                   v?.isEmpty == true ? 'Informe o nome do local' : null,
             ),
@@ -193,11 +190,7 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
                 Expanded(
                   child: TextFormField(
                     controller: widget.docController,
-                    decoration: const InputDecoration(
-                      labelText: 'CPF ou CNPJ',
-                      prefixIcon: Icon(Icons.badge),
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: AppTheme.inputDecoration('CPF ou CNPJ', Icons.badge),
                     keyboardType: TextInputType.number,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
@@ -219,11 +212,7 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
 
             TextFormField(
               controller: widget.phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Telefone / WhatsApp',
-                prefixIcon: Icon(Icons.phone),
-                border: OutlineInputBorder(),
-              ),
+              decoration: AppTheme.inputDecoration('Telefone / WhatsApp', Icons.phone),
               keyboardType: TextInputType.phone,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -248,22 +237,14 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
 
             TextFormField(
               controller: widget.nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nome do Responsável',
-                prefixIcon: Icon(Icons.person),
-                border: OutlineInputBorder(),
-              ),
+              decoration: AppTheme.inputDecoration('Nome do Responsável', Icons.person),
               validator: (v) => v?.isEmpty == true ? 'Obrigatório' : null,
             ),
             const SizedBox(height: 16),
 
             TextFormField(
               controller: widget.emailController,
-              decoration: const InputDecoration(
-                labelText: 'E-mail',
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(),
-              ),
+              decoration: AppTheme.inputDecoration('E-mail', Icons.email),
               keyboardType: TextInputType.emailAddress,
               validator: (v) => v?.isEmpty == true ? 'Obrigatório' : null,
             ),
@@ -271,11 +252,7 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
 
             TextFormField(
               controller: widget.passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Senha',
-                prefixIcon: Icon(Icons.lock),
-                border: OutlineInputBorder(),
-              ),
+              decoration: AppTheme.inputDecoration('Senha', Icons.lock),
               obscureText: true,
               validator: (v) =>
                   (v?.length ?? 0) < 6 ? 'Mínimo 6 caracteres' : null,
@@ -287,3 +264,4 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
     );
   }
 }
+

@@ -40,7 +40,6 @@ class _ServiceRequestScreenMobileState extends State<ServiceRequestScreenMobile>
   double? _latitude;
   double? _longitude;
   String? _address;
-  final bool _chooseOtherAddress = false;
   bool _locationPickedByUser = false;
   final List<Map<String, dynamic>> _suggestions = [];
   Timer? _debounce;
@@ -51,40 +50,27 @@ class _ServiceRequestScreenMobileState extends State<ServiceRequestScreenMobile>
   final List<String> _audioKeys = [];
 
   int? _aiCategoryId;
-  String? _aiCategoryName;
   String? _aiProfessionName;
-  double? _aiConfidence;
   int? _aiTaskId;
   String? _aiTaskName;
   double? _aiTaskPrice;
-  String? _aiSuggestionMessage;
   String? _aiServiceType;
-  final List<Map<String, dynamic>> _aiSuggestions = [];
   final ScrollController _descScrollController = ScrollController();
-  final bool _needsDetails = false;
   bool _aiClassifying = false;
   Timer? _aiDebounce;
   final TextEditingController _professionSearchController =
       TextEditingController();
-  final List<String> _allProfessions = [];
-  final List<String> _filteredProfessions = [];
+  bool _isManualSearch = false;
+  String? _manualProfession;
+  String? _manualService;
 
   // --- Real-time Providers State ---
   List<Map<String, dynamic>> _nearbyCandidates = [];
   bool _loadingCandidates = false;
   int? _expandedProviderIndex;
   int? _selectedProviderId;
-
-  final bool _showTeach = false;
-  final bool _hasAiRun = false;
-
   String? _selectedProfession;
 
-  // --- Manual Search State ---
-  bool _isManualSearch = false;
-  String? _manualProfession;
-  String? _manualService;
-  
   // Loaded from API
   Map<String, List<Map<String, dynamic>>> _professionsMap = {};
   Map<String, int> _professionNameIdMap = {};
@@ -401,15 +387,18 @@ class _ServiceRequestScreenMobileState extends State<ServiceRequestScreenMobile>
   }
 
   Future<void> _reverseGeocode(double lat, double lon) async {
-     try {
-        final res = await _api.get('/geo/reverse?lat=$lat&lon=$lon');
-        if (mounted) {
-          setState(() {
-           _address = res['address'] is String ? res['address'] : 'Endereço encontrado';
-           _addressController.text = _address!;
+    try {
+      // Sprint 2: Edge Function geo/reverse em vez de /geo/reverse legado
+      final res = await _api.reverseGeocode(lat, lon);
+      if (mounted) {
+        setState(() {
+          _address = res['display_name'] is String
+              ? res['display_name']
+              : (res['address'] is String ? res['address'] : 'Endereço encontrado');
+          _addressController.text = _address!;
         });
-        }
-     } catch (_) {}
+      }
+    } catch (_) {}
   }
 
   Future<void> _searchAddress(String q) async {
@@ -429,7 +418,8 @@ class _ServiceRequestScreenMobileState extends State<ServiceRequestScreenMobile>
         final body = {'text': _descriptionController.text};
         debugPrint('[APP-AI-DEBUG] Enviando texto para IA: "${_descriptionController.text}"');
         
-        final r = await _api.post('/services/ai/classify', body);
+        // Sprint 2: Edge Function ai-classify em vez de POST /services/ai/classify legado
+        final r = await _api.classifyService(_descriptionController.text);
         debugPrint('[APP-AI-DEBUG] Resposta Bruta da IA: $r');
         
         if (r['encontrado'] == true) {
@@ -994,10 +984,13 @@ class _ServiceRequestScreenMobileState extends State<ServiceRequestScreenMobile>
               optionsBuilder: (TextEditingValue text) async {
                 if (text.text.length < 3) return [];
                 try {
-                  final res = await _api.get('/geo/search?q=${text.text}');
-                  if (res['results'] != null) {
-                    return List<Map<String, dynamic>>.from(res['results']);
-                  }
+                  // Sprint 2: Edge Function geo/search em vez de /geo/search legado
+                  final results = await _api.searchAddress(
+                    text.text,
+                    lat: _latitude,
+                    lon: _longitude,
+                  );
+                  return results.cast<Map<String, dynamic>>();
                 } catch (e) {
                   debugPrint('Search error: $e');
                 }
@@ -1093,6 +1086,9 @@ class _ServiceRequestScreenMobileState extends State<ServiceRequestScreenMobile>
                         urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
                         subdomains: const ['a', 'b', 'c', 'd'],
                         userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
                       ),
                    ],
                  ),
@@ -1300,3 +1296,4 @@ class _ServiceRequestScreenMobileState extends State<ServiceRequestScreenMobile>
     );
   }
 }
+

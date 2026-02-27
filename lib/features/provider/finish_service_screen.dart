@@ -90,13 +90,11 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     });
 
     try {
-      final res = await _api.post('/services/${widget.serviceId}/verify-code', {
-        'code': code,
-      });
+      final isValid = await _api.verifyServiceCode(widget.serviceId, code);
       
       if (mounted) {
         setState(() {
-          _isCodeValid = res['isValid'] == true;
+          _isCodeValid = isValid;
           _validating = false;
         });
       }
@@ -142,10 +140,10 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
         );
       }
 
-      await _api.post('/services/${widget.serviceId}/confirm-completion', {
-        'code': _codeController.text,
-        'proof_video': videoKey,
-      });
+      await _api.confirmServiceCompletion(widget.serviceId, 
+        code: _codeController.text, 
+        proofVideo: videoKey
+      );
 
       if (!mounted) return;
       

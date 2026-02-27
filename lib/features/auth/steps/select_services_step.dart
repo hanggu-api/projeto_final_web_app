@@ -1,7 +1,8 @@
-  import 'package:flutter/material.dart';
-  import 'package:flutter/services.dart';
-  import '../../../services/api_service.dart';
-  import '../../../core/utils/input_formatters.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../services/api_service.dart';
+import '../../../core/utils/input_formatters.dart';
 
   class SelectServicesStep extends StatefulWidget {
     final List<Map<String, dynamic>> selectedServices;
@@ -218,7 +219,7 @@
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.yellow, // Contrast accent
+                      color: Colors.white, // Contrast accent changed from yellow
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -406,7 +407,7 @@
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Nome do Serviço'),
+                  decoration: AppTheme.inputDecoration('Nome do Serviço', Icons.cleaning_services),
                   validator: (v) => v?.isEmpty == true ? 'Obrigatório' : null,
                 ),
                 const SizedBox(height: 8),
@@ -415,9 +416,7 @@
                     Expanded(
                       child: TextFormField(
                         controller: _durationController,
-                        decoration: const InputDecoration(
-                          labelText: 'Duração (min)',
-                        ),
+                        decoration: AppTheme.inputDecoration('Duração (min)', Icons.timer),
                         keyboardType: TextInputType.number,
                         validator: (v) =>
                             v?.isEmpty == true ? 'Obrigatório' : null,
@@ -427,9 +426,8 @@
                     Expanded(
                       child: TextFormField(
                         controller: _priceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Preço',
-                          prefixText: 'R\$ ',
+                        decoration: AppTheme.inputDecoration('Preço', Icons.attach_money).copyWith(
+                          prefixText: r'R$ ',
                         ),
                         keyboardType: TextInputType.number,
                         inputFormatters: [

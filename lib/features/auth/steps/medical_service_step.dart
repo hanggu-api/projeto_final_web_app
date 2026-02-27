@@ -1,5 +1,5 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/input_formatters.dart';
 
 class MedicalServiceStep extends StatefulWidget {
@@ -73,13 +73,8 @@ class _MedicalServiceStepState extends State<MedicalServiceStep> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _priceController,
-              decoration: const InputDecoration(
-                labelText: 'Valor da Consulta',
-                prefixIcon: Icon(Icons.attach_money),
-                border: OutlineInputBorder(),
-                hintText: 'R\$ 0,00',
-                filled: true,
-                fillColor: Colors.white,
+              decoration: AppTheme.inputDecoration('Valor da Consulta', Icons.attach_money).copyWith(
+                hintText: r'R$ 0,00',
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [CurrencyInputFormatter()],
@@ -100,9 +95,8 @@ class _MedicalServiceStepState extends State<MedicalServiceStep> {
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.lightGray,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [

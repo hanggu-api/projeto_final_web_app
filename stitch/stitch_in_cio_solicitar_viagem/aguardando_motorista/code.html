@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#427cf0",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .map-gradient-overlay {
+            background: radial-gradient(circle at center, transparent 0%, rgba(246, 246, 248, 0.4) 100%);
+        }
+        .pulse-ring {
+            border: 4px solid #427cf0;
+            border-radius: 50%;
+            height: 80px;
+            width: 80px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.3;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-hidden">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Top Bar -->
+<div class="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-background-light/80 to-transparent backdrop-blur-sm">
+<button class="flex size-10 items-center justify-center rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-900 dark:text-slate-100">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex-1 px-4">
+<h2 class="text-lg font-bold leading-tight tracking-tight">101 Service</h2>
+</div>
+<button class="flex size-10 items-center justify-center rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-900 dark:text-slate-100">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+<!-- Map Background Area -->
+<div class="relative flex-1 bg-slate-200 dark:bg-slate-900 overflow-hidden" data-location="São Paulo, Brazil" style="">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Detailed city map with streets and parks" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAGZhZZCFK4gRKHEYEVWsnmy3O2WiYVpCdDoQlkyQZ0e2tI3FL5RKfQFi5PK6PUke0CQUJJLGlUZquA5TpZoCy7Pb63lHUZUekwHSYGXfDxP44dXG_N6z3daVHu0-8w0OTQ8fbgI3Jk7YP4YJ3qYpBmJ2hbtasPTd4hcmHpmMdNMkvln7Y3RCdC63aNVEhkX3I_grZJ9RT0UlN-YaWkFC2CDP-SxVhx6cfrPKXqZ8NvhTaYsdUl6qo4igu6RqsJE5ea_Wk8e8a27zM');"></div>
+<div class="absolute inset-0 map-gradient-overlay"></div>
+<!-- Map Controls -->
+<div class="absolute right-4 top-24 flex flex-col gap-2 z-10">
+<button class="flex size-11 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-lg">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">add</span>
+</button>
+<button class="flex size-11 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-lg">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">remove</span>
+</button>
+<button class="mt-2 flex size-11 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-lg text-primary">
+<span class="material-symbols-outlined">near_me</span>
+</button>
+</div>
+<!-- User Location Marker & Pulse -->
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+<div class="pulse-ring"></div>
+<div class="relative size-6 bg-primary border-4 border-white dark:border-slate-800 rounded-full shadow-xl z-10"></div>
+</div>
+</div>
+<!-- Bottom Sheet -->
+<div class="relative z-30 bg-white dark:bg-slate-800 rounded-t-xl shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.1)] px-6 pt-2 pb-8">
+<div class="flex flex-col items-center">
+<!-- Drag Handle -->
+<div class="h-1.5 w-12 rounded-full bg-slate-200 dark:bg-slate-700 mb-6 mt-1"></div>
+<div class="w-full">
+<div class="flex justify-between items-start mb-4">
+<div class="flex-1">
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-1">Procurando seu motorista...</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Localizando veículos próximos na sua área</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-primary font-bold text-lg">101 X</span>
+<span class="text-xs text-slate-400 font-medium">CATEGORIA</span>
+</div>
+</div>
+<!-- Progress/Loading Area -->
+<div class="relative w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-8">
+<div class="absolute top-0 left-0 h-full bg-yellow-400 rounded-full" style="width: 45%;"></div>
+</div>
+<!-- Status Details -->
+<div class="space-y-4 mb-8">
+<div class="flex items-center gap-4">
+<div class="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-[20px]">location_on</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-slate-400 uppercase font-semibold tracking-wider">Partida</p>
+<p class="text-sm font-medium text-slate-800 dark:text-slate-200">Av. Paulista, 1578 - Bela Vista</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex size-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
+<span class="material-symbols-outlined text-[20px]">flag</span>
+</div>
+<div class="flex-1 border-t border-slate-50 dark:border-slate-700 pt-4">
+<p class="text-xs text-slate-400 uppercase font-semibold tracking-wider">Destino</p>
+<p class="text-sm font-medium text-slate-800 dark:text-slate-200">Parque Ibirapuera - Portão 3</p>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<button class="w-full py-4 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold tracking-wide uppercase text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-sm">
+                        Cancelar Viagem
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

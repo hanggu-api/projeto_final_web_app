@@ -1,0 +1,272 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 93.0.0 (96.0.0 available)
+  analyzer 10.0.1 (10.2.0 available)
+  app_links 6.4.1 (7.0.0 available)
+  archive 4.0.7 (4.0.9 available)
+  build_runner 2.10.5 (2.11.1 available)
+  built_value 8.12.3 (8.12.4 available)
+  camera 0.11.3 (0.11.4 available)
+  camera_android_camerax 0.6.29 (0.7.0+1 available)
+  camera_avfoundation 0.9.22+9 (0.10.0+2 available)
+  characters 1.4.0 (1.4.1 available)
+  dbus 0.7.11 (0.7.12 available)
+  ffi 2.1.5 (2.2.0 available)
+  firebase_analytics 12.1.1 (12.1.2 available)
+! flutter_jailbreak_detection 1.10.0 from git https://github.com/pdurasie-ecovery/flutter_jailbreak_detection.git at b0e4bb (overridden)
+  flutter_local_notifications 20.0.0 (20.1.0 available)
+  flutter_local_notifications_windows 2.0.0 (2.0.1 available)
+  flutter_riverpod 2.6.1 (3.2.1 available)
+  geocoding_android 4.0.1 (5.0.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  go_router 17.0.1 (17.1.0 available)
+  google_fonts 8.0.0 (8.0.2 available)
+  hooks 1.0.0 (1.0.1 available)
+  image 4.7.2 (4.8.0 available)
+  image_picker_android 0.8.13+13 (0.8.13+14 available)
+  json_annotation 4.10.0 (4.11.0 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.17.0 (1.18.1 available)
+  mgrs_dart 2.0.0 (3.0.0 available)
+  mobile_scanner 7.1.4 (7.2.0 available)
+  objective_c 9.2.5 (9.3.0 available)
+! package_info_plus 4.2.0 (overridden) (9.0.0 available)
+  package_info_plus_platform_interface 2.0.1 (3.2.1 available)
+  patrol 3.20.0 (4.1.1 available)
+  patrol_finders 2.9.0 (3.1.0 available)
+  patrol_log 0.5.0 (0.7.0 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  petitparser 7.0.1 (7.0.2 available)
+  posix 6.0.3 (6.5.0 available)
+  proj4dart 2.1.0 (3.0.0 available)
+  record_android 1.5.0 (1.5.1 available)
+! record_linux 1.3.0 (overridden)
+  record_macos 1.2.0 (1.2.1 available)
+! record_platform_interface 1.5.0 (overridden)
+  riverpod 2.6.1 (3.2.1 available)
+  source_span 1.10.1 (1.10.2 available)
+  test_api 0.7.7 (0.7.9 available)
+  timezone 0.10.1 (0.11.0 available)
+  unicode 0.3.1 (1.1.9 available)
+  url_launcher_ios 6.3.6 (6.4.1 available)
+  video_player 2.10.1 (2.11.0 available)
+  video_player_android 2.9.1 (2.9.4 available)
+  video_player_avfoundation 2.9.0 (2.9.3 available)
+  webview_flutter_wkwebview 3.23.5 (3.23.7 available)
+  win32 5.15.0 (6.0.0 available)
+  win32_registry 2.1.0 (3.0.0 available)
+Got dependencies!
+54 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing mobile_app...                                         
+
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:22:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:23:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:71:12 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:92:7 - avoid_print
+warning - The value of the field '_emailLastTs' isn't used - lib\features\auth\login_screen.dart:34:13 - unused_field
+warning - The value of the field '_passwordLastTs' isn't used - lib\features\auth\login_screen.dart:35:13 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\register_screen.dart:638:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\register_screen.dart:659:43 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\auth\steps\business_info_step.dart:124:21 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\auth\steps\location_step.dart:233:21 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:110:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:111:23 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:124:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:125:23 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:211:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:218:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:280:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:66:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:75:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:76:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:91:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:193:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:264:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:449:53 - deprecated_member_use
+warning - The value of the field '_serviceType' isn't used - lib\features\client\payment_screen.dart:31:11 - unused_field
+warning - The value of the field '_userPhone' isn't used - lib\features\client\payment_screen.dart:36:11 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\payment_screen.dart:669:43 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:264:44 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:272:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:274:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:279:44 - use_build_context_synchronously
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\client\scheduled_service_screen.dart:364:21 - deprecated_member_use
+warning - The value of the local variable 'clientDeparting' isn't used - lib\features\client\scheduled_service_screen.dart:537:16 - unused_local_variable
+warning - The value of the local variable 'paymentPending' isn't used - lib\features\client\scheduled_service_screen.dart:538:16 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:69:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:123:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:184:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:260:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:316:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:372:56 - deprecated_member_use
+warning - The value of the field '_aiCategoryName' isn't used - lib\features\client\service_request_screen_fixed.dart:52:11 - unused_field
+warning - The value of the field '_aiConfidence' isn't used - lib\features\client\service_request_screen_fixed.dart:54:11 - unused_field
+warning - The value of the field '_aiSuggestionMessage' isn't used - lib\features\client\service_request_screen_fixed.dart:58:11 - unused_field
+warning - The value of the field '_aiServiceType' isn't used - lib\features\client\service_request_screen_fixed.dart:59:11 - unused_field
+warning - The value of the field '_aiSuggestions' isn't used - lib\features\client\service_request_screen_fixed.dart:60:36 - unused_field
+warning - The value of the field '_needsDetails' isn't used - lib\features\client\service_request_screen_fixed.dart:64:14 - unused_field
+warning - The value of the field '_aiClassifying' isn't used - lib\features\client\service_request_screen_fixed.dart:65:14 - unused_field
+warning - The value of the field '_allProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:70:22 - unused_field
+warning - The value of the field '_filteredProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:71:22 - unused_field
+warning - The value of the field '_selectedTimeSlotData' isn't used - lib\features\client\service_request_screen_fixed.dart:72:25 - unused_field
+warning - The value of the field '_showTeach' isn't used - lib\features\client\service_request_screen_fixed.dart:76:14 - unused_field
+warning - The value of the field '_hasAiRun' isn't used - lib\features\client\service_request_screen_fixed.dart:77:14 - unused_field
+warning - The declaration '_classifyAi' isn't referenced - lib\features\client\service_request_screen_fixed.dart:481:16 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:486:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:487:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:488:16 - unused_element
+warning - The value of the local variable 'serviceName' isn't used - lib\features\client\service_request_screen_fixed.dart:566:11 - unused_local_variable
+warning - The value of the field '_isLoading' isn't used - lib\features\client\service_request_screen_mobile.dart:37:8 - unused_field
+warning - The value of the field '_suggestions' isn't used - lib\features\client\service_request_screen_mobile.dart:44:36 - unused_field
+warning - The value of the field '_expandedProviderIndex' isn't used - lib\features\client\service_request_screen_mobile.dart:70:8 - unused_field
+warning - The value of the field '_selectedProviderId' isn't used - lib\features\client\service_request_screen_mobile.dart:71:8 - unused_field
+warning - The value of the field '_isLoadingProfessions' isn't used - lib\features\client\service_request_screen_mobile.dart:77:8 - unused_field
+warning - The declaration '_searchAddress' isn't referenced - lib\features\client\service_request_screen_mobile.dart:404:16 - unused_element
+warning - The value of the local variable 'body' isn't used - lib\features\client\service_request_screen_mobile.dart:418:15 - unused_local_variable
+warning - The value of the local variable 'isFixed' isn't used - lib\features\client\service_request_screen_mobile.dart:449:17 - unused_local_variable
+warning - The declaration '_formatAddressData' isn't referenced - lib\features\client\service_request_screen_mobile.dart:485:10 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:490:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:491:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:492:16 - unused_element
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\client\service_request_screen_mobile.dart:1089:21 - deprecated_member_use
+warning - The value of the field '_media' isn't used - lib\features\home\home_screen.dart:43:9 - unused_field
+warning - The declaration '_checkUberEnabled' isn't referenced - lib\features\home\home_screen.dart:1021:16 - unused_element
+  error - Undefined name '_uberEnabled' - lib\features\home\home_screen.dart:1026:11 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1136:33 - deprecated_member_use
+  error - Undefined name '_routeDuration' - lib\features\home\home_screen.dart:1200:9 - undefined_identifier
+warning - The declaration '_buildCategoryRow' isn't referenced - lib\features\home\home_screen.dart:1291:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1341:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1351:47 - deprecated_member_use
+  error - Undefined name '_isMapReady' - lib\features\home\home_screen.dart:1389:52 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1725:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1727:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1730:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1769:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1773:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1780:51 - deprecated_member_use
+warning - The declaration '_buildPlacesItem' isn't referenced - lib\features\home\home_screen.dart:1804:10 - unused_element
+warning - The declaration '_buildHeader' isn't referenced - lib\features\home\home_screen.dart:1985:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1995:31 - deprecated_member_use
+warning - The declaration '_buildNotificationBadge' isn't referenced - lib\features\home\home_screen.dart:2003:10 - unused_element
+warning - The declaration '_buildAddressCard' isn't referenced - lib\features\home\home_screen.dart:2038:10 - unused_element
+warning - The declaration '_buildPlacesListTile' isn't referenced - lib\features\home\home_screen.dart:2073:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2269:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2305:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2313:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2364:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2644:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2657:82 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2856:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2925:52 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:2933:36 - unnecessary_underscores
+warning - The value of the local variable 'isPoi' isn't used - lib\features\home\home_screen.dart:2958:22 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3037:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3073:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3245:73 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3357:45 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3358:12 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3449:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3493:45 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:3579:45 - unnecessary_underscores
+warning - The value of the field '_submittingReview' isn't used - lib\features\home\widgets\fixed_service_card.dart:66:8 - unused_field
+warning - The value of the field '_reviewSubmittedSuccessfully' isn't used - lib\features\home\widgets\fixed_service_card.dart:67:8 - unused_field
+warning - The value of the field '_isSchedulingCounter' isn't used - lib\features\home\widgets\fixed_service_card.dart:77:14 - unused_field
+warning - The value of the field '_selectedDate' isn't used - lib\features\home\widgets\fixed_service_card.dart:78:18 - unused_field
+warning - The value of the field '_selectedTime' isn't used - lib\features\home\widgets\fixed_service_card.dart:79:19 - unused_field
+warning - The value of the field '_travelSubtitle' isn't used - lib\features\home\widgets\fixed_service_card.dart:83:11 - unused_field
+warning - The value of the local variable 'priceEstimated' isn't used - lib\features\home\widgets\fixed_service_card.dart:377:11 - unused_local_variable
+warning - The value of the local variable 'dateText' isn't used - lib\features\home\widgets\fixed_service_card.dart:379:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\fixed_service_card.dart:401:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\fixed_service_card.dart:577:53 - deprecated_member_use
+warning - The declaration '_submitLocalReview' isn't referenced - lib\features\home\widgets\fixed_service_card.dart:780:16 - unused_element
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1211:42 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1214:62 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1538:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1540:75 - use_build_context_synchronously
+warning - The value of the field '_isPlaying' isn't used - lib\features\notifications\widgets\time_to_leave_modal.dart:21:8 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:79:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:84:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:97:47 - deprecated_member_use
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_fixed.dart:31:13 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:864:47 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:866:54 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:873:54 - use_build_context_synchronously
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_mobile.dart:60:13 - unused_field
+   info - 'timeLimit' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\features\provider\provider_home_mobile.dart:561:60 - deprecated_member_use
+warning - The value of the field '_userPhone' isn't used - lib\features\provider\provider_profile_content.dart:28:10 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:228:128 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:248:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:264:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:337:85 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:337:193 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_profile_content.dart:367:66 - use_build_context_synchronously
+warning - The value of the field '_api' isn't used - lib\features\provider\schedule_edit_screen.dart:15:20 - unused_field
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\service_details_screen_fixed.dart:949:21 - deprecated_member_use
+warning - The value of the field '_isLoadingRoute' isn't used - lib\features\provider\widgets\provider_service_card.dart:50:8 - unused_field
+warning - The value of the local variable 'statusColor' isn't used - lib\features\provider\widgets\provider_service_card.dart:165:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:287:46 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\provider_service_card.dart:401:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:506:71 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\provider\widgets\provider_service_card.dart:740:35 - unnecessary_underscores
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\scheduled_notification_modal.dart:423:21 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\service_offer_modal.dart:656:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:761:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:766:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:911:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:957:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:973:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:994:65 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1112:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1318:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1321:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:116:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:127:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:176:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:191:77 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:233:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:233:90 - deprecated_member_use
+warning - The value of the field '_vehicleColor' isn't used - lib\features\uber\driver_home_screen.dart:36:9 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\driver_home_screen.dart:148:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\driver_home_screen.dart:237:28 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:306:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:308:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:311:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:326:74 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:354:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:384:82 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:432:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:436:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:438:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:590:63 - deprecated_member_use
+warning - The declaration '_startSimulation' isn't referenced - lib\features\uber\driver_home_screen.dart:699:8 - unused_element
+warning - The declaration '_stopSimulation' isn't referenced - lib\features\uber\driver_home_screen.dart:726:8 - unused_element
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\driver_trip_screen.dart:109:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_trip_screen.dart:144:107 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_trip_screen.dart:266:46 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\uber_request_screen.dart:128:19 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_request_screen.dart:270:54 - deprecated_member_use
+warning - The name pi is shown, but isn't used - lib\features\uber\uber_tracking_screen.dart:11:25 - unused_shown_name
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\uber_tracking_screen.dart:100:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:231:70 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:234:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:344:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:353:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:424:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:48:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:75:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:155:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:371:39 - deprecated_member_use
+   info - Empty catch block - lib\services\analytics_service.dart:42:16 - empty_catches
+warning - The value of the field '_api' isn't used - lib\services\remote_config_service.dart:8:16 - unused_field
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\services\theme_service.dart:143:9 - deprecated_member_use
+   info - 'onBackground' is deprecated and shouldn't be used. Use onSurface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\services\theme_service.dart:146:9 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\services\theme_service.dart:186:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_bottom_nav.dart:90:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_bottom_nav.dart:94:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_bottom_nav.dart:115:36 - deprecated_member_use
+   info - Don't invoke 'print' in production code - test\test_supabase_relations.dart:19:7 - avoid_print
+   info - Don't invoke 'print' in production code - test\test_supabase_relations.dart:21:7 - avoid_print
+

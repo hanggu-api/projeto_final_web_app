@@ -89,36 +89,46 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
 
             // Proof Photo or Video
             if (_service!['proof_photo'] != null && _service!['proof_photo'].toString().isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(
-                  imageUrl: '${ApiService.baseUrl}/media/content?key=${Uri.encodeComponent(_service!['proof_photo'])}',
-                  httpHeaders: _api.authHeaders,
-                  width: double.infinity,
-                  height: 250,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    height: 250,
-                    color: Colors.grey[200],
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    height: 250,
-                    color: Colors.grey[200],
-                    child: const Center(child: Icon(Icons.broken_image, size: 48, color: Colors.grey)),
-                  ),
-                ),
+              FutureBuilder<String>(
+                future: _api.getMediaViewUrl(_service!['proof_photo'].toString()),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox(height: 250, child: Center(child: CircularProgressIndicator()));
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: snapshot.data!,
+                      width: double.infinity,
+                      height: 250,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        height: 250,
+                        color: Colors.grey[200],
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 250,
+                        color: Colors.grey[200],
+                        child: const Center(child: Icon(Icons.broken_image, size: 48, color: Colors.grey)),
+                      ),
+                    ),
+                  );
+                }
               )
-            else if (_service!['proof_video'] != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                   height: 250,
-                   child: SimpleVideoPlayer(
-                     videoUrl: '${ApiService.baseUrl}/media/content?key=${Uri.encodeComponent(_service!['proof_video'])}',
-                     headers: _api.authHeaders,
-                   ),
-                ),
+            else if (_service!['proof_video'] != null && _service!['proof_video'].toString().isNotEmpty)
+              FutureBuilder<String>(
+                future: _api.getMediaViewUrl(_service!['proof_video'].toString()),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox(height: 250, child: Center(child: CircularProgressIndicator()));
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                       height: 250,
+                       child: SimpleVideoPlayer(
+                         videoUrl: snapshot.data!,
+                       ),
+                    ),
+                  );
+                }
               )
             else
               const Text('Nenhuma foto ou vídeo anexado.'),
@@ -249,21 +259,13 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
 
   Future<void> _confirmService(int rating) async {
     try {
-      // 1. Send Rating (if endpoint exists, or bundle it)
-      // For now, let's assume we send it to confirm-final or a separate rate endpoint.
-      // Let's just pass it to confirm-final for simplicity in this demo.
-      
-      final res = await _api.post('/services/${widget.serviceId}/confirm-final', {
-        'rating': rating,
-      });
+      await _api.confirmFinalService(widget.serviceId, rating: rating);
 
-      if (res['success'] == true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Serviço avaliado e finalizado!')),
-          );
-          context.go('/home');
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Serviço avaliado e finalizado!')),
+        );
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {

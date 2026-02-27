@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:device_info_plus/device_info_plus.dart';
-import 'api_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PaymentService {
-  // TODO: Substitua pela sua Public Key do Mercado Pago (Sandbox ou Produção)
+  /// Public Key do Mercado Pago — usada APENAS para tokenizar o cartão no frontend
   static const String mpPublicKey = String.fromEnvironment(
     'MP_PUBLIC_KEY',
     defaultValue: 'APP_USR-146c3bc4-631d-44cb-aec3-81cc7b6026d9',
@@ -22,7 +22,7 @@ class PaymentService {
       final deviceInfo = DeviceInfoPlugin();
       if (defaultTargetPlatform == TargetPlatform.android) {
         final androidInfo = await deviceInfo.androidInfo;
-        return androidInfo.id; // stable Android ID
+        return androidInfo.id;
       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
         final iosInfo = await deviceInfo.iosInfo;
         return iosInfo.identifierForVendor ?? 'ios-device-id';
@@ -33,7 +33,8 @@ class PaymentService {
     }
   }
 
-  /// Cria um token de cartão usando a API do Mercado Pago.
+  /// Cria um token de cartão diretamente na API pública do Mercado Pago.
+  /// Esta chamada é feita do FRONTEND com a public key — NÃO usa o backend.
   Future<String> createCardToken({
     required String cardNumber,
     required String cardholderName,
@@ -43,13 +44,11 @@ class PaymentService {
     required String identificationType,
     required String identificationNumber,
   }) async {
-    debugPrint('DEBUG: createCardToken NO TIMEOUT VERSION');
-    debugPrint('Iniciando createCardToken...'); // DEBUG
+    debugPrint('PaymentService: createCardToken →  MP API');
     try {
       final url = Uri.parse(
         'https://api.mercadopago.com/v1/card_tokens?public_key=$mpPublicKey',
       );
-      debugPrint('URL: $url'); // DEBUG
 
       final response = await _client.post(
         url,
@@ -68,19 +67,16 @@ class PaymentService {
           'expiration_year': int.tryParse(expirationYear),
         }),
       );
-      debugPrint('Response status: ${response.statusCode}'); // DEBUG
-      debugPrint('Response body: ${response.body}'); // DEBUG
+
+      debugPrint('createCardToken → status: ${response.statusCode}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['id'];
       } else {
         final error = jsonDecode(response.body);
-        // Tenta extrair a mensagem de erro da resposta do MP
         final errorMessage =
-            error['message'] ??
-            error['error'] ??
-            'Erro desconhecido ao tokenizar cartão';
+            error['message'] ?? error['error'] ?? 'Erro desconhecido ao tokenizar cartão';
         throw Exception(errorMessage);
       }
     } catch (e) {
@@ -93,8 +89,9 @@ class PaymentService {
     _client.close();
   }
 
-  /// Processa o pagamento enviando os dados para o backend.
-  /// [amount] deve ser enviado com precisão.
+  /// Processa o pagamento via Supabase Edge Function `payments`.
+  /// A Edge Function chama a API do Mercado Pago de forma segura (server-side)
+  /// usando o MP_ACCESS_TOKEN armazenado nos secrets do Supabase.
   Future<Map<String, dynamic>> processPayment({
     required double amount,
     required String token,
@@ -109,46 +106,44 @@ class PaymentService {
     String? deviceId,
   }) async {
     try {
-      // Usa o ApiService para se comunicar com o seu backend
-      // O ApiService já gerencia a URL base e autenticação (Bearer token)
-      debugPrint('Enviando pagamento para o backend...'); // DEBUG
-      final response = await ApiService().post('/payment/process', {
-        'transaction_amount': amount,
-        'token': token,
-        'description': description,
-        'installments': installments,
-        'payment_method_id': paymentMethodId,
-        'payer': payer ?? {'email': email},
-        'service_id': serviceId,
-        'device_id': deviceId,
-        'issuer_id': ?issuerId,
-        'payment_type': ?paymentType,
-      });
+      debugPrint('PaymentService: processPayment → Supabase Edge Fn payments');
 
-      // O backend retorna { success: true, payment: { ... } }
-      // Adaptamos para o formato esperado pela UI se necessário, ou retornamos direto
-      if (response['success'] == true) {
-        if (response.containsKey('warning')) {
-          debugPrint('⚠️ WARNING: ${response['warning']}');
+      // Sprint 3: Chama a Edge Function `payments` em vez do backend legado
+      final response = await Supabase.instance.client.functions.invoke(
+        'payments',
+        body: {
+          'transaction_amount': amount,
+          'token': token,
+          'description': description,
+          'installments': installments,
+          'payment_method_id': paymentMethodId,
+          'payer': payer ?? {'email': email},
+          'service_id': serviceId,
+          'device_id': deviceId,
+          'issuer_id': issuerId,
+          'payment_type': paymentType,
+        },
+        method: HttpMethod.post,
+      );
+
+      final data = response.data as Map<String, dynamic>? ?? {};
+
+      if (data['success'] == true) {
+        final payment = data['payment'] as Map<String, dynamic>? ?? {};
+        if (payment.containsKey('warning')) {
+          debugPrint('⚠️ WARNING: ${payment['warning']}');
         }
         return {
-          'status':
-              response['payment']['status'] ??
-              'approved', // Mapeia status do MP
-          'transaction_id': response['payment']['id'].toString(),
+          'status': payment['status'] ?? 'approved',
+          'transaction_id': payment['id'].toString(),
           'amount': amount,
           'date_created': DateTime.now().toIso8601String(),
-          'original_response': response,
+          'original_response': data,
         };
       } else {
-        if (response.containsKey('error') && response['error'] is Map) {
-          final err = response['error'];
-          final code = err['code'] ?? 'UNKNOWN';
-          final msg = err['message'] ?? 'Falha no pagamento';
-          debugPrint('❌ Erro de Pagamento ($code): $msg');
-          throw Exception('[$code] $msg');
-        }
-        throw Exception(response['message'] ?? 'Falha no pagamento');
+        final errMsg = data['error'] ?? data['message'] ?? 'Falha no pagamento';
+        debugPrint('❌ Pagamento recusado: $errMsg');
+        throw Exception(errMsg);
       }
     } catch (e) {
       debugPrint('Erro no processamento do pagamento: $e');

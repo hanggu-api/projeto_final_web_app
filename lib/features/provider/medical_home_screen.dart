@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
@@ -117,8 +118,22 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
       // Load Services (Requests/Appointments)
       final services = await _api.getMyServices();
 
-      // Load Schedule
-      final setupResponse = await _api.get('/provider/setup');
+      // Sprint 2: Supabase SDK em vez de GET /provider/setup
+      final providerId = _api.userId;
+      List<dynamic> schedulesData = [];
+      List<dynamic> exceptionsData = [];
+
+      if (providerId != null) {
+        schedulesData = await Supabase.instance.client
+            .from('provider_schedule_configs')
+            .select()
+            .eq('provider_id', providerId);
+
+        exceptionsData = await Supabase.instance.client
+            .from('provider_schedule_exceptions')
+            .select()
+            .eq('provider_id', providerId);
+      }
 
       setState(() {
         _pendingRequests = services
@@ -134,10 +149,8 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
             )
             .toList();
 
-        if (setupResponse['success'] == true) {
-          _schedules = setupResponse['schedules'] ?? [];
-          _exceptions = setupResponse['exceptions'] ?? [];
-        }
+        _schedules = schedulesData.map((s) => Map<String, dynamic>.from(s)).toList();
+        _exceptions = exceptionsData.map((e) => Map<String, dynamic>.from(e)).toList();
 
         _isLoading = false;
       });

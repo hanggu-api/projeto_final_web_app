@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../services/api_service.dart';
@@ -193,7 +194,11 @@ class _ScheduledNotificationModalState
         'ACCEPTED',
         'Scheduled Modal - Provider Confirmed Schedule',
       );
-      await _api.post('/services/${widget.serviceId}/accept', {});
+      // Sprint 2: Usar Supabase SDK em vez do backend legado
+      await Supabase.instance.client
+          .from('service_requests_new')
+          .update({'status': 'accepted', 'accepted_at': DateTime.now().toIso8601String()})
+          .eq('id', widget.serviceId);
 
       NotificationService().stopPersistentNotification(widget.serviceId);
       await NotificationService().cancelAll();
@@ -415,6 +420,9 @@ class _ScheduledNotificationModalState
                                       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
                                   subdomains: const ['a', 'b', 'c', 'd'],
                                   userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
                                 ),
                                 PolylineLayer(
                                   polylines: [
@@ -557,3 +565,4 @@ class _ScheduledNotificationModalState
     );
   }
 }
+

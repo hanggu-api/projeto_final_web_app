@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#427cf0",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                        "accent-yellow": "#FFD700"
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>body {
+    font-family: "Manrope", sans-serif
+    }
+.map-bg {
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuAmvBpC05JhSFBbc_1U8XtMRGRh55DEQSiG_TlnmjhAEqTVXE21-EW0dYWvjlWd0ZTl3m9KWTI3EbHTuYXL3oNIvOdCAMaf4wfH55c69MKgQiZpYl2XtqgjT1RgPovMbvORJdNsYySof8Z4eB16QYPzY61HiXv52GSPWsc4GgTcg3qyspBdyRDYaHA9pFN951xFpa2u2XJw4Pv_3AIj-m3SNKg71OtXRWFjra4yxAR_x0e6FpqABxaZAqAMEcH24bqGu_B3eV42Q8E);
+    background-size: cover;
+    background-position: center
+    }</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Map Background -->
+<div class="absolute inset-0 z-0 map-bg" data-alt="Simplified city map with navigation routes" data-location="São Paulo, Brazil" style="">
+<!-- Simulated Navigation Path & Markers -->
+<div class="absolute inset-0 bg-primary/5"></div>
+<!-- Pickup Marker -->
+<div class="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<div class="relative flex items-center justify-center">
+<div class="absolute w-8 h-8 bg-primary/20 rounded-full animate-pulse"></div>
+<span class="material-symbols-outlined text-primary text-4xl">location_on</span>
+</div>
+</div>
+</div>
+<!-- Top Navigation -->
+<div class="relative z-10 flex items-center justify-between p-4 bg-gradient-to-b from-white/80 to-transparent">
+<button class="flex size-10 items-center justify-center rounded-full bg-white shadow-lg text-slate-900">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex-1 px-4">
+<div class="bg-white rounded-xl shadow-lg p-3 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">trip_origin</span>
+<div class="flex flex-col">
+<span class="text-xs text-slate-500 font-medium">Sua localização</span>
+<span class="text-sm font-bold truncate">Av. Paulista, 1000</span>
+</div>
+</div>
+</div>
+<button class="flex size-10 items-center justify-center rounded-full bg-white shadow-lg text-slate-900">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<!-- Floating Action Buttons -->
+<div class="absolute right-4 bottom-[440px] z-10 flex flex-col gap-2">
+<button class="flex size-12 items-center justify-center rounded-xl bg-white shadow-xl text-slate-800">
+<span class="material-symbols-outlined">my_location</span>
+</button>
+</div>
+<!-- Bottom Sheet Selection -->
+<div class="absolute inset-x-0 bottom-0 z-20 flex flex-col bg-white dark:bg-background-dark rounded-t-xl shadow-2xl transition-transform duration-300">
+<!-- Drag Handle -->
+<div class="flex h-6 w-full items-center justify-center pt-2">
+<div class="h-1.5 w-12 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+</div>
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<h2 class="text-xl font-extrabold tracking-tight">Escolha uma viagem</h2>
+<div class="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="text-xs font-bold uppercase tracking-wider">Agora</span>
+</div>
+</div>
+<div class="flex flex-col p-2 gap-1 overflow-y-auto max-h-[320px]">
+<!-- Option 1: 101 X (Selected) -->
+<button class="flex items-center gap-4 p-4 rounded-xl bg-primary/10 border-2 border-primary transition-all text-left">
+<div class="w-16 h-12 flex items-center justify-center">
+<img class="w-full h-auto object-contain" data-alt="Standard sedan car icon for basic ride" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBC9cf_AUy5Z5BIQmoKNdyjVpDwsE00dmpLb5oDnSqT4JDujUDo1D1Rg8IR-wzpTdKcQUjV-vLEaYIW2Gj_IXF_MMdyWJfRqG5pse_-ybdD8wYZ0BsJyZjeKSxajglisGF_cq6JMHe9fvqEY_Tr2OFQbzYE8Z8P4ADtCekdvaCERZrwHV6NPQjZaAEXXq4si2_Hly0s5XnECh2yDakGTFZx7Rr3JD_Aa20ehJdgBwU8ts7tn0IZDRhyxqBicAMKGUITixLOUZkt9C8"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<p class="font-bold text-lg">101 X</p>
+<span class="material-symbols-outlined text-primary text-sm">person</span>
+<span class="text-xs font-medium text-slate-500">4</span>
+</div>
+<p class="text-sm font-medium text-primary">3 min de espera</p>
+</div>
+<div class="text-right">
+<p class="font-extrabold text-lg">R$ 12,50</p>
+<p class="text-[10px] text-slate-400 line-through">R$ 15,80</p>
+</div>
+</button>
+<!-- Option 2: 101 Comfort -->
+<button class="flex items-center gap-4 p-4 rounded-xl bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 border-2 border-transparent transition-all text-left">
+<div class="w-16 h-12 flex items-center justify-center">
+<img class="w-full h-auto object-contain" data-alt="Modern spacious sedan car icon for comfort ride" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0ECf9NJOJbD7j-5evRGpyJR5x3ZDpDKkUh7f7T26Rn96Ur57h8vMVdsgA0eFlh6t3QZaRafO4Uk_XgRywLIEEFdrz-D1Jqq0JE3eKD0Cf_44V5QCuBx4hAvbX5pbPN0A0M47XbLdvQ_mMrjJEo9E7K8kTG7aps0XrFzfx9y4bnqWwCDnssZX8-9IjqCNVfwl-p8K0ynD0oTKJYkMDkDtj-FawqgT-85xTTRkVVOSBjVPb5AASYKsFdYM7e6R3wFyd96tCn_PUm0U"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<p class="font-bold text-lg">101 Comfort</p>
+<span class="material-symbols-outlined text-slate-400 text-sm">person</span>
+<span class="text-xs font-medium text-slate-500">4</span>
+</div>
+<p class="text-sm font-medium text-slate-500">5 min de espera</p>
+</div>
+<div class="text-right">
+<p class="font-extrabold text-lg">R$ 18,90</p>
+</div>
+</button>
+<!-- Option 3: 101 Black -->
+<button class="flex items-center gap-4 p-4 rounded-xl bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 border-2 border-transparent transition-all text-left">
+<div class="w-16 h-12 flex items-center justify-center">
+<img class="w-full h-auto object-contain" data-alt="Luxury black premium car icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgNI5wvMmxkLhtqPMMewtCiIG3gJsen39Brb9SYpZ21Sda5O9kw_cMDcpjqz3VooKA8JLkf7Z-gxzUUTNiTx8mDOkDaaS_IOeaKcSBfLCo27_0Bi6COcmJI6vl5yXTv4bpyHphBDm6S5BMy_uLOfbHrL0c6OkNHecBoJi2AgtCTXez2OIl6At7HLjBbLO8yabac3qmf-Vajdj2vF68JqXT78BHQw0Siz2dvX_M_5wC3R6RS70Q-5cRgb4f4vwXAfLvOLFfzBUFf6A"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<p class="font-bold text-lg">101 Black</p>
+<span class="material-symbols-outlined text-slate-400 text-sm">person</span>
+<span class="text-xs font-medium text-slate-500">4</span>
+</div>
+<p class="text-sm font-medium text-slate-500">8 min de espera</p>
+</div>
+<div class="text-right">
+<p class="font-extrabold text-lg">R$ 25,40</p>
+</div>
+</button>
+</div>
+<!-- Footer / Confirm Button -->
+<div class="p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="flex size-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-sm">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">payments</span>
+</div>
+<span class="text-sm font-bold">Dinheiro</span>
+<span class="material-symbols-outlined text-slate-400 text-sm">expand_more</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400 text-sm">sell</span>
+<span class="text-sm font-medium text-slate-500">Promoção aplicada</span>
+</div>
+</div>
+<button class="w-full py-4 bg-accent-yellow hover:brightness-105 active:scale-[0.98] transition-all rounded-xl shadow-lg shadow-yellow-200 dark:shadow-none text-slate-900 text-lg font-extrabold tracking-tight uppercase">
+                    Confirmar 101 X
+                </button>
+</div>
+<!-- Safe area bottom spacer -->
+<div class="h-6 bg-slate-50 dark:bg-slate-900/50"></div>
+</div>
+</div>
+</body></html>

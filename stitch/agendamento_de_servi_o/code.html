@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Schedule Service - 101 Service</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#FFD700", // Brand yellow accent
+                        "primary-dark": "#E6C200",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen">
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center p-4 justify-between max-w-lg mx-auto w-full">
+<button class="text-slate-900 dark:text-slate-100 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center">Schedule Service</h1>
+<div class="w-10 flex justify-end">
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+</header>
+<main class="max-w-lg mx-auto pb-32">
+<!-- Professional Profile Card -->
+<div class="p-4 mt-2">
+<div class="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="relative">
+<img alt="Professional barber portrait" class="aspect-square w-24 rounded-xl object-cover" data-alt="Professional barber smiling in a studio" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCd8btNo8baW7ICEqOfGqXm7xMSrZPa05enFAZeTKWCaLo7nk_RCfGkEPNsmW3EzDnsSEC8vePcWrOnxIDhtxEPuf4uWL4WiPig-QbD2nT1xtx7c7f2tS9z0l-3AMUNG5tnqS08tpEVT9NywfmR2k0Nz568l6U0llqzL0JCjSlpjJ4vvGsMdakiTzAT0x-sfiwbcIuBx1RAsx6Zmr0CFb8qXtvxYVspVj5bKQ4TEoziXnXrJA5YEJ7ivsZE28chRN41uGRjhSsFvhY"/>
+<div class="absolute -bottom-2 -right-2 bg-primary text-slate-900 p-1 rounded-lg border-2 border-white dark:border-slate-900">
+<span class="material-symbols-outlined text-[16px] block">verified</span>
+</div>
+</div>
+<div class="flex flex-col">
+<h2 class="text-xl font-extrabold tracking-tight">Alex Rivers</h2>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Master Barber • 101 Service</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-primary text-[18px] fill-1">star</span>
+<span class="font-bold text-sm">4.9</span>
+<span class="text-slate-400 text-sm font-normal">(128 reviews)</span>
+</div>
+<div class="flex items-center gap-1 mt-1 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+<span class="text-xs">Upper East Side, NY</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Date Selection -->
+<section class="mt-4 px-4">
+<div class="flex justify-between items-end mb-4">
+<h3 class="text-lg font-bold">Select Date</h3>
+<span class="text-primary-dark dark:text-primary text-sm font-bold">October 2023</span>
+</div>
+<div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
+<!-- Date Cards -->
+<div class="flex flex-col items-center justify-center min-w-[64px] h-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<span class="text-xs text-slate-500 font-medium">MON</span>
+<span class="text-lg font-bold">16</span>
+</div>
+<div class="flex flex-col items-center justify-center min-w-[64px] h-20 rounded-xl bg-primary text-slate-900 shadow-lg shadow-primary/20">
+<span class="text-xs font-bold opacity-70">TUE</span>
+<span class="text-lg font-black">17</span>
+<div class="w-1 h-1 bg-slate-900 rounded-full mt-1"></div>
+</div>
+<div class="flex flex-col items-center justify-center min-w-[64px] h-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<span class="text-xs text-slate-500 font-medium">WED</span>
+<span class="text-lg font-bold">18</span>
+</div>
+<div class="flex flex-col items-center justify-center min-w-[64px] h-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm opacity-50">
+<span class="text-xs text-slate-400 font-medium">THU</span>
+<span class="text-lg font-bold">19</span>
+</div>
+<div class="flex flex-col items-center justify-center min-w-[64px] h-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<span class="text-xs text-slate-500 font-medium">FRI</span>
+<span class="text-lg font-bold">20</span>
+</div>
+<div class="flex flex-col items-center justify-center min-w-[64px] h-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<span class="text-xs text-slate-500 font-medium">SAT</span>
+<span class="text-lg font-bold">21</span>
+</div>
+</div>
+</section>
+<!-- Time Slot Grid -->
+<section class="mt-8 px-4">
+<h3 class="text-lg font-bold mb-4">Available Time</h3>
+<div class="grid grid-cols-3 gap-3">
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold hover:border-primary transition-colors">09:00 AM</button>
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold hover:border-primary transition-colors">09:30 AM</button>
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold opacity-40 cursor-not-allowed">10:00 AM</button>
+<button class="py-3 px-2 rounded-lg bg-primary text-slate-900 text-sm font-black border border-primary shadow-md">10:30 AM</button>
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold hover:border-primary transition-colors">11:00 AM</button>
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold hover:border-primary transition-colors">11:30 AM</button>
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold hover:border-primary transition-colors">01:00 PM</button>
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold hover:border-primary transition-colors">01:30 PM</button>
+<button class="py-3 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold hover:border-primary transition-colors">02:00 PM</button>
+</div>
+</section>
+<!-- Service Summary -->
+<section class="mt-8 px-4">
+<div class="bg-slate-100 dark:bg-slate-800/50 rounded-xl p-4">
+<div class="flex justify-between items-center mb-2">
+<span class="text-slate-500 dark:text-slate-400 text-sm font-medium">Service</span>
+<span class="font-bold">Premium Haircut &amp; Styling</span>
+</div>
+<div class="flex justify-between items-center mb-2">
+<span class="text-slate-500 dark:text-slate-400 text-sm font-medium">Duration</span>
+<span class="font-bold">45 min</span>
+</div>
+<div class="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">
+<span class="text-slate-900 dark:text-slate-100 font-bold">Total Price</span>
+<span class="text-lg font-black text-slate-900 dark:text-slate-100">$45.00</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Action & Navigation -->
+<div class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 z-50">
+<div class="max-w-lg mx-auto p-4">
+<button class="w-full bg-primary hover:bg-primary-dark text-slate-900 font-black py-4 rounded-xl shadow-lg shadow-primary/30 flex items-center justify-center gap-2 transition-transform active:scale-95 mb-4">
+<span>Confirm Appointment</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<!-- Bottom Nav Bar Component -->
+<nav class="flex justify-between items-center px-2 pb-2">
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-bold">Search</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-900 dark:text-primary" href="#">
+<span class="material-symbols-outlined fill-1">calendar_month</span>
+<span class="text-[10px] font-bold">Bookings</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">chat_bubble</span>
+<span class="text-[10px] font-bold">Inbox</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold">Profile</span>
+</a>
+</nav>
+</div>
+</div>
+</body></html>

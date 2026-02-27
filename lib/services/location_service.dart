@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 
 /// LocationService: Rastreamento contínuo de geolocalização com batching
@@ -24,7 +25,7 @@ class LocationService {
   /// Solicitar permissões e iniciar rastreamento contínuo
   Future<void> startTracking(String serviceId) async {
     if (_isTracking && _activeServiceId == serviceId) {
-      print('[Location] Já está rastreando serviço $serviceId');
+      debugPrint('[Location] Já está rastreando serviço $serviceId');
       return;
     }
 
@@ -39,12 +40,12 @@ class LocationService {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        print('[Location] Permissão de localização negada permanentemente');
+        debugPrint('[Location] Permissão de localização negada permanentemente');
         throw Exception('Location permission denied forever');
       }
 
       if (permission == LocationPermission.denied) {
-        print('[Location] Permissão de localização negada pelo usuário');
+        debugPrint('[Location] Permissão de localização negada pelo usuário');
         throw Exception('Location permission denied');
       }
 
@@ -63,15 +64,15 @@ class LocationService {
           _addToBuffer(position, serviceId);
         },
         onError: (error) {
-          print('[Location] Stream error: $error');
+          debugPrint('[Location] Stream error: $error');
           _stopStream();
         },
       );
 
       _isTracking = true;
-      print('[Location] Rastreamento iniciado para serviço $serviceId');
+      debugPrint('[Location] Rastreamento iniciado para serviço $serviceId');
     } catch (error) {
-      print('[Location] Erro ao iniciar rastreamento: $error');
+      debugPrint('[Location] Erro ao iniciar rastreamento: $error');
       _isTracking = false;
       rethrow;
     }
@@ -109,16 +110,16 @@ class LocationService {
     _batchTimer = null;
 
     try {
-      await ApiService.post('/location/batch', {
+      await ApiService().post('/location/batch', {
         'locations': batch,
         'service_id': serviceId,
       });
 
-      print('[Location] Batch enviado: ${batch.length} posições');
+      debugPrint('[Location] Batch enviado: ${batch.length} posições');
     } catch (error) {
       // Retentar no próximo batch
       _locationBuffer.addAll(batch);
-      print('[Location] Falha ao enviar batch: $error');
+      debugPrint('[Location] Falha ao enviar batch: $error');
     }
   }
 
@@ -145,9 +146,9 @@ class LocationService {
       _isTracking = false;
       _activeServiceId = null;
 
-      print('[Location] Rastreamento parado');
+      debugPrint('[Location] Rastreamento parado');
     } catch (error) {
-      print('[Location] Erro ao parar rastreamento: $error');
+      debugPrint('[Location] Erro ao parar rastreamento: $error');
     }
   }
 

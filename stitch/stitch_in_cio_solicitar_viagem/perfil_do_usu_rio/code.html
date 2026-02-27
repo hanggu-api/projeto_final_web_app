@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#FFD60A",
+                        "background-light": "#F2F2F7",
+                        "background-dark": "#1C1C1E",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>101 Service - Profile</title>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen pb-24">
+<!-- Header -->
+<div class="sticky top-0 z-10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center p-4 justify-between max-w-lg mx-auto">
+<div class="flex h-10 w-10 items-center justify-start">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-100">arrow_back_ios</span>
+</div>
+<h1 class="text-lg font-bold leading-tight flex-1 text-center">Profile</h1>
+<div class="w-10"></div>
+</div>
+</div>
+<main class="max-w-lg mx-auto px-4">
+<!-- Profile Info -->
+<div class="flex flex-col items-center py-8 gap-4">
+<div class="relative">
+<div class="bg-slate-200 dark:bg-slate-800 rounded-full h-28 w-28 overflow-hidden ring-4 ring-primary/20">
+<img alt="User Profile Picture" class="h-full w-full object-cover" data-alt="Professional headshot of a smiling man with a beard" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdO0aoe9Ql2kj5KKZJsnPqNHJcskW7akrS7RZ9V9_ez-Esj1KbWNcHwMh29BVg_U967pjf4rC2_g0JrQeoJyt90qS06Xxvb-Ne7SCQ7evgxyKL1375qamoXCzR0p6mJCcPGI0HcBx6LhGYeI0HY-F1VJI8sKdUwNWjDe-ZO9i5tumhXSYKXOrLXkvE4DTNpvztvexko53KwtgJQfF0IOi8ZoO3_r9EUlrKAgzpVoA_cQ1PlD8dqNSeVP8ieQdIso9MZ9qfDKlOWIY"/>
+</div>
+<div class="absolute bottom-0 right-0 bg-primary p-1.5 rounded-full border-2 border-white dark:border-background-dark">
+<span class="material-symbols-outlined text-slate-900 text-sm block">edit</span>
+</div>
+</div>
+<div class="text-center">
+<h2 class="text-2xl font-bold tracking-tight">João Silva</h2>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Member since Oct 2023</p>
+</div>
+</div>
+<!-- Balance Card -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 mb-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div class="flex flex-col gap-1">
+<p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">My Balance</p>
+<p class="text-2xl font-extrabold text-slate-900 dark:text-slate-100">R$ 250,00</p>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-slate-900 px-4 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-lg">add_circle</span>
+                Add Credits
+            </button>
+</div>
+<!-- Menu Section -->
+<div class="bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
+<h3 class="px-4 pt-4 pb-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Account Settings</h3>
+<a class="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0" href="#">
+<div class="bg-primary/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-slate-900 dark:text-primary">person</span>
+</div>
+<span class="flex-1 font-semibold">Personal Information</span>
+<span class="material-symbols-outlined text-slate-300">chevron_right</span>
+</a>
+<a class="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0" href="#">
+<div class="bg-primary/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-slate-900 dark:text-primary">payments</span>
+</div>
+<span class="flex-1 font-semibold">Payment Methods</span>
+<span class="material-symbols-outlined text-slate-300">chevron_right</span>
+</a>
+<a class="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0" href="#">
+<div class="bg-primary/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-slate-900 dark:text-primary">location_on</span>
+</div>
+<span class="flex-1 font-semibold">Addresses</span>
+<span class="material-symbols-outlined text-slate-300">chevron_right</span>
+</a>
+<a class="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0" href="#">
+<div class="bg-primary/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-slate-900 dark:text-primary">shield</span>
+</div>
+<span class="flex-1 font-semibold">Security</span>
+<span class="material-symbols-outlined text-slate-300">chevron_right</span>
+</a>
+</div>
+<div class="bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
+<a class="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors" href="#">
+<div class="bg-primary/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-slate-900 dark:text-primary">help</span>
+</div>
+<span class="flex-1 font-semibold">Help &amp; Support</span>
+<span class="material-symbols-outlined text-slate-300">chevron_right</span>
+</a>
+</div>
+<!-- Logout Button -->
+<button class="w-full bg-slate-200 dark:bg-slate-800 text-red-500 font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+<span class="material-symbols-outlined">logout</span>
+            Logout
+        </button>
+<div class="mt-8 text-center pb-8">
+<p class="text-slate-400 text-xs">Version 1.0.42 (Production)</p>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-background-dark/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-6 py-3 flex justify-between items-center z-50">
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">house</span>
+<span class="text-[10px] font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-bold">Search</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">list_alt</span>
+<span class="text-[10px] font-bold">Bookings</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">chat_bubble</span>
+<span class="text-[10px] font-bold">Inbox</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-900 dark:text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">person</span>
+<span class="text-[10px] font-bold">Profile</span>
+</a>
+</nav>
+</body></html>

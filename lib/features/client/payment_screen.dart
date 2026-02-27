@@ -26,14 +26,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
   late String _serviceId;
   late double _amount;
   late String _paymentType; // 'deposit' or 'remaining'
-  double _depositAmount = 0.0;
   double _totalAmount = 0.0;
+  String? _userPhone;
   String? _serviceType;
+  double _depositAmount = 0.0;
   
   // Card Brand Logic
   String _cardBrand = 'credit_card';
   String? _userEmail;
-  String? _userPhone;
   String? _deviceId;
   String? _providerName;
 
@@ -666,7 +666,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         minimumSize: const Size(double.infinity, 56),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 8,
-        shadowColor: AppTheme.primaryBlue.withOpacity(0.4),
+        shadowColor: AppTheme.primaryBlue.withValues(alpha: 0.4),
       ),
       child: _isLoading
           ? const SizedBox(

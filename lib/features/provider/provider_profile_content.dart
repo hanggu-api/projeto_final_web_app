@@ -1,9 +1,9 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
@@ -29,12 +29,9 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
   bool _isVerified = false;
   double _walletBalance = 0.0;
 
-  bool _isMedical = false;
-
   @override
   void initState() {
     super.initState();
-    _isMedical = _api.isMedical;
     _loadProfile();
     _loadAvatar();
     _loadSpecialties();
@@ -117,20 +114,6 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
     );
   }
 
-  void _showEditProfileDialog() async {
-    final success = await showDialog<bool>(
-      context: context,
-      builder: (context) => EditProfileDialog(
-        api: _api,
-        currentName: _userName,
-        currentPhone: _userPhone,
-      ),
-    );
-    if (success == true) {
-      _loadProfile();
-    }
-  }
-
   Future<void> _loadAvatar() async {
     try {
       final bytes = await _media.loadMyAvatarBytes();
@@ -186,170 +169,148 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.only(
-              top: 50,
-              left: 24,
-              right: 24,
-              bottom: 14,
-            ),
-            decoration: BoxDecoration(color: AppTheme.primaryYellow),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            image: _avatarBytes != null
-                                ? DecorationImage(
-                                    image: MemoryImage(_avatarBytes!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                          child: _avatarBytes == null
-                              ? const Center(
-                                  child: Text(
-                                    'CS',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          right: -4,
-                          bottom: -4,
-                          child: InkWell(
-                            onTap: _editAvatar,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.edit,
-                                size: 10,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Olá,',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                        Row(
-                            children: [
-                              Text(
-                                _userName,
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              if (_isVerified)
-                                Icon(
-                                  LucideIcons.checkCircle,
-                                  color: AppTheme.successGreen,
-                                  size: 14,
-                                )
-                              else
-                                const Icon(
-                                  LucideIcons.edit3,
-                                  color: Colors.black54,
-                                  size: 14,
-                                ),
-                            ],
-                        ),
-                      ],
-                    ),
-                  ],
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        slivers: [
+          // STITCH PREMIUM HEADER
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryYellow,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(40),
+                  bottomRight: Radius.circular(40),
                 ),
-                GestureDetector(
-                  onTap: _showWithdrawalDialog,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(LucideIcons.bell, color: Colors.black87),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Saldo disponível',
-                            style: TextStyle(color: Colors.black54),
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: AppTheme.backgroundLight,
+                                  backgroundImage: _avatarBytes != null ? MemoryImage(_avatarBytes!) : null,
+                                  child: _avatarBytes == null
+                                      ? Text(
+                                          _userName.isNotEmpty ? _userName[0].toUpperCase() : 'P',
+                                          style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AppTheme.textDark),
+                                        )
+                                      : null,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: _editAvatar,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(color: AppTheme.textDark, shape: BoxShape.circle),
+                                  child: const Icon(LucideIcons.camera, color: Colors.white, size: 10),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Olá,',
+                                style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark.withValues(alpha: 0.6)),
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    _userName,
+                                    style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+                                  ),
+                                  if (_isVerified) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(LucideIcons.checkCircle, color: Colors.blue, size: 14),
+                                  ],
+                                ],
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.wallet,
-                            color: Colors.black87,
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'R\$ ${_walletBalance.toStringAsFixed(2).replaceAll('.', ',')}',
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(LucideIcons.bell, color: AppTheme.textDark, size: 20),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  
+                  const SizedBox(height: 32),
+                  
+                  // SALDO CARD PREMIUM
+                  GestureDetector(
+                    onTap: _showWithdrawalDialog,
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.textDark,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SALDO DISPONÍVEL',
+                                style: GoogleFonts.manrope(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'R\$ ${_walletBalance.toStringAsFixed(2).replaceAll('.', ',')}',
+                                style: GoogleFonts.manrope(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: AppTheme.primaryYellow, borderRadius: BorderRadius.circular(16)),
+                            child: const Icon(LucideIcons.plus, color: AppTheme.textDark, size: 24),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
 
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              children: [
-                // Specialties
+          SliverPadding(
+            padding: const EdgeInsets.all(24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                Text(
+                  'ATUAÇÃO',
+                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.textMuted, letterSpacing: 1),
+                ),
+                const SizedBox(height: 16),
+                
+                // Profissões Card
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey.shade100),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,134 +318,86 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Profissões',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          Text('Minhas Profissões', style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AppTheme.textDark)),
+                          GestureDetector(
+                            onTap: _showEditSpecialtiesDialog,
+                            child: const Icon(LucideIcons.edit3, size: 16, color: Colors.grey),
                           ),
-                          if (!_isMedical)
-                            InkWell(
-                              onTap: _showEditSpecialtiesDialog,
-                              child: const Padding(
-                                padding: EdgeInsets.all(4.0),
-                                child: Icon(
-                                  Icons.edit,
-                                  size: 16,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       if (_isLoadingSpecialties)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20.0),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
+                        const Center(child: CircularProgressIndicator())
                       else
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: _specialties
-                              .map(
-                                (e) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryYellow,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    e,
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                          children: _specialties.map((s) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: AppTheme.primaryYellow.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.primaryYellow.withValues(alpha: 0.3))),
+                            child: Text(s, style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
+                          )).toList(),
                         ),
                     ],
                   ),
                 ),
-
+                
+                const SizedBox(height: 32),
+                Text(
+                  'DESEMPENHO',
+                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.textMuted, letterSpacing: 1),
+                ),
                 const SizedBox(height: 16),
-
-                // Metrics
+                
                 Row(
                   children: [
                     Expanded(
-                      child: _buildMetricCard(
-                        LucideIcons.trendingUp,
-                        Colors.orange,
-                        '4.9',
-                        '128 avaliações',
-                      ),
+                      child: _buildMetricCard(LucideIcons.star, Colors.orange, '4.9', 'Avaliação'),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _buildMetricCard(
-                        LucideIcons.zap,
-                        Colors.green,
-                        '92%',
-                        'Taxa de aceitação',
-                      ),
+                      child: _buildMetricCard(LucideIcons.checkCircle, Colors.green, '92%', 'Conclusão'),
                     ),
                   ],
                 ),
-
-              ],
+                
+                const SizedBox(height: 40),
+                // Botão de Sair
+                TextButton.icon(
+                  onPressed: () async {
+                    await _api.clearToken();
+                    if (!context.mounted) return;
+                    context.go('/login');
+                  },
+                  icon: const Icon(LucideIcons.logOut, color: Colors.red, size: 18),
+                  label: Text('SAIR DA CONTA', style: GoogleFonts.manrope(color: Colors.red, fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1)),
+                ),
+                const SizedBox(height: 50),
+              ]),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildMetricCard(
-    IconData icon,
-    Color color,
-    String value,
-    String label,
-  ) {
+  Widget _buildMetricCard(IconData icon, Color color, String value, String label) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-          ),
-        ],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 16),
+          Text(value, style: GoogleFonts.manrope(fontSize: 24, fontWeight: FontWeight.w900, color: AppTheme.textDark)),
+          Text(label, style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
         ],
       ),
     );
   }
 }
-
-// CurrencyInputFormatter and _buildMetricCard remain the same but cleaner widget structure helps.

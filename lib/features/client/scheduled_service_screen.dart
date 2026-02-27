@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/utils/navigation_helper.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
@@ -357,10 +358,13 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
                     initialZoom: (clientLat != null) ? 14 : 16,
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=\${dotenv.env[\'MAPBOX_TOKEN\'] ?? \'\'}',
-                      userAgentPackageName: 'com.cardapyia.service',
-                    ),
+                      TileLayer(
+                        urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
+                        userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
+                      ),
                     if (clientLat != null && clientLon != null)
                       PolylineLayer(
                         polylines: <Polyline>[
@@ -683,3 +687,4 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
     );
   }
 }
+

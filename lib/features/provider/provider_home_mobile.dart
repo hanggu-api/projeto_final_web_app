@@ -57,7 +57,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   Uint8List? _avatarBytes;
   String? _userName;
   int? _currentUserId;
-  int _unreadCount = 0;
+  final int _unreadCount = 0;
   bool _uberEnabled = false;
 
   // Notification / Offer State
@@ -137,14 +137,16 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
 
   Future<void> _checkUberEnabled() async {
     try {
-      final config = await _api.get('/config');
+      final config = await _api.getAppConfig();
       if (mounted) {
         setState(() {
-          _uberEnabled = config['config']?['uber_module_enabled'] == true;
+          _uberEnabled = config['uber_module_enabled'] == 'true' || config['uber_module_enabled'] == true;
         });
       }
     } catch (_) {}
   }
+
+
 
   // --- Socket Handlers ---
 
@@ -180,11 +182,13 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         .from('service_requests_new')
         .stream(primaryKey: ['id'])
         .eq('status', 'open_for_schedule')
-        .inFilter('profession', _myProfessions.take(10).toList())
         .listen((snapshot) {
       if (!mounted) return;
       
-      final services = snapshot.map((d) {
+      final services = snapshot.where((d) {
+         final prof = d['profession']?.toString();
+         return prof != null && _myProfessions.contains(prof);
+      }).map((d) {
         final data = d;
         
         // Ensure numeric types are safe for Dart

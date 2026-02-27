@@ -4,9 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../services/theme_service.dart';
 import 'steps/basic_info_step.dart';
 import 'steps/identification_step.dart';
 import 'steps/location_step.dart';
@@ -14,6 +17,8 @@ import 'steps/medical_service_step.dart';
 import 'steps/profession_step.dart';
 import 'steps/schedule_step.dart';
 import 'steps/select_services_step.dart';
+import 'steps/vehicle_selection_step.dart';
+import 'steps/vehicle_details_step.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String? initialRole;
@@ -27,10 +32,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
   bool _isLoading = false;
+  bool _isValidatingData = false;
+  final Map<String, String?> _fieldValidationErrors = {};
 
   // Data
   Map<String, dynamic>? _selectedProfession;
   bool _isClient = false;
+  bool _isDriver = false;
+  int? _selectedVehicleTypeId;
+  Map<String, dynamic> _vehicleDetails = {};
 
   // Standard/Medical Flow Controllers
   final _nameController = TextEditingController();
@@ -59,11 +69,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize based on passed role
     if (widget.initialRole == 'client') {
       _isClient = true;
+      _isDriver = false;
     } else if (widget.initialRole == 'provider') {
       _isClient = false;
+      _isDriver = false;
+    } else if (widget.initialRole == 'driver') {
+      _isClient = false;
+      _isDriver = true;
     }
 
     _loadState();
@@ -86,6 +100,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('register_step', _currentStep);
     await prefs.setBool('register_is_client', _isClient);
+    await prefs.setBool('register_is_driver', _isDriver);
+
+    if (_selectedVehicleTypeId != null) {
+      await prefs.setInt('register_vehicle_type_id', _selectedVehicleTypeId!);
+    }
 
     if (_selectedProfession != null) {
       await prefs.setString(
@@ -102,7 +121,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     await prefs.setString('register_doc', _docController.text);
     await prefs.setString('register_phone', _phoneController.text);
 
-    // Business fields
     await prefs.setString(
       'register_business_name',
       _businessNameController.text,
@@ -111,11 +129,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_latitude != null) await prefs.setDouble('register_lat', _latitude!);
     if (_longitude != null) await prefs.setDouble('register_lng', _longitude!);
 
-    // Schedule
     final scheduleJson = _schedule.map((k, v) => MapEntry(k.toString(), v));
     await prefs.setString('register_schedule', jsonEncode(scheduleJson));
 
-    // Services
     await prefs.setString('register_services', jsonEncode(_customServices));
   }
 
@@ -126,17 +142,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       _currentStep = prefs.getInt('register_step') ?? 0;
       
-      // Prioritize initialRole if provided, otherwise load from prefs
       if (widget.initialRole != null) {
         _isClient = widget.initialRole == 'client';
-        // If role changed, maybe we should reset step? 
-        // For now let's just enforce the role.
-        if (_isClient != (prefs.getBool('register_is_client') ?? false)) {
-             _currentStep = 0; // Reset to start if role switched
+        _isDriver = widget.initialRole == 'driver';
+        if (_isClient != (prefs.getBool('register_is_client') ?? false) || 
+            _isDriver != (prefs.getBool('register_is_driver') ?? false)) {
+             _currentStep = 0; 
         }
       } else {
         _isClient = prefs.getBool('register_is_client') ?? false;
+        _isDriver = prefs.getBool('register_is_driver') ?? false;
       }
+
+      _selectedVehicleTypeId = prefs.getInt('register_vehicle_type_id');
 
       final profString = prefs.getString('register_profession');
       if (profString != null) {
@@ -168,7 +186,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     });
 
-    // Restore page
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_pageController.hasClients) {
         _pageController.jumpToPage(_currentStep);
@@ -196,12 +213,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     await prefs.remove('register_medical_return');
   }
 
-  // Steps calculation
   List<Widget> get _steps {
     final steps = <Widget>[];
 
-    // Step 0: Profession (Only for Providers)
-    if (!_isClient) {
+    if (!_isClient && !_isDriver) {
       steps.add(
         ProfessionStep(
           selectedProfession: _selectedProfession,
@@ -210,13 +225,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _selectedProfession = prof;
               _isClient = false;
             });
-            _nextPage();
           },
         ),
       );
     }
 
-    // Determine Flow Type
     bool isSalonFlow = false;
     if (_selectedProfession != null) {
       final profName =
@@ -235,10 +248,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (isSalonFlow && !_isClient) {
-      // === SALON FLOW (Barber, Hairdresser, etc.) ===
-      // Order: Schedule -> Location -> Services -> Identification
-
-      // 1. Schedule (Agenda)
       steps.add(
         ScheduleStep(
           schedule: _schedule,
@@ -249,7 +258,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
 
-      // 2. Location (GPS/Map)
       steps.add(
         LocationStep(
           formKey: _locationFormKey,
@@ -266,11 +274,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
 
-      // 3. Select Services (Procedimentos)
       steps.add(
         SelectServicesStep(
-          professionId: _selectedProfession!['id'],
           selectedServices: _customServices,
+          professionId: _selectedProfession!['id'],
+          professionName: _selectedProfession!['name'],
           onChanged: (services) {
             setState(() => _customServices = services);
             _saveState();
@@ -278,7 +286,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
 
-      // 4. Identification (Final)
       steps.add(
         IdentificationStep(
           formKey: _identificationFormKey,
@@ -288,12 +295,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
           phoneController: _phoneController,
           emailController: _emailController,
           passwordController: _passwordController,
+          onValidationChanged: (isValidating, errors) {
+            setState(() {
+              _isValidatingData = isValidating;
+              _fieldValidationErrors.addAll(errors);
+            });
+          },
         ),
       );
     } else {
-      // === STANDARD / MEDICAL FLOW ===
+      if (_isDriver) {
+        steps.add(
+          VehicleSelectionStep(
+            selectedVehicleTypeId: _selectedVehicleTypeId,
+            onSelect: (id) {
+              setState(() => _selectedVehicleTypeId = id);
+              _saveState();
+            },
+          ),
+        );
 
-      // Step 1: Basic Info
+        steps.add(
+          VehicleDetailsStep(
+            isMoto: _selectedVehicleTypeId == 3,
+            vehicleDetails: _vehicleDetails,
+            onChanged: (details) {
+              setState(() => _vehicleDetails = details);
+              _saveState();
+            },
+          ),
+        );
+      }
+
       steps.add(
         BasicInfoStep(
           formKey: _basicInfoFormKey,
@@ -302,16 +335,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           passwordController: _passwordController,
           docController: _docController,
           phoneController: _phoneController,
-          role: _isClient ? 'client' : 'provider',
-          onRoleToggle: () {}, // Determined by previous step
+          role: _isDriver ? 'driver' : (_isClient ? 'client' : 'provider'),
+          onRoleToggle: () {}, 
+          onValidationChanged: (isValidating, errors) {
+            setState(() {
+              _isValidatingData = isValidating;
+              _fieldValidationErrors.addAll(errors);
+            });
+          },
         ),
       );
 
-      // Steps 2+: Provider Setup
-      if (!_isClient && _selectedProfession != null) {
+      if (!_isClient && !_isDriver && _selectedProfession != null) {
         final type = _selectedProfession!['service_type'] ?? 'standard';
 
-        // Salon only - Medical skipped service step
         if (type == 'salon' || type == 'standard' || type == 'construction') {
           steps.add(
             SelectServicesStep(
@@ -326,7 +363,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           );
         }
 
-        // Medical specific step
         if (type == 'medical') {
           final profName =
               _selectedProfession?['name'].toString().toLowerCase() ?? '';
@@ -351,7 +387,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           );
         }
 
-        // Schedule is needed for both salon and medical
         if (type == 'salon' || type == 'medical' || type == 'standard') {
           steps.add(
             ScheduleStep(
@@ -388,19 +423,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit() async {
-    // Validate password before submitting
     if (_passwordController.text.length < 6) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'A senha deve ter pelo menos 6 caracteres. Por favor, volte e corrija.',
+              'A senha deve ter pelo menos 6 caracteres.',
             ),
           ),
         );
-        // Force go back to basic info (need to find which step index)
-        // Since we have different flows, finding the step is trickier.
-        // For now, just show error.
       }
       return;
     }
@@ -409,13 +440,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final api = ApiService();
 
-      final role = _isClient ? 'client' : 'provider';
-      final professionName = _isClient ? null : _selectedProfession?['name'];
-
-      // Clean document value (remove non-digits)
+      String role = 'client';
+      if (_isDriver) {
+        role = 'driver';
+      } else if (!_isClient) {
+        role = 'provider';
+      }
+      
+      final professionName = (_isClient || _isDriver) ? null : _selectedProfession?['name'];
       final docClean = _docController.text.replaceAll(RegExp(r'\D'), '');
 
-      // 1. Create User in Supabase Auth
       final authResponse = await Supabase.instance.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -427,7 +461,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final session = authResponse.session;
       if (session == null && authResponse.user != null) {
-        // Require email confirmation setting in Supabase
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -435,12 +468,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           );
         }
-        return; // Early stop se precisar de verificação!
+        return; 
       }
 
       if (session == null) throw Exception('Falha ao obter token do Supabase');
 
-      // 2. Register in Backend (Sync API pass)
       await api.register(
         token: session.accessToken,
         name: _nameController.text.trim(),
@@ -458,14 +490,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
             : null,
         latitude: _latitude,
         longitude: _longitude,
+        vehicleTypeId: _selectedVehicleTypeId,
+        vehicleBrand: _vehicleDetails['brand'],
+        vehicleModel: _vehicleDetails['model'],
+        vehicleYear: _vehicleDetails['year'],
+        vehicleColor: _vehicleDetails['color'],
+        vehicleColorHex: _vehicleDetails['color_hex'],
+        vehiclePlate: _vehicleDetails['plate'],
       );
 
-      // 3. Provider Setup (API key/token automatically handled)
       if (!_isClient) {
-        // Prepare parallel configurations
         final List<Future> setupActions = [];
 
-        // Auto-create service for Medical professionals
         final type = _selectedProfession?['service_type'];
         if (type == 'medical' && _customServices.isEmpty) {
           final profName =
@@ -485,19 +521,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           });
         }
 
-        // Add Schedule setup to parallel list
         if (_schedule.isNotEmpty) {
           setupActions.add(api.saveProviderSchedule(_schedule.values.toList()));
         }
 
-        // Add Services setup
         if (_customServices.isNotEmpty) {
           for (final service in _customServices) {
             setupActions.add(api.saveProviderService(service));
           }
         }
 
-        // Execute all configs in parallel
         if (setupActions.isNotEmpty) {
           await Future.wait(setupActions).catchError((e) {
             debugPrint('Non-critical setup error: $e');
@@ -508,16 +541,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) {
         await _clearState();
-        if (!mounted) return;
-        if (_isClient) {
-          context.go('/home');
-        } else {
-          if (api.isMedical) {
-            context.go('/medical-home');
-          } else {
-            context.go('/provider-home');
-          }
-        }
+        _redirectUserBasedOnRole();
       }
     } catch (e) {
       if (mounted) {
@@ -540,11 +564,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  void _redirectUserBasedOnRole() {
+    if (!mounted) return;
+    
+    final api = ApiService();
+    final role = api.role;
+    debugPrint('🚀 [Register] Redirecionando usuário com role: $role');
+
+    if (role == 'driver') {
+      ThemeService().setProviderMode(true);
+      context.go('/uber-driver');
+    } else if (role == 'provider') {
+      ThemeService().setProviderMode(true);
+      if (api.isMedical) {
+        context.go('/medical-home');
+      } else {
+        context.go('/provider-home');
+      }
+    } else {
+      ThemeService().setProviderMode(false);
+      context.go('/home');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final steps = _steps;
 
-    // Fix current step index if out of bounds
     if (_currentStep >= steps.length) {
       _currentStep = steps.length - 1;
     }
@@ -561,20 +607,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.primaryYellow,
+        backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: AppTheme.primaryYellow,
           elevation: 0,
+          centerTitle: true,
           title: Text(
-            'Cadastro ${_currentStep + 1}/${steps.length}',
-            style: TextStyle(
-              color: AppTheme.darkBlueText,
-              fontWeight: FontWeight.bold,
+            'Cadastro',
+            style: GoogleFonts.manrope(
+              color: AppTheme.textDark,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
             ),
           ),
-          iconTheme: IconThemeData(color: AppTheme.darkBlueText),
+          iconTheme: IconThemeData(color: AppTheme.textDark),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(LucideIcons.arrowLeft, size: 20),
             onPressed: () {
               if (_currentStep > 0) {
                 _prevPage();
@@ -587,8 +635,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             preferredSize: const Size.fromHeight(4),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: AppTheme.darkBlueText.withValues(alpha: 0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.darkBlueText),
+              backgroundColor: Colors.black.withValues(alpha: 0.05),
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textDark),
             ),
           ),
         ),
@@ -596,19 +644,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             children: [
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: PageView(
-                    controller: _pageController,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: steps,
-                  ),
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: steps,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryYellow,
+                  color: Colors.white,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -618,71 +663,111 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              // Validate Current Step
-                              if (steps[_currentStep] is BasicInfoStep) {
-                                if (_basicInfoFormKey.currentState != null &&
-                                    !_basicInfoFormKey.currentState!
-                                        .validate()) {
-                                  return;
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: (_isLoading || _isValidatingData || _fieldValidationErrors.values.any((e) => e != null))
+                            ? null
+                            : () {
+                                if (steps[_currentStep] is BasicInfoStep) {
+                                  if (_basicInfoFormKey.currentState != null &&
+                                      !_basicInfoFormKey.currentState!
+                                          .validate()) {
+                                    return;
+                                  }
                                 }
-                              }
-                              if (steps[_currentStep] is LocationStep) {
-                                if (_locationFormKey.currentState != null &&
-                                    !_locationFormKey.currentState!
-                                        .validate()) {
-                                  return;
+                                if (steps[_currentStep] is LocationStep) {
+                                  if (_locationFormKey.currentState != null &&
+                                      !_locationFormKey.currentState!
+                                          .validate()) {
+                                    return;
+                                  }
                                 }
-                              }
-                              if (steps[_currentStep] is IdentificationStep) {
-                                if (_identificationFormKey.currentState !=
-                                        null &&
-                                    !_identificationFormKey.currentState!
-                                        .validate()) {
-                                  return;
+                                if (steps[_currentStep] is IdentificationStep) {
+                                  if (_identificationFormKey.currentState !=
+                                          null &&
+                                      !_identificationFormKey.currentState!
+                                          .validate()) {
+                                    return;
+                                  }
                                 }
-                              }
 
-                              if (steps[_currentStep] is SelectServicesStep &&
-                                  _customServices.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Selecione pelo menos um serviço.',
+                                if (steps[_currentStep] is ProfessionStep &&
+                                    _selectedProfession == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Selecione sua profissão.'),
                                     ),
-                                  ),
-                                );
-                                return;
-                              }
+                                  );
+                                  return;
+                                }
 
-                              if (isLastStep) {
-                                _submit();
-                              } else {
-                                _nextPage();
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        backgroundColor: AppTheme.darkBlueText,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                                if (steps[_currentStep] is VehicleSelectionStep &&
+                                    _selectedVehicleTypeId == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Selecione o tipo de veículo.'),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                if (steps[_currentStep] is VehicleDetailsStep) {
+                                  final brand = _vehicleDetails['brand'];
+                                  final model = _vehicleDetails['model'];
+                                  final color = _vehicleDetails['color'];
+                                  final plate = _vehicleDetails['plate'];
+                                  if (brand == null || model == null || color == null || plate == null || plate.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Preencha os dados do veículo.'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                }
+
+                                if (steps[_currentStep] is SelectServicesStep &&
+                                    _customServices.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Selecione pelo menos um serviço.'),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                if (isLastStep) {
+                                  _submit();
+                                } else {
+                                  _nextPage();
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryYellow,
+                          foregroundColor: AppTheme.textDark,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
+                        child: _isLoading || _isValidatingData
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(
+                                isLastStep ? 'CONCLUIR CADASTRO' : 'PRÓXIMO',
+                                style: GoogleFonts.manrope(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                ),
                               ),
-                            )
-                          : Text(isLastStep ? 'Concluir Cadastro' : 'Próximo'),
+                      ),
                     ),
                   ],
                 ),

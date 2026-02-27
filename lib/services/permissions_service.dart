@@ -1,5 +1,6 @@
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:io' show Platform;
 
 class PermissionsService {
@@ -51,29 +52,29 @@ class PermissionsService {
     try {
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
-        telemetry['device_name'] = androidInfo.model ?? 'Unknown';
-        telemetry['device_model'] = androidInfo.model ?? 'Unknown';
+        telemetry['device_name'] = androidInfo.model;
+        telemetry['device_model'] = androidInfo.model;
         telemetry['os_version'] = 'Android ${androidInfo.version.release}';
         telemetry['device_platform'] = 'android';
         telemetry['device_id'] = androidInfo.id; // Android ID
-        telemetry['manufacturer'] = androidInfo.manufacturer ?? 'Unknown';
+        telemetry['manufacturer'] = androidInfo.manufacturer;
         telemetry['app_version'] = androidInfo.version.sdkInt.toString();
         
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
-        telemetry['device_name'] = iosInfo.name ?? 'Unknown';
-        telemetry['device_model'] = iosInfo.model ?? 'Unknown';
-        telemetry['os_version'] = iosInfo.systemVersion ?? 'Unknown';
+        telemetry['device_name'] = iosInfo.name;
+        telemetry['device_model'] = iosInfo.model;
+        telemetry['os_version'] = iosInfo.systemVersion;
         telemetry['device_platform'] = 'ios';
         telemetry['device_id'] = iosInfo.identifierForVendor ?? 'Unknown';
-        telemetry['app_version'] = iosInfo.utsname.version ?? 'Unknown';
+        telemetry['app_version'] = iosInfo.utsname.version;
       }
       
       // Campos comuns
       telemetry['timestamp'] = DateTime.now().toIso8601String();
       
     } catch (e) {
-      print('❌ Erro ao coletar telemetria: $e');
+      debugPrint('❌ Erro ao coletar telemetria: $e');
       telemetry['error'] = e.toString();
     }
     
@@ -93,8 +94,8 @@ class PermissionsService {
     return {
       'token': fcmToken,
       'platform': telemetry['device_platform'] ?? (Platform.isIOS ? 'ios' : 'android'),
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
+      'latitude': latitude,
+      'longitude': longitude,
       ...permissions,
       ...telemetry,
     };

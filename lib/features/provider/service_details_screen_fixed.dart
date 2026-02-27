@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 
@@ -942,10 +943,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
                     ),
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=\${dotenv.env[\'MAPBOX_TOKEN\'] ?? \'\'}',
-                      userAgentPackageName: 'com.app.mobile_app',
-                    ),
+                      TileLayer(
+                        urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
+                        userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
+                      ),
                     PolylineLayer(
                       polylines: [
                         if (_routePoints.isNotEmpty)
@@ -1749,4 +1753,5 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     return null;
   }
 }
+
 

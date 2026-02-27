@@ -27,20 +27,17 @@ class MediaService {
     );
   }
 
-  // Mudamos Map<String, dynamic> para Map<String, dynamic> explícito
   Future<Map<String, dynamic>> uploadAvatarBytes(
     List<int> bytes, 
     String filename, 
     String mimeType,
   ) async {
-    final Map<String, dynamic> response = await _api.uploadMultipart(
-      '/media/avatar', 
-      'file', 
+    final String publicUrl = await _api.uploadToCloud(
       bytes, 
-      filename: filename, 
-      mimeType: mimeType,
+      filename: filename,
+      type: 'image'
     );
-    return response;
+    return {'url': publicUrl};
   }
 
   Future<Uint8List?> loadMyAvatarBytes() async {

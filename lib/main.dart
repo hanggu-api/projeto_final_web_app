@@ -9,6 +9,8 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 
 import 'features/agency/screens/agency_home_screen.dart';
 import 'features/agency/screens/agency_onboarding_screen.dart';
@@ -26,6 +28,9 @@ import 'features/client/refund_request_screen.dart';
 import 'features/client/scheduled_service_screen.dart';
 import 'features/client/service_verification_screen.dart';
 import 'features/client/tracking_screen.dart';
+import 'features/activity/activity_screen.dart';
+import 'features/client/service_discovery_screen.dart';
+
 import 'features/common/review_screen.dart';
 import 'features/dev/simulation_screen.dart';
 import 'features/home/home_screen.dart';
@@ -42,11 +47,15 @@ import 'features/shared/chat_screen.dart';
 import 'features/shared/notification_screen.dart';
 import 'features/shared/warranty_screen.dart';
 import 'features/uber/uber_request_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'features/uber/uber_tracking_screen.dart';
 import 'features/uber/driver_home_screen.dart';
+import 'features/uber/driver_trip_screen.dart';
+import 'features/uber/driver_earnings_screen.dart';
+import 'features/uber/user_history_screen.dart';
 import 'firebase_options.dart';
 import 'services/api_service.dart';
-import 'services/remote_theme_service.dart';
 import 'services/startup_service.dart';
 import 'services/theme_service.dart';
 import 'services/analytics_service.dart';
@@ -84,7 +93,7 @@ void main() async {
     if (!kIsWeb) {
       // Initialize Analytics to log app open and prevent "library missing" warning
       try {
-        await FirebaseAnalytics.instance.logAppOpen();
+        await FirebaseAnalytics.instance.logEvent(name: 'app_open');
       } catch (e) {
         // Ignore analytics errors in debug/dev
         debugPrint('Analytics init error: $e');
@@ -172,6 +181,9 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
 
   Future<void> _init() async {
     try {
+      final api = ApiService();
+      await api.loadToken(); // Rápido (SecureStorage) - Deve rodar antes de requests de API
+
       // Fase 0: Critical (Bloqueante mas rápida)
       await StartupService().initializeCritical(navigatorKey);
       
@@ -195,24 +207,41 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
       // Delay pequeno para garantir rendering da Splash
       await Future.delayed(const Duration(milliseconds: 50));
 
-      final api = ApiService();
-      await api.loadToken(); // Rápido (SecureStorage)
-
       // Determinar rota inicial
-      final currentUser = Supabase.instance.client.auth.currentUser;
+      var currentUser = Supabase.instance.client.auth.currentUser;
       final prefs = await SharedPreferences.getInstance();
-      final role = prefs.getString('user_role');
+      var role = prefs.getString('user_role');
+
+      // Se currentUser for nulo mas temos um role, pode ser que a sessão 
+      // esteja em fase de restauração assíncrona. Aguardamos um pouco.
+      if (currentUser == null && role != null) {
+        debugPrint('⏳ [Main] Usuário logado mas sessão ainda não restaurada. Aguardando...');
+        await Future.delayed(const Duration(milliseconds: 800));
+        currentUser = Supabase.instance.client.auth.currentUser;
+        // Se após o wait ainda for nulo, tentamos ler via loadToken/SecureStorage
+        if (currentUser == null) {
+          await api.loadToken();
+        }
+      }
 
       if (mounted) {
         setState(() {
+          // Se ainda for nulo após o wait, vai para login
           if (currentUser == null) {
             _initialLocation = '/login';
           } else if (role == null) {
             _initialLocation = '/login';
           } else {
-            _initialLocation = role == 'provider'
-                ? (api.isMedical ? '/medical-home' : '/provider-home')
-                : '/home';
+            if (role == 'driver') {
+              ThemeService().setProviderMode(true);
+              _initialLocation = '/uber-driver';
+            } else if (role == 'provider') {
+              ThemeService().setProviderMode(true);
+              _initialLocation = api.isMedical ? '/medical-home' : '/provider-home';
+            } else {
+              ThemeService().setProviderMode(false);
+              _initialLocation = '/home';
+            }
           }
           _initialized = true;
         });
@@ -293,39 +322,80 @@ class SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFD700), // AppTheme.primaryYellow
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/logo.png',
-              width: 150,
-              errorBuilder: (context, error, stackTrace) {
-                debugPrint('❌ [SplashScreen] Erro ao carregar logo: $error');
-                return const Text(
-                  '101',
-                  style: TextStyle(
-                    fontSize: 80,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Hero(
+                  tag: 'app_logo',
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 180,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Text(
+                        '101',
+                        style: GoogleFonts.manrope(
+                          fontSize: 100,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.black,
+                          letterSpacing: -5,
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 48),
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+          ),
+          Positioned(
+            bottom: 50,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Text(
+                'SERVIÇOS DE A A Z',
+                style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                  color: Colors.black.withValues(alpha: 0.5),
+                ),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final String initialLocation;
   const MyApp({super.key, this.initialLocation = '/login'});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = _buildRouter(widget.initialLocation);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -335,7 +405,7 @@ class MyApp extends StatelessWidget {
         return MaterialApp.router(
           title: '101 Service',
           theme: ThemeService().currentThemeData,
-          routerConfig: _buildRouter(initialLocation),
+          routerConfig: _router,
           debugShowCheckedModeBanner: false,
           locale: const Locale('pt', 'BR'),
           supportedLocales: const [Locale('pt', 'BR')],
@@ -364,12 +434,21 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       return '/login';
     }
     if (logged && loggingIn) {
+      if (api.role == 'driver') {
+        ThemeService().setProviderMode(true);
+        return '/uber-driver';
+      }
       if (api.role == 'provider') {
         ThemeService().setProviderMode(true);
         return api.isMedical ? '/medical-home' : '/provider-home';
       }
       ThemeService().setProviderMode(false);
       return '/home';
+    }
+    // Motorista logado acessando rota errada → redirecionar para /uber-driver
+    if (logged && api.role == 'driver' && state.matchedLocation == '/home') {
+      ThemeService().setProviderMode(true);
+      return '/uber-driver';
     }
     return null;
   },
@@ -390,6 +469,7 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       builder: (context, state, child) => ScaffoldWithNavBar(child: child),
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+        GoRoute(path: '/servicos', builder: (context, state) => const ServiceDiscoveryScreen()),
         GoRoute(
           path: '/uber-request',
           builder: (context, state) => const UberRequestScreen(),
@@ -401,15 +481,40 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           ),
         ),
         GoRoute(
+          path: '/uber-tracking/:tripId',
+          builder: (context, state) => UberTrackingScreen(
+            tripId: state.pathParameters['tripId']!,
+          ),
+        ),
+        GoRoute(
+          path: '/uber-history',
+          builder: (context, state) => const UserHistoryScreen(),
+        ),
+        GoRoute(
           path: '/uber-driver',
           builder: (context, state) => const DriverHomeScreen(),
+        ),
+        GoRoute(
+          path: '/uber-driver-trip/:tripId',
+          builder: (context, state) => DriverTripScreen(
+            tripId: state.pathParameters['tripId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/uber-driver-earnings',
+          builder: (context, state) => const DriverEarningsScreen(),
         ),
         GoRoute(
           path: '/chats',
           builder: (context, state) => const ChatListScreen(),
         ),
         GoRoute(
+          path: '/activity',
+          builder: (context, state) => const ActivityScreen(),
+        ),
+        GoRoute(
           path: '/client-settings',
+
           builder: (context, state) => const ClientSettingsScreen(),
         ),
         GoRoute(

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Avaliar Viagem - 101 Service</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#427cf0",
+                        "accent-yellow": "#FFD700",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .star-active {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            color: #FFD700;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="flex flex-col min-h-screen max-w-md mx-auto bg-white dark:bg-slate-900 shadow-xl overflow-hidden relative">
+<!-- Top Navigation -->
+<div class="flex items-center justify-between p-6">
+<button class="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">close</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">Avaliar Viagem</h1>
+<div class="size-10"></div> <!-- Spacer for symmetry -->
+</div>
+<div class="flex-1 px-6 pb-32">
+<!-- Driver Profile Section -->
+<div class="flex flex-col items-center mt-4 mb-8">
+<div class="relative">
+<div class="size-28 rounded-full border-4 border-primary/10 overflow-hidden bg-slate-200" data-alt="Close up portrait of a friendly driver named Ricardo" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB2ZE4EOK-WE9U8fE-0SVVphJndxcpZzGjF0W5ft78OTDdK_pdB21ehn3azVN1heFKl6v8xgGtUl1P4KK-7SbtpyOH5eAej5q78e452YZdsp6vkV2Dv5vVSTe8Cr1Cf6K1aW9xaONDx9R5kLIcgrm3MIICQyPlPaETFPeoHkfrRkmlbClxY822RD2lJFeTuYcdgdmCG5OdVVkl9IsvJCGd2K3iq_eFc1MkLelIsKbI4lxJFuOAXHtLp7Ua657tZXY9dJlSBLWeo8JE"); background-size: cover; background-position: center;'>
+</div>
+<div class="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full border-2 border-white dark:border-slate-900">
+<span class="material-symbols-outlined text-xs">verified</span>
+</div>
+</div>
+<div class="mt-4 text-center">
+<h2 class="text-2xl font-extrabold leading-tight">Ricardo</h2>
+<p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Sua avaliação ajuda a manter a qualidade do 101 Service</p>
+</div>
+</div>
+<!-- Stars Rating -->
+<div class="flex flex-col items-center mb-10">
+<p class="text-base font-semibold mb-4">Como foi sua viagem?</p>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-4xl star-active">star</span>
+<span class="material-symbols-outlined text-4xl star-active">star</span>
+<span class="material-symbols-outlined text-4xl star-active">star</span>
+<span class="material-symbols-outlined text-4xl star-active">star</span>
+<span class="material-symbols-outlined text-4xl text-slate-200 dark:text-slate-700">star</span>
+</div>
+</div>
+<!-- Feedback Tags -->
+<div class="space-y-6">
+<div class="flex flex-col items-center">
+<h3 class="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">O que você mais gostou?</h3>
+<div class="flex flex-wrap justify-center gap-3">
+<button class="px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium hover:border-primary hover:text-primary transition-colors">
+                            Carro limpo
+                        </button>
+<button class="px-5 py-2 rounded-full border-2 border-primary bg-primary/10 text-primary text-sm font-bold transition-colors">
+                            Direção segura
+                        </button>
+<button class="px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium hover:border-primary hover:text-primary transition-colors">
+                            Educação
+                        </button>
+<button class="px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium hover:border-primary hover:text-primary transition-colors">
+                            Rota otimizada
+                        </button>
+<button class="px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium hover:border-primary hover:text-primary transition-colors">
+                            Bom papo
+                        </button>
+<button class="px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium hover:border-primary hover:text-primary transition-colors">
+                            Ar-condicionado
+                        </button>
+</div>
+</div>
+<!-- Textarea for additional comments -->
+<div class="pt-4">
+<textarea class="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm p-4 focus:ring-primary focus:border-primary placeholder:text-slate-400" placeholder="Escreva um comentário (opcional)" rows="3"></textarea>
+</div>
+</div>
+</div>
+<!-- Sticky Footer Action -->
+<div class="absolute bottom-0 left-0 right-0 p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800">
+<button class="w-full bg-accent-yellow hover:bg-[#F2CC00] text-slate-900 font-bold py-4 rounded-xl shadow-lg shadow-accent-yellow/20 transition-all active:scale-[0.98]">
+                Enviar Avaliação
+            </button>
+<p class="text-center text-[10px] text-slate-400 mt-4 uppercase tracking-tighter">101 Service • Qualidade Garantida</p>
+</div>
+</div>
+</body></html>

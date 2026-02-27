@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+
+<html lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pagamento - 101 Service</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#427cf0",
+                        "accent-yellow": "#FFD60A",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex h-auto min-h-screen w-full max-w-md mx-auto flex-col bg-background-light dark:bg-background-dark overflow-x-hidden">
+<!-- Header -->
+<header class="flex items-center p-4 pb-2 justify-between">
+<button class="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center justify-start">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-12">Pagamento</h2>
+</header>
+<!-- Service Summary Card -->
+<div class="p-4">
+<div class="flex items-stretch justify-between gap-4 rounded-xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+<div class="flex flex-col gap-1 flex-[2_2_0px]">
+<p class="text-primary dark:text-primary/80 text-xs font-semibold uppercase tracking-wider">Resumo do Serviço</p>
+<p class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight">Eletricista Móvel</p>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-normal">101 Service Marketplace</p>
+<div class="flex items-center gap-1 mt-1 text-yellow-500">
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="text-xs font-bold">4.9 (124 avaliações)</span>
+</div>
+</div>
+<div class="w-24 h-24 bg-center bg-no-repeat bg-cover rounded-lg flex-none" data-alt="Professional electrician working on a panel" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCS8ZQLqgISKrzMvWO9ohSQRqh0Q_3RcAHCL0mOZnBnhRsXexJeRIGjrzwsSzRtRAZ3dP9x46Nxu9VPRIzemvZ2W_wZVPATw8fu58Fyn8jbBj5do9BzCzI8pInKS9BIm7ZV6Qy13sLX4t1kzghEn2GvGnlGJrhMhNSEGak5VTVr3Jv4pwULJVu_X8FQcsRogJSNRYDWJ7Ah3co2NmtRJKnxZRIEqXrTe7SIeeRBIcVEdcZ3TZMQttTVyTyjSE6Z9y-El21y3WzI34Q");'>
+</div>
+</div>
+</div>
+<!-- Price Breakdown Section -->
+<div class="px-4 py-2">
+<div class="bg-primary/5 dark:bg-primary/10 rounded-xl p-4 border border-primary/10 dark:border-primary/20">
+<h3 class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">info</span>
+                    Regra dos 30%
+                </h3>
+<div class="space-y-3">
+<div class="flex justify-between items-center py-1">
+<p class="text-slate-600 dark:text-slate-400 text-sm font-medium">Preço Total do Serviço</p>
+<p class="text-slate-900 dark:text-slate-100 text-base font-bold">R$ 200,00</p>
+</div>
+<div class="flex justify-between items-center py-2 px-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm border-l-4 border-primary">
+<div>
+<p class="text-primary text-xs font-bold uppercase">Pague Agora</p>
+<p class="text-slate-900 dark:text-slate-100 text-sm font-medium">Valor da Reserva (30%)</p>
+</div>
+<p class="text-primary text-lg font-extrabold">R$ 60,00</p>
+</div>
+<div class="flex justify-between items-center py-1 opacity-70">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Valor Restante (70%)</p>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">R$ 140,00</p>
+</div>
+</div>
+<p class="mt-4 text-[10px] text-slate-400 dark:text-slate-500 text-center leading-tight">
+                    * O valor restante de R$ 140,00 deve ser pago diretamente ao profissional após a conclusão do serviço.
+                </p>
+</div>
+</div>
+<!-- Payment Methods -->
+<div class="p-4">
+<h3 class="text-slate-900 dark:text-slate-100 text-base font-bold mb-4">Forma de Pagamento</h3>
+<div class="space-y-3">
+<!-- Pix Option -->
+<label class="flex items-center gap-4 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 cursor-pointer">
+<input checked="" class="text-primary focus:ring-primary w-5 h-5" name="payment" type="radio"/>
+<div class="flex-1 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">photos</span>
+<div>
+<p class="text-slate-900 dark:text-slate-100 font-bold text-sm">Pix</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs">Aprovação imediata</p>
+</div>
+</div>
+<span class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] font-bold px-2 py-1 rounded">DESCONTO 5%</span>
+</label>
+<!-- Credit Card Option -->
+<label class="flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer">
+<input class="text-primary focus:ring-primary w-5 h-5" name="payment" type="radio"/>
+<div class="flex-1 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-500">payments</span>
+<div>
+<p class="text-slate-900 dark:text-slate-100 font-bold text-sm">Cartão de Crédito</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs">Até 12x no cartão</p>
+</div>
+</div>
+</label>
+</div>
+</div>
+<!-- Bottom Call to Action -->
+<div class="mt-auto p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 sticky bottom-0">
+<div class="flex flex-col gap-4">
+<div class="text-center space-y-1">
+<p class="text-slate-500 dark:text-slate-400 text-xs font-medium">Total a pagar agora</p>
+<h3 class="text-slate-900 dark:text-slate-100 text-3xl font-extrabold leading-tight">R$ 60,00</h3>
+</div>
+<button class="w-full bg-accent-yellow hover:bg-yellow-400 text-slate-900 font-extrabold py-4 rounded-xl text-lg shadow-lg shadow-yellow-500/20 active:scale-[0.98] transition-all">
+                    Pagar Reserva AGORA
+                </button>
+<div class="flex items-center justify-center gap-2 text-slate-400 text-[10px] font-medium">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+                    Pagamento 100% Seguro pela 101 Service
+                </div>
+</div>
+</div>
+</div>
+</body></html>

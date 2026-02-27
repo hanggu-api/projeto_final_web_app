@@ -1,0 +1,556 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 93.0.0 (96.0.0 available)
+  analyzer 10.0.1 (10.2.0 available)
+  app_links 6.4.1 (7.0.0 available)
+  archive 4.0.7 (4.0.9 available)
+  build_runner 2.10.5 (2.11.1 available)
+  built_value 8.12.3 (8.12.4 available)
+  camera 0.11.3 (0.11.4 available)
+  camera_android_camerax 0.6.29 (0.7.0+1 available)
+  camera_avfoundation 0.9.22+9 (0.10.0+2 available)
+  characters 1.4.0 (1.4.1 available)
+  dbus 0.7.11 (0.7.12 available)
+  ffi 2.1.5 (2.2.0 available)
+  firebase_analytics 12.1.1 (12.1.2 available)
+! flutter_jailbreak_detection 1.10.0 from git https://github.com/pdurasie-ecovery/flutter_jailbreak_detection.git at b0e4bb (overridden)
+  flutter_local_notifications 20.0.0 (20.1.0 available)
+  flutter_local_notifications_windows 2.0.0 (2.0.1 available)
+  flutter_riverpod 2.6.1 (3.2.1 available)
+  geocoding_android 4.0.1 (5.0.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  go_router 17.0.1 (17.1.0 available)
+  google_fonts 8.0.0 (8.0.2 available)
+  hooks 1.0.0 (1.0.1 available)
+  image 4.7.2 (4.8.0 available)
+  image_picker_android 0.8.13+13 (0.8.13+14 available)
+  json_annotation 4.10.0 (4.11.0 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.17.0 (1.18.1 available)
+  mgrs_dart 2.0.0 (3.0.0 available)
+  mobile_scanner 7.1.4 (7.2.0 available)
+  objective_c 9.2.5 (9.3.0 available)
+! package_info_plus 4.2.0 (overridden) (9.0.0 available)
+  package_info_plus_platform_interface 2.0.1 (3.2.1 available)
+  patrol 3.20.0 (4.1.1 available)
+  patrol_finders 2.9.0 (3.1.0 available)
+  patrol_log 0.5.0 (0.7.0 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  petitparser 7.0.1 (7.0.2 available)
+  posix 6.0.3 (6.5.0 available)
+  proj4dart 2.1.0 (3.0.0 available)
+  record_android 1.5.0 (1.5.1 available)
+! record_linux 1.3.0 (overridden)
+  record_macos 1.2.0 (1.2.1 available)
+! record_platform_interface 1.5.0 (overridden)
+  riverpod 2.6.1 (3.2.1 available)
+  source_span 1.10.1 (1.10.2 available)
+  test_api 0.7.7 (0.7.9 available)
+  timezone 0.10.1 (0.11.0 available)
+  unicode 0.3.1 (1.1.9 available)
+  url_launcher_ios 6.3.6 (6.4.1 available)
+  video_player 2.10.1 (2.11.0 available)
+  video_player_android 2.9.1 (2.9.4 available)
+  video_player_avfoundation 2.9.0 (2.9.3 available)
+  webview_flutter_wkwebview 3.23.5 (3.23.7 available)
+  win32 5.15.0 (6.0.0 available)
+  win32_registry 2.1.0 (3.0.0 available)
+Got dependencies!
+54 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing mobile_app...                                         
+
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:22:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:23:7 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:71:12 - avoid_print
+   info - Don't invoke 'print' in production code - integration_test\notification_monitor_test.dart:92:7 - avoid_print
+   info - The import of 'package:flutter/material.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart' - lib\core\utils\navigation_helper.dart:2:8 - unnecessary_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\activity\activity_screen.dart:137:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\activity\activity_screen.dart:184:34 - deprecated_member_use
+   info - The private field _pointerMoves could be 'final' - lib\features\auth\login_screen.dart:32:7 - prefer_final_fields
+   info - The private field _emailLastTs could be 'final' - lib\features\auth\login_screen.dart:34:7 - prefer_final_fields
+warning - The value of the field '_emailLastTs' isn't used - lib\features\auth\login_screen.dart:34:7 - unused_field
+   info - The private field _passwordLastTs could be 'final' - lib\features\auth\login_screen.dart:35:7 - prefer_final_fields
+warning - The value of the field '_passwordLastTs' isn't used - lib\features\auth\login_screen.dart:35:7 - unused_field
+   info - The private field _emailPasteSuspect could be 'final' - lib\features\auth\login_screen.dart:38:8 - prefer_final_fields
+   info - The private field _passwordPasteSuspect could be 'final' - lib\features\auth\login_screen.dart:39:8 - prefer_final_fields
+   info - 'loginWithFirebase' is deprecated and shouldn't be used. Use AuthService().syncUserProfile instead - lib\features\auth\login_screen.dart:127:18 - deprecated_member_use_from_same_package
+warning - The operand can't be 'null', so the condition is always 'false' - lib\features\auth\login_screen.dart:170:22 - unnecessary_null_comparison
+warning - Dead code - lib\features\auth\login_screen.dart:170:31 - dead_code
+   info - 'loginWithFirebase' is deprecated and shouldn't be used. Use AuthService().syncUserProfile instead - lib\features\auth\login_screen.dart:193:18 - deprecated_member_use_from_same_package
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\register_screen.dart:638:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\register_screen.dart:659:43 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\auth\steps\business_info_step.dart:124:21 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\auth\steps\location_step.dart:233:21 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:110:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:111:23 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:124:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\steps\medical_service_step.dart:125:23 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:211:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:218:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_details_step.dart:280:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:66:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:75:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:76:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\steps\vehicle_selection_step.dart:91:51 - deprecated_member_use
+warning - Unused import: 'package:service_101/services/notification_service.dart' - lib\features\client\client_settings_screen.dart:13:8 - unused_import
+   info - 'updateProfile' is deprecated and shouldn't be used. Use AuthService().updateProfile instead - lib\features\client\client_settings_screen.dart:53:18 - deprecated_member_use_from_same_package
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:194:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:265:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\client_settings_screen.dart:450:53 - deprecated_member_use
+warning - The value of the field '_serviceType' isn't used - lib\features\client\payment_screen.dart:31:11 - unused_field
+warning - The value of the field '_userPhone' isn't used - lib\features\client\payment_screen.dart:36:11 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\payment_screen.dart:669:43 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:264:44 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:272:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:274:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\client\pix_payment_dialog.dart:279:44 - use_build_context_synchronously
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\client\scheduled_service_screen.dart:364:21 - deprecated_member_use
+warning - The value of the local variable 'clientDeparting' isn't used - lib\features\client\scheduled_service_screen.dart:537:16 - unused_local_variable
+warning - The value of the local variable 'paymentPending' isn't used - lib\features\client\scheduled_service_screen.dart:538:16 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:69:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:123:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:184:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:260:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:316:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\client\service_discovery_screen.dart:372:56 - deprecated_member_use
+   info - The private field _priceEstimated could be 'final' - lib\features\client\service_request_screen_fixed.dart:46:10 - prefer_final_fields
+warning - The value of the field '_aiCategoryName' isn't used - lib\features\client\service_request_screen_fixed.dart:52:11 - unused_field
+warning - The value of the field '_aiConfidence' isn't used - lib\features\client\service_request_screen_fixed.dart:54:11 - unused_field
+warning - The value of the field '_aiSuggestionMessage' isn't used - lib\features\client\service_request_screen_fixed.dart:58:11 - unused_field
+warning - The value of the field '_aiServiceType' isn't used - lib\features\client\service_request_screen_fixed.dart:59:11 - unused_field
+warning - The value of the field '_aiSuggestions' isn't used - lib\features\client\service_request_screen_fixed.dart:60:36 - unused_field
+warning - The value of the field '_needsDetails' isn't used - lib\features\client\service_request_screen_fixed.dart:64:14 - unused_field
+warning - The value of the field '_aiClassifying' isn't used - lib\features\client\service_request_screen_fixed.dart:65:14 - unused_field
+warning - The value of the field '_allProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:70:22 - unused_field
+warning - The value of the field '_filteredProfessions' isn't used - lib\features\client\service_request_screen_fixed.dart:71:22 - unused_field
+warning - The value of the field '_selectedTimeSlotData' isn't used - lib\features\client\service_request_screen_fixed.dart:72:25 - unused_field
+warning - The value of the field '_showTeach' isn't used - lib\features\client\service_request_screen_fixed.dart:76:14 - unused_field
+warning - The value of the field '_hasAiRun' isn't used - lib\features\client\service_request_screen_fixed.dart:77:14 - unused_field
+warning - The declaration '_classifyAi' isn't referenced - lib\features\client\service_request_screen_fixed.dart:481:16 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:486:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:487:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_fixed.dart:488:16 - unused_element
+warning - The value of the local variable 'serviceName' isn't used - lib\features\client\service_request_screen_fixed.dart:566:11 - unused_local_variable
+warning - The value of the field '_isLoading' isn't used - lib\features\client\service_request_screen_mobile.dart:37:8 - unused_field
+warning - The value of the field '_suggestions' isn't used - lib\features\client\service_request_screen_mobile.dart:44:36 - unused_field
+warning - The value of the field '_expandedProviderIndex' isn't used - lib\features\client\service_request_screen_mobile.dart:70:8 - unused_field
+warning - The value of the field '_selectedProviderId' isn't used - lib\features\client\service_request_screen_mobile.dart:71:8 - unused_field
+warning - The value of the field '_isLoadingProfessions' isn't used - lib\features\client\service_request_screen_mobile.dart:77:8 - unused_field
+warning - The declaration '_searchAddress' isn't referenced - lib\features\client\service_request_screen_mobile.dart:404:16 - unused_element
+warning - The value of the local variable 'body' isn't used - lib\features\client\service_request_screen_mobile.dart:418:15 - unused_local_variable
+warning - The value of the local variable 'isFixed' isn't used - lib\features\client\service_request_screen_mobile.dart:449:17 - unused_local_variable
+warning - The declaration '_formatAddressData' isn't referenced - lib\features\client\service_request_screen_mobile.dart:485:10 - unused_element
+warning - The declaration '_handleImagesSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:490:16 - unused_element
+warning - The declaration '_handleVideoSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:491:16 - unused_element
+warning - The declaration '_handleAudioSelected' isn't referenced - lib\features\client\service_request_screen_mobile.dart:492:16 - unused_element
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\client\service_request_screen_mobile.dart:1089:21 - deprecated_member_use
+warning - The value of the field '_photonService' isn't used - lib\features\home\home_screen.dart:41:9 - unused_field
+warning - The value of the field '_routeDuration' isn't used - lib\features\home\home_screen.dart:97:11 - unused_field
+warning - The value of the field '_isMapReady' isn't used - lib\features\home\home_screen.dart:98:8 - unused_field
+warning - The value of the field '_uberEnabled' isn't used - lib\features\home\home_screen.dart:99:8 - unused_field
+  error - Undefined name '_userName' - lib\features\home\home_screen.dart:908:13 - undefined_identifier
+  error - Undefined name '_avatarBytes' - lib\features\home\home_screen.dart:920:52 - undefined_identifier
+warning - The declaration '_editAvatar' isn't referenced - lib\features\home\home_screen.dart:924:16 - unused_element
+  error - Undefined name 'ImageSource' - lib\features\home\home_screen.dart:973:11 - undefined_identifier
+  error - Undefined name 'ImageSource' - lib\features\home\home_screen.dart:974:11 - undefined_identifier
+  error - The method 'CachedNetworkImage' isn't defined for the type '_HomeScreenState' - lib\features\home\home_screen.dart:1018:32 - undefined_method
+  error - Undefined name 'http' - lib\features\home\home_screen.dart:1038:26 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1284:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1417:60 - deprecated_member_use
+warning - The declaration '_buildCategoryRow' isn't referenced - lib\features\home\home_screen.dart:1439:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1489:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1499:47 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\home\home_screen.dart:1543:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1648:65 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1743:70 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1746:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1762:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1873:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1875:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1878:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1917:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1921:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:1928:51 - deprecated_member_use
+warning - The declaration '_buildPlacesItem' isn't referenced - lib\features\home\home_screen.dart:1952:10 - unused_element
+warning - The declaration '_buildHeader' isn't referenced - lib\features\home\home_screen.dart:2133:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2143:31 - deprecated_member_use
+warning - The declaration '_buildNotificationBadge' isn't referenced - lib\features\home\home_screen.dart:2151:10 - unused_element
+warning - The declaration '_buildAddressCard' isn't referenced - lib\features\home\home_screen.dart:2186:10 - unused_element
+warning - The declaration '_buildPlacesListTile' isn't referenced - lib\features\home\home_screen.dart:2221:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2417:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2453:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2461:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2512:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2792:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:2805:82 - deprecated_member_use
+  error - The method 'CachedNetworkImageProvider' isn't defined for the type '_HomeScreenState' - lib\features\home\home_screen.dart:2811:41 - undefined_method
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3004:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3073:52 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:3081:36 - unnecessary_underscores
+warning - The value of the local variable 'isPoi' isn't used - lib\features\home\home_screen.dart:3106:22 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3185:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3221:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3393:73 - deprecated_member_use
+  error - The method 'Random' isn't defined for the type '_HomeScreenState' - lib\features\home\home_screen.dart:3488:27 - undefined_method
+   info - Unnecessary braces in a string interpolation - lib\features\home\home_screen.dart:3489:22 - unnecessary_brace_in_string_interps
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3503:35 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3504:43 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3505:12 - curly_braces_in_flow_control_structures
+  error - Undefined name 'ImageFilter' - lib\features\home\home_screen.dart:3594:17 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3596:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:3640:45 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:3726:45 - unnecessary_underscores
+  error - Invalid constant value - lib\features\home\home_screen.dart:3771:52 - invalid_constant
+  error - Undefined name 'CupertinoColors' - lib\features\home\home_screen.dart:3771:52 - undefined_identifier
+  error - Undefined name 'CupertinoColors' - lib\features\home\home_screen.dart:3811:32 - undefined_identifier
+   info - Statements in an if should be enclosed in a block - lib\features\home\home_screen.dart:3907:36 - curly_braces_in_flow_control_structures
+  error - Classes can only extend other classes - lib\features\home\widgets\fixed_service_card.dart:17:32 - extends_non_class
+  error - Undefined class 'ValueChanged' - lib\features\home\widgets\fixed_service_card.dart:22:9 - undefined_class
+  error - Undefined class 'VoidCallback' - lib\features\home\widgets\fixed_service_card.dart:25:9 - undefined_class
+  error - Undefined class 'VoidCallback' - lib\features\home\widgets\fixed_service_card.dart:26:9 - undefined_class
+  error - Undefined class 'VoidCallback' - lib\features\home\widgets\fixed_service_card.dart:27:9 - undefined_class
+  error - Undefined class 'VoidCallback' - lib\features\home\widgets\fixed_service_card.dart:28:9 - undefined_class
+  error - Undefined class 'VoidCallback' - lib\features\home\widgets\fixed_service_card.dart:29:9 - undefined_class
+  error - No associated named super constructor parameter - lib\features\home\widgets\fixed_service_card.dart:34:11 - super_formal_parameter_without_associated_named
+  error - Undefined class 'State' - lib\features\home\widgets\fixed_service_card.dart:52:3 - undefined_class
+warning - The method doesn't override an inherited method - lib\features\home\widgets\fixed_service_card.dart:52:27 - override_on_non_overriding_member
+  error - Mixin can only be applied to class - lib\features\home\widgets\fixed_service_card.dart:55:38 - mixin_with_non_class_superclass
+  error - Classes can only mix in mixins and classes - lib\features\home\widgets\fixed_service_card.dart:56:10 - mixin_of_non_class
+   info - The private field _rating could be 'final' - lib\features\home\widgets\fixed_service_card.dart:62:7 - prefer_final_fields
+  error - The method 'TextEditingController' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:63:30 - undefined_method
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:72:49 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:73:52 - undefined_identifier
+warning - The method doesn't override an inherited method - lib\features\home\widgets\fixed_service_card.dart:86:8 - override_on_non_overriding_member
+  error - The method 'initState' isn't defined in a superclass of '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:87:11 - undefined_super_member
+warning - The method doesn't override an inherited method - lib\features\home\widgets\fixed_service_card.dart:94:8 - override_on_non_overriding_member
+  error - The method 'didUpdateWidget' isn't defined in a superclass of '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:95:11 - undefined_super_member
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:98:9 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:103:9 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:104:9 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:105:9 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:106:9 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:112:9 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:112:36 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:113:19 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:117:9 - undefined_identifier
+warning - The method doesn't override an inherited method - lib\features\home\widgets\fixed_service_card.dart:123:8 - override_on_non_overriding_member
+  error - The method 'dispose' isn't defined in a superclass of '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:127:11 - undefined_super_member
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:147:11 - undefined_identifier
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:148:9 - undefined_method
+  error - Undefined name '_travelSubtitle' - lib\features\home\widgets\fixed_service_card.dart:150:11 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:159:11 - undefined_identifier
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:160:9 - undefined_method
+  error - Undefined name '_travelSubtitle' - lib\features\home\widgets\fixed_service_card.dart:162:11 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:222:13 - undefined_identifier
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:223:11 - undefined_method
+  error - Undefined name '_travelSubtitle' - lib\features\home\widgets\fixed_service_card.dart:231:15 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:238:22 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:238:42 - undefined_identifier
+  error - Undefined name '_travelSubtitle' - lib\features\home\widgets\fixed_service_card.dart:252:15 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:259:16 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:259:36 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:281:23 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:284:14 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:289:68 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:290:17 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:290:49 - undefined_identifier
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:293:11 - undefined_method
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:373:3 - undefined_class
+warning - The method doesn't override an inherited method - lib\features\home\widgets\fixed_service_card.dart:373:10 - override_on_non_overriding_member
+  error - Undefined class 'BuildContext' - lib\features\home\widgets\fixed_service_card.dart:373:16 - undefined_class
+warning - The value of the local variable 'priceEstimated' isn't used - lib\features\home\widgets\fixed_service_card.dart:375:11 - unused_local_variable
+warning - The value of the local variable 'dateText' isn't used - lib\features\home\widgets\fixed_service_card.dart:377:11 - unused_local_variable
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:378:24 - undefined_identifier
+  error - Undefined class 'Color' - lib\features\home\widgets\fixed_service_card.dart:384:5 - undefined_class
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:385:11 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:388:15 - undefined_identifier
+  error - The method 'AnimatedContainer' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:390:12 - undefined_method
+  error - Undefined name 'EdgeInsets' - lib\features\home\widgets\fixed_service_card.dart:392:16 - undefined_identifier
+  error - The method 'BoxDecoration' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:393:19 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:394:16 - undefined_identifier
+  error - Undefined name 'BorderRadius' - lib\features\home\widgets\fixed_service_card.dart:395:23 - undefined_identifier
+  error - Undefined name 'Border' - lib\features\home\widgets\fixed_service_card.dart:396:17 - undefined_identifier
+  error - The method 'BoxShadow' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:398:11 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:399:20 - undefined_identifier
+  error - The name 'Offset' isn't a class - lib\features\home\widgets\fixed_service_card.dart:400:27 - creation_with_non_type
+  error - The method 'Column' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:405:14 - undefined_method
+  error - Undefined name 'CrossAxisAlignment' - lib\features\home\widgets\fixed_service_card.dart:406:29 - undefined_identifier
+  error - Undefined name 'MainAxisSize' - lib\features\home\widgets\fixed_service_card.dart:407:23 - undefined_identifier
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:413:17 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:419:17 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:424:17 - creation_with_non_type
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:427:11 - undefined_method
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:428:38 - undefined_identifier
+  error - The name 'TextStyle' isn't a class - lib\features\home\widgets\fixed_service_card.dart:429:26 - creation_with_non_type
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:429:57 - undefined_identifier
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:432:17 - creation_with_non_type
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:441:3 - undefined_class
+  error - The method 'Column' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:442:12 - undefined_method
+  error - Undefined name 'CrossAxisAlignment' - lib\features\home\widgets\fixed_service_card.dart:443:27 - undefined_identifier
+  error - The name 'Center' isn't a class - lib\features\home\widgets\fixed_service_card.dart:445:15 - creation_with_non_type
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:446:18 - undefined_method
+  error - The method 'TextStyle' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:448:20 - undefined_method
+  error - Undefined name 'FontWeight' - lib\features\home\widgets\fixed_service_card.dart:450:27 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:451:22 - undefined_identifier
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:455:15 - creation_with_non_type
+  error - The method 'Center' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:457:11 - undefined_method
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:458:20 - undefined_method
+  error - The method 'TextStyle' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:460:22 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:462:24 - undefined_identifier
+  error - Undefined name 'FontWeight' - lib\features\home\widgets\fixed_service_card.dart:463:29 - undefined_identifier
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:471:3 - undefined_class
+  error - The method 'Container' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:475:12 - undefined_method
+  error - Undefined name 'EdgeInsets' - lib\features\home\widgets\fixed_service_card.dart:477:22 - undefined_identifier
+  error - The method 'BoxDecoration' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:478:19 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:479:40 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:479:57 - undefined_identifier
+  error - Undefined name 'BorderRadius' - lib\features\home\widgets\fixed_service_card.dart:480:23 - undefined_identifier
+  error - The method 'Row' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:482:14 - undefined_method
+  error - Undefined name 'MainAxisSize' - lib\features\home\widgets\fixed_service_card.dart:483:23 - undefined_identifier
+  error - Undefined name 'MainAxisAlignment' - lib\features\home\widgets\fixed_service_card.dart:484:28 - undefined_identifier
+  error - The method 'Icon' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:486:11 - undefined_method
+  error - Undefined name 'LucideIcons' - lib\features\home\widgets\fixed_service_card.dart:487:37 - undefined_identifier
+  error - Undefined name 'LucideIcons' - lib\features\home\widgets\fixed_service_card.dart:487:65 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:488:44 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:488:62 - undefined_identifier
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:491:17 - creation_with_non_type
+  error - The method 'Flexible' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:492:11 - undefined_method
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:493:20 - undefined_method
+  error - The method 'TextStyle' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:495:22 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:496:48 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:496:66 - undefined_identifier
+  error - Undefined name 'FontWeight' - lib\features\home\widgets\fixed_service_card.dart:497:29 - undefined_identifier
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:507:3 - undefined_class
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:508:45 - undefined_identifier
+  error - The method 'Container' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:511:12 - undefined_method
+  error - Undefined name 'EdgeInsets' - lib\features\home\widgets\fixed_service_card.dart:512:22 - undefined_identifier
+  error - The method 'BoxDecoration' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:513:19 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:514:16 - undefined_identifier
+  error - Undefined name 'BorderRadius' - lib\features\home\widgets\fixed_service_card.dart:515:23 - undefined_identifier
+  error - Undefined name 'Border' - lib\features\home\widgets\fixed_service_card.dart:516:17 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:516:35 - undefined_identifier
+  error - The method 'Row' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:518:14 - undefined_method
+  error - The method 'CircleAvatar' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:520:11 - undefined_method
+  error - The method 'MemoryImage' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:523:19 - undefined_method
+  error - The method 'CachedNetworkImageProvider' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:524:49 - undefined_method
+  error - The name 'ImageProvider' isn't a type, so it can't be used in an 'as' expression - lib\features\home\widgets\fixed_service_card.dart:524:108 - cast_to_non_type
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:526:17 - creation_with_non_type
+  error - The method 'Expanded' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:527:11 - undefined_method
+  error - The method 'Column' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:528:20 - undefined_method
+  error - Undefined name 'CrossAxisAlignment' - lib\features\home\widgets\fixed_service_card.dart:529:35 - undefined_identifier
+  error - The name 'Text' isn't a class - lib\features\home\widgets\fixed_service_card.dart:531:23 - creation_with_non_type
+  error - The method 'TextStyle' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:531:51 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:531:82 - undefined_identifier
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:532:17 - undefined_method
+  error - The name 'TextStyle' isn't a class - lib\features\home\widgets\fixed_service_card.dart:534:32 - creation_with_non_type
+  error - Undefined name 'FontWeight' - lib\features\home\widgets\fixed_service_card.dart:534:68 - undefined_identifier
+  error - The method 'Row' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:536:17 - undefined_method
+  error - The name 'Icon' isn't a class - lib\features\home\widgets\fixed_service_card.dart:538:27 - creation_with_non_type
+  error - Undefined name 'Icons' - lib\features\home\widgets\fixed_service_card.dart:538:32 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:538:61 - undefined_identifier
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:539:27 - creation_with_non_type
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:540:21 - undefined_method
+  error - The name 'TextStyle' isn't a class - lib\features\home\widgets\fixed_service_card.dart:542:36 - creation_with_non_type
+  error - Undefined name 'FontWeight' - lib\features\home\widgets\fixed_service_card.dart:542:72 - undefined_identifier
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:546:23 - creation_with_non_type
+  error - The method 'InkWell' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:547:17 - undefined_method
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:551:23 - undefined_identifier
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:554:26 - undefined_method
+  error - The method 'TextStyle' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:556:28 - undefined_method
+  error - Undefined name 'FontWeight' - lib\features\home\widgets\fixed_service_card.dart:559:35 - undefined_identifier
+  error - Undefined name 'TextDecoration' - lib\features\home\widgets\fixed_service_card.dart:560:35 - undefined_identifier
+  error - The method 'IconButton' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:568:11 - undefined_method
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:571:31 - undefined_identifier
+  error - The method 'Icon' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:573:19 - undefined_method
+  error - Undefined name 'LucideIcons' - lib\features\home\widgets\fixed_service_card.dart:573:24 - undefined_identifier
+  error - Undefined name 'IconButton' - lib\features\home\widgets\fixed_service_card.dart:574:20 - undefined_identifier
+  error - The method 'RoundedRectangleBorder' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:576:22 - undefined_method
+  error - Undefined name 'BorderRadius' - lib\features\home\widgets\fixed_service_card.dart:576:59 - undefined_identifier
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:584:3 - undefined_class
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:585:9 - undefined_identifier
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:589:3 - undefined_class
+  error - The method 'Column' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:595:12 - undefined_method
+  error - Undefined name 'LucideIcons' - lib\features\home\widgets\fixed_service_card.dart:601:19 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:602:20 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:603:24 - undefined_identifier
+  error - The method 'BorderSide' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:605:21 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:605:39 - undefined_identifier
+  error - The name 'SizedBox' isn't a class - lib\features\home\widgets\fixed_service_card.dart:608:15 - creation_with_non_type
+  error - Undefined name 'LucideIcons' - lib\features\home\widgets\fixed_service_card.dart:614:19 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:615:20 - undefined_identifier
+  error - Undefined name 'LucideIcons' - lib\features\home\widgets\fixed_service_card.dart:623:19 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:624:20 - undefined_identifier
+  error - Undefined name 'LucideIcons' - lib\features\home\widgets\fixed_service_card.dart:632:19 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:634:24 - undefined_identifier
+  error - The method 'TextButton' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:639:11 - undefined_method
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:640:24 - undefined_identifier
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:641:20 - undefined_method
+  error - The method 'TextStyle' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:641:56 - undefined_method
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:641:73 - undefined_identifier
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:647:3 - undefined_class
+  error - The method 'Column' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:649:12 - undefined_method
+  error - Undefined name 'Icons' - lib\features\home\widgets\fixed_service_card.dart:652:54 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:652:74 - undefined_identifier
+  error - Undefined name 'Icons' - lib\features\home\widgets\fixed_service_card.dart:655:62 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:655:87 - undefined_identifier
+  error - Undefined name 'Icons' - lib\features\home\widgets\fixed_service_card.dart:658:63 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:658:82 - undefined_identifier
+  error - Undefined name 'Icons' - lib\features\home\widgets\fixed_service_card.dart:661:76 - undefined_identifier
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:661:96 - undefined_identifier
+  error - Undefined class 'Widget' - lib\features\home\widgets\fixed_service_card.dart:666:3 - undefined_class
+  error - Undefined class 'IconData' - lib\features\home\widgets\fixed_service_card.dart:668:14 - undefined_class
+  error - Undefined class 'Color' - lib\features\home\widgets\fixed_service_card.dart:669:14 - undefined_class
+  error - Undefined class 'VoidCallback' - lib\features\home\widgets\fixed_service_card.dart:670:14 - undefined_class
+  error - Undefined class 'Color' - lib\features\home\widgets\fixed_service_card.dart:671:5 - undefined_class
+  error - Undefined name 'Colors' - lib\features\home\widgets\fixed_service_card.dart:671:23 - undefined_identifier
+  error - Undefined class 'BorderSide' - lib\features\home\widgets\fixed_service_card.dart:672:5 - undefined_class
+  error - The method 'Padding' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:674:12 - undefined_method
+  error - Undefined name 'EdgeInsets' - lib\features\home\widgets\fixed_service_card.dart:675:22 - undefined_identifier
+  error - The method 'SizedBox' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:676:14 - undefined_method
+  error - Undefined name 'ElevatedButton' - lib\features\home\widgets\fixed_service_card.dart:678:16 - undefined_identifier
+  error - The method 'Icon' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:680:17 - undefined_method
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:681:18 - undefined_method
+  error - The name 'TextStyle' isn't a class - lib\features\home\widgets\fixed_service_card.dart:681:43 - creation_with_non_type
+  error - Undefined name 'FontWeight' - lib\features\home\widgets\fixed_service_card.dart:681:65 - undefined_identifier
+  error - Undefined name 'ElevatedButton' - lib\features\home\widgets\fixed_service_card.dart:682:18 - undefined_identifier
+  error - Undefined name 'EdgeInsets' - lib\features\home\widgets\fixed_service_card.dart:687:28 - undefined_identifier
+  error - The method 'RoundedRectangleBorder' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:688:20 - undefined_method
+  error - Undefined name 'BorderRadius' - lib\features\home\widgets\fixed_service_card.dart:688:57 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:700:11 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:700:43 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:702:11 - undefined_identifier
+  error - Undefined name 'ScaffoldMessenger' - lib\features\home\widgets\fixed_service_card.dart:702:20 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:702:41 - undefined_identifier
+  error - The method 'SnackBar' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:702:63 - undefined_method
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:702:81 - undefined_method
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:711:11 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:711:43 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:712:23 - undefined_identifier
+  error - Undefined name 'ScaffoldMessenger' - lib\features\home\widgets\fixed_service_card.dart:712:32 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:712:53 - undefined_identifier
+  error - The method 'SnackBar' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:712:75 - undefined_method
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:712:93 - undefined_method
+  error - The method 'showDialog' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:716:29 - undefined_method
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:717:18 - undefined_identifier
+  error - The method 'AlertDialog' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:718:27 - undefined_method
+  error - The name 'Text' isn't a class - lib\features\home\widgets\fixed_service_card.dart:719:24 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\features\home\widgets\fixed_service_card.dart:720:26 - creation_with_non_type
+  error - The method 'TextButton' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:722:13 - undefined_method
+  error - Undefined name 'Navigator' - lib\features\home\widgets\fixed_service_card.dart:722:41 - undefined_identifier
+  error - The name 'Text' isn't a class - lib\features\home\widgets\fixed_service_card.dart:722:81 - creation_with_non_type
+  error - The method 'TextButton' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:723:13 - undefined_method
+  error - Undefined name 'Navigator' - lib\features\home\widgets\fixed_service_card.dart:723:41 - undefined_identifier
+  error - The name 'Text' isn't a class - lib\features\home\widgets\fixed_service_card.dart:723:80 - creation_with_non_type
+   info - 'confirmPaymentManual' is deprecated and shouldn't be used. Use PaymentService().confirmPaymentManual instead - lib\features\home\widgets\fixed_service_card.dart:732:34 - deprecated_member_use_from_same_package
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:733:19 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:733:51 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:736:17 - undefined_identifier
+  error - Undefined name 'ScaffoldMessenger' - lib\features\home\widgets\fixed_service_card.dart:736:26 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:736:47 - undefined_identifier
+  error - The method 'SnackBar' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:736:69 - undefined_method
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:736:87 - undefined_method
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:765:5 - undefined_identifier
+  error - Undefined name 'widget' - lib\features\home\widgets\fixed_service_card.dart:773:50 - undefined_identifier
+warning - The declaration '_submitLocalReview' isn't referenced - lib\features\home\widgets\fixed_service_card.dart:778:16 - unused_element
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:781:5 - undefined_method
+  error - Undefined name '_submittingReview' - lib\features\home\widgets\fixed_service_card.dart:781:20 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:784:11 - undefined_identifier
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:784:20 - undefined_method
+  error - Undefined name '_reviewSubmittedSuccessfully' - lib\features\home\widgets\fixed_service_card.dart:784:34 - undefined_identifier
+  error - Undefined name '_submittingReview' - lib\features\home\widgets\fixed_service_card.dart:784:71 - undefined_identifier
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:785:23 - undefined_identifier
+  error - Undefined name 'ScaffoldMessenger' - lib\features\home\widgets\fixed_service_card.dart:785:32 - undefined_identifier
+  error - Undefined name 'context' - lib\features\home\widgets\fixed_service_card.dart:785:53 - undefined_identifier
+  error - The method 'SnackBar' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:785:75 - undefined_method
+  error - The method 'Text' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:785:93 - undefined_method
+  error - Undefined name 'mounted' - lib\features\home\widgets\fixed_service_card.dart:786:19 - undefined_identifier
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:786:28 - undefined_method
+  error - Undefined name '_submittingReview' - lib\features\home\widgets\fixed_service_card.dart:786:43 - undefined_identifier
+  error - The method 'setState' isn't defined for the type '_FixedServiceCardState' - lib\features\home\widgets\fixed_service_card.dart:795:7 - undefined_method
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1211:42 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1214:62 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1538:65 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\home\widgets\mobile_service_card.dart:1540:75 - use_build_context_synchronously
+  error - A value of type 'FixedServiceCard' can't be returned from the method 'build' because it has a return type of 'Widget' - lib\features\home\widgets\service_card.dart:54:14 - return_of_invalid_type
+warning - The value of the field '_isPlaying' isn't used - lib\features\notifications\widgets\time_to_leave_modal.dart:21:8 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:79:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:84:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\widgets\time_to_leave_modal.dart:97:47 - deprecated_member_use
+   info - The private field _unreadCount could be 'final' - lib\features\provider\provider_home_fixed.dart:31:7 - prefer_final_fields
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_fixed.dart:31:7 - unused_field
+   info - 'confirmPaymentManual' is deprecated and shouldn't be used. Use PaymentService().confirmPaymentManual instead - lib\features\provider\provider_home_fixed.dart:863:52 - deprecated_member_use_from_same_package
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:864:47 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:866:54 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_home_fixed.dart:873:54 - use_build_context_synchronously
+   info - The private field _unreadCount could be 'final' - lib\features\provider\provider_home_mobile.dart:60:7 - prefer_final_fields
+warning - The value of the field '_unreadCount' isn't used - lib\features\provider\provider_home_mobile.dart:60:7 - unused_field
+   info - 'timeLimit' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\features\provider\provider_home_mobile.dart:561:60 - deprecated_member_use
+warning - The value of the field '_userPhone' isn't used - lib\features\provider\provider_profile_content.dart:28:10 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:228:128 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:248:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:264:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:337:85 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\provider_profile_content.dart:337:193 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\features\provider\provider_profile_content.dart:367:66 - use_build_context_synchronously
+warning - The value of the field '_api' isn't used - lib\features\provider\schedule_edit_screen.dart:15:20 - unused_field
+   info - The private field _services could be 'final' - lib\features\provider\schedule_edit_screen.dart:18:30 - prefer_final_fields
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\service_details_screen_fixed.dart:949:21 - deprecated_member_use
+   info - 'updateProfile' is deprecated and shouldn't be used. Use AuthService().updateProfile instead - lib\features\provider\widgets\provider_profile_widgets.dart:469:38 - deprecated_member_use_from_same_package
+warning - The value of the field '_isLoadingRoute' isn't used - lib\features\provider\widgets\provider_service_card.dart:50:8 - unused_field
+warning - The value of the local variable 'statusColor' isn't used - lib\features\provider\widgets\provider_service_card.dart:165:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:287:46 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\provider_service_card.dart:401:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\provider\widgets\provider_service_card.dart:506:71 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\provider\widgets\provider_service_card.dart:740:35 - unnecessary_underscores
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\scheduled_notification_modal.dart:423:21 - deprecated_member_use
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\provider\widgets\service_offer_modal.dart:656:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:911:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:957:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:973:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:994:65 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1112:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1318:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\chat_screen.dart:1321:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:116:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:127:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:176:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:191:77 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:233:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_earnings_screen.dart:233:90 - deprecated_member_use
+warning - The value of the field '_vehicleColor' isn't used - lib\features\uber\driver_home_screen.dart:37:10 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\driver_home_screen.dart:149:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\uber\driver_home_screen.dart:238:28 - use_build_context_synchronously
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\driver_home_screen.dart:265:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_home_screen.dart:591:63 - deprecated_member_use
+warning - The declaration '_startSimulation' isn't referenced - lib\features\uber\driver_home_screen.dart:700:8 - unused_element
+warning - The declaration '_stopSimulation' isn't referenced - lib\features\uber\driver_home_screen.dart:727:8 - unused_element
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\driver_trip_screen.dart:109:21 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_trip_screen.dart:144:107 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\driver_trip_screen.dart:266:46 - deprecated_member_use
+warning - Unused import: 'package:lucide_icons/lucide_icons.dart' - lib\features\uber\uber_request_screen.dart:6:8 - unused_import
+   info - 'tileSize' is deprecated and shouldn't be used. `tileSize` is deprecated. Use `tileDimension` instead - lib\features\uber\uber_request_screen.dart:129:19 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_request_screen.dart:271:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:344:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:353:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\uber_tracking_screen.dart:424:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:48:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:75:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\uber\widgets\car_marker_widget.dart:155:30 - deprecated_member_use
+warning - Unused import: 'services/remote_theme_service.dart' - lib\main.dart:58:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:372:39 - deprecated_member_use
+   info - Empty catch block - lib\services\analytics_service.dart:42:16 - empty_catches
+warning - Unused import: 'realtime_service.dart' - lib\services\api_service.dart:13:8 - unused_import
+   info - 'loginWithFirebase' is deprecated and shouldn't be used. Use AuthService().syncUserProfile instead - lib\services\api_service.dart:932:11 - deprecated_member_use_from_same_package
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\api_service.dart:1388:9 - use_null_aware_elements
+warning - The value of the field '_api' isn't used - lib\services\remote_config_service.dart:8:16 - unused_field
+warning - Unused import: 'api_service.dart' - lib\services\service_sync_service.dart:4:8 - unused_import
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\services\theme_service.dart:143:9 - deprecated_member_use
+   info - 'onBackground' is deprecated and shouldn't be used. Use onSurface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\services\theme_service.dart:146:9 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\services\theme_service.dart:186:37 - deprecated_member_use
+   info - Don't invoke 'print' in production code - test\test_supabase_relations.dart:19:7 - avoid_print
+   info - Don't invoke 'print' in production code - test\test_supabase_relations.dart:21:7 - avoid_print
+
+490 issues found. (ran in 23.6s)

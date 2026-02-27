@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'remote_theme_service.dart';
+import '../core/theme/app_theme.dart';
 
 class ThemeConfig {
   final Color primary;
@@ -48,28 +50,28 @@ class ThemeConfig {
     }
   }
 
-  // Default Client Theme (Vibrant Yellow & Black)
+  // Default Client Theme (Stitch v1.0 Style)
   static ThemeConfig get defaultClient => ThemeConfig(
     primary: const Color(0xFFFFD700),
-    secondary: const Color(0xFF000000),
-    background: Colors.white,
-    surface: const Color(0xFFF5F5F5),
-    error: const Color(0xFFD32F2F),
-    success: const Color(0xFF4CAF50),
-    warning: const Color(0xFFFF9800),
-    textPrimary: const Color(0xFF000000),
+    secondary: const Color(0xFF0F172A), // Dark blue from Stitch
+    background: const Color(0xFFF1F5F9), // backgroundLight from Stitch
+    surface: Colors.white,
+    error: const Color(0xFFEF4444),
+    success: const Color(0xFF22C55E),
+    warning: const Color(0xFFF59E0B),
+    textPrimary: const Color(0xFF0F172A),
   );
 
-  // Default Provider Theme (Vibrant Yellow & Black)
+  // Default Provider Theme (Stitch v1.0 Style)
   static ThemeConfig get defaultProvider => ThemeConfig(
     primary: const Color(0xFFFFD700),
-    secondary: const Color(0xFF000000),
-    background: Colors.white,
-    surface: const Color(0xFFF5F5F5),
-    error: const Color(0xFFD32F2F),
-    success: const Color(0xFF4CAF50),
-    warning: const Color(0xFFFF9800),
-    textPrimary: const Color(0xFF000000),
+    secondary: const Color(0xFF0F172A),
+    background: const Color(0xFFF1F5F9),
+    surface: Colors.white,
+    error: const Color(0xFFEF4444),
+    success: const Color(0xFF22C55E),
+    warning: const Color(0xFFF59E0B),
+    textPrimary: const Color(0xFF0F172A),
   );
 }
 
@@ -82,9 +84,12 @@ class ThemeService extends ChangeNotifier {
   final ThemeConfig _providerConfig = ThemeConfig.defaultProvider;
 
   bool _isProviderMode = false;
+  bool _isNavBarVisible = true;
 
   ThemeConfig get currentConfig =>
       _isProviderMode ? _providerConfig : _clientConfig;
+
+  bool get isNavBarVisible => _isNavBarVisible;
 
   Future<void> loadTheme() async {
     try {
@@ -117,6 +122,13 @@ class ThemeService extends ChangeNotifier {
     }
   }
 
+  void setNavBarVisible(bool visible) {
+    if (_isNavBarVisible != visible) {
+      _isNavBarVisible = visible;
+      notifyListeners();
+    }
+  }
+
   ThemeData get currentThemeData {
     // Tenta obter o ThemeData completo do RemoteThemeService
     final remoteTheme = RemoteThemeService().getThemeData();
@@ -124,51 +136,107 @@ class ThemeService extends ChangeNotifier {
       return remoteTheme;
     }
 
-    // Fallback para o tema construído manualmente ou padrão
+    // Fallback para o tema construído manualmente ou padrão (Stitch Style)
     final config = currentConfig;
+    
+    final baseTextTheme = GoogleFonts.manropeTextTheme();
+
     return ThemeData(
       useMaterial3: true,
-      platform: TargetPlatform.iOS, // Enables iOS-style transitions globally
+      fontFamily: GoogleFonts.manrope().fontFamily,
+      platform: TargetPlatform.iOS,
       colorScheme: ColorScheme.fromSeed(
         seedColor: config.primary,
         primary: config.primary,
         secondary: config.secondary,
-        surface: config.background,
+        surface: config.surface,
+        background: config.background,
+        error: config.error,
+        onSurface: config.textPrimary,
+        onBackground: config.textPrimary,
       ),
       scaffoldBackgroundColor: config.background,
       appBarTheme: AppBarTheme(
         backgroundColor: config.primary,
         foregroundColor: config.textPrimary,
         elevation: 0,
+        centerTitle: true,
+        titleTextStyle: GoogleFonts.manrope(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: config.textPrimary,
+        ),
+      ),
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: GoogleFonts.manrope(
+          fontSize: 36,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
+          color: config.textPrimary,
+        ),
+        headlineMedium: GoogleFonts.manrope(
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          color: config.textPrimary,
+        ),
+        titleLarge: GoogleFonts.manrope(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: config.textPrimary,
+        ),
+        bodyLarge: GoogleFonts.manrope(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          height: 1.6,
+          color: config.textPrimary,
+        ),
+        bodyMedium: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: config.textPrimary.withValues(alpha: 0.8),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: config.textPrimary, width: 2),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          borderSide: BorderSide(color: config.secondary, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
         ),
+        labelStyle: GoogleFonts.manrope(color: Colors.grey.shade600),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: config.secondary,
           foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 56),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
           ),
+          textStyle: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: config.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
         ),
       ),
     );

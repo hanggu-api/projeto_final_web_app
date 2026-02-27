@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../../services/api_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Timeline de dispatch que lê os eventos de `service_logs` via Supabase SDK.
+/// Usa Realtime para atualizar em tempo real sem polling.
 class DispatchTrackingTimeline extends StatefulWidget {
   final String serviceId;
   final VoidCallback onProviderFound;
 
   const DispatchTrackingTimeline({
-    super.key, 
+    super.key,
     required this.serviceId,
     required this.onProviderFound,
   });
@@ -18,44 +20,128 @@ class DispatchTrackingTimeline extends StatefulWidget {
 }
 
 class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
-  Timer? _timer;
+  RealtimeChannel? _channel;
   String _headline = "Iniciando busca...";
-  List<dynamic> _timeline = [];
+  List<Map<String, dynamic>> _timeline = [];
   bool _isLoading = true;
-  final _api = ApiService();
+  bool _providerFoundCalled = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchTracking();
-    // Poll every 4 seconds
-    _timer = Timer.periodic(const Duration(seconds: 4), (_) => _fetchTracking());
+    _loadLogs();
+    _subscribeRealtime();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _channel?.unsubscribe();
     super.dispose();
   }
 
-  Future<void> _fetchTracking() async {
+  /// Carrega os logs do Supabase SDK (tabela service_logs)
+  Future<void> _loadLogs() async {
     try {
-      final response = await _api.get('/service/${widget.serviceId}/tracking');
-      if (mounted) {
-        setState(() {
-          _headline = response['headline'] ?? "Processando...";
-          _timeline = (response['timeline'] as List?) ?? [];
-          _isLoading = false;
-        });
+      final rows = await Supabase.instance.client
+          .from('service_logs')
+          .select('action, message, created_at')
+          .eq('service_id', widget.serviceId)
+          .order('created_at', ascending: false)
+          .limit(10);
 
-        if (response['status'] == 'accepted') {
-          _timer?.cancel();
-          widget.onProviderFound();
-        }
-            }
+      if (!mounted) return;
+      _applyLogs(List<Map<String, dynamic>>.from(rows));
     } catch (e) {
-      debugPrint('Error fetching tracking: $e');
+      debugPrint('[DispatchTimeline] Erro ao carregar logs: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Converte os rows de service_logs em headline + timeline
+  void _applyLogs(List<Map<String, dynamic>> rows) {
+    if (!mounted) return;
+
+    final timeline = rows.map((r) {
+      final raw = r['created_at'] as String?;
+      final dt = raw != null ? DateTime.tryParse(raw)?.toLocal() : null;
+      final timeStr = dt != null
+          ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
+          : '';
+      return {
+        'message': r['message'] ?? r['action'] ?? '',
+        'time': timeStr,
+        'action': r['action'] ?? '',
+      };
+    }).toList();
+
+    // Gerar headline baseado no evento mais recente
+    final latestEvent = rows.isNotEmpty ? (rows.first['action'] as String? ?? '') : '';
+    final headline = _headlineFor(latestEvent, rows.isNotEmpty ? (rows.first['message'] as String?) : null);
+
+    // Verificar se prestador foi encontrado
+    final accepted = rows.any((r) =>
+        (r['action'] as String?)?.contains('ACCEPTED') == true ||
+        (r['action'] as String?)?.contains('PROVIDER_ASSIGNED') == true);
+
+    setState(() {
+      _headline = headline;
+      _timeline = timeline;
+      _isLoading = false;
+    });
+
+    if (accepted && !_providerFoundCalled) {
+      _providerFoundCalled = true;
+      widget.onProviderFound();
+    }
+  }
+
+  /// Retorna uma headline amigável baseada no tipo de evento
+  String _headlineFor(String eventType, String? message) {
+    switch (eventType.toUpperCase()) {
+      case 'CREATED':
+      case 'SERVICE_CREATED':
+        return 'Serviço criado. Procurando prestadores...';
+      case 'DISPATCH_STARTED':
+        return 'Buscando prestadores próximos...';
+      case 'PROVIDER_NOTIFIED':
+        return 'Prestador notificado. Aguardando resposta...';
+      case 'PROVIDER_ACCEPTED':
+      case 'ACCEPTED':
+      case 'PROVIDER_ASSIGNED':
+        return 'Prestador encontrado! 🎉';
+      case 'PROVIDER_REJECTED':
+        return 'Buscando próximo prestador...';
+      case 'DISPATCH_TIMEOUT':
+        return 'Reiniciando busca...';
+      case 'OPEN_FOR_SCHEDULE':
+        return 'Disponível para agendamento';
+      case 'CANCELLED':
+        return 'Serviço cancelado';
+      default:
+        return message ?? 'Processando...';
+    }
+  }
+
+  /// Escuta inserções em tempo real na tabela service_logs para este serviço
+  void _subscribeRealtime() {
+    _channel = Supabase.instance.client
+        .channel('service_logs:${widget.serviceId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'service_logs',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'service_id',
+            value: widget.serviceId,
+          ),
+          callback: (payload) {
+            debugPrint('[DispatchTimeline] Novo log recebido via RT: ${payload.newRecord}');
+            // Re-carregar todos os logs para manter a ordem
+            _loadLogs();
+          },
+        )
+        .subscribe();
   }
 
   @override
@@ -101,22 +187,22 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Timeline
           if (_timeline.isEmpty)
-             const Padding(
-               padding: EdgeInsets.only(left: 8.0),
-               child: Text("Conectando aos satélites...", style: TextStyle(color: Colors.grey)),
-             )
+            const Padding(
+              padding: EdgeInsets.only(left: 8.0),
+              child: Text("Conectando ao servidor...", style: TextStyle(color: Colors.grey)),
+            )
           else
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _timeline.length > 3 ? 3 : _timeline.length, // Show top 3 recent
+              itemCount: _timeline.length > 3 ? 3 : _timeline.length,
               itemBuilder: (context, index) {
                 final event = _timeline[index];
                 final isLast = index == (_timeline.length > 3 ? 2 : _timeline.length - 1);
-                
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: Row(
@@ -135,7 +221,7 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
                           if (!isLast)
                             Container(
                               width: 2,
-                              height: 20, // Vertical line
+                              height: 20,
                               color: Colors.grey.shade200,
                             ),
                         ],
@@ -155,10 +241,7 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
                             ),
                             Text(
                               event['time'] ?? '',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade400,
-                              ),
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
                             ),
                           ],
                         ),

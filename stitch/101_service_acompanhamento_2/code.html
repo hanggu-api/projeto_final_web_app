@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+
+<html lang="pt"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#FFD100", // 101 Service Yellow
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .map-gradient {
+            background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(246,246,248,1) 90%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- TopAppBar - 101 Service Branded -->
+<div class="flex items-center bg-primary p-4 pb-4 justify-between shadow-md z-10">
+<div class="text-slate-900 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 cursor-pointer">
+<span class="material-symbols-outlined">arrow_back</span>
+</div>
+<div class="flex flex-col items-center">
+<h2 class="text-slate-900 text-lg font-bold leading-tight tracking-tight uppercase">101 Service</h2>
+<span class="text-xs font-semibold text-slate-800 bg-black/10 px-2 py-0.5 rounded-full">Viagem em curso</span>
+</div>
+<div class="flex size-10 items-center justify-end">
+<button class="text-slate-900 flex items-center justify-center">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+</div>
+<!-- Map Section -->
+<div class="relative flex-1 bg-slate-200">
+<!-- Simulated Map Background -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Map showing vehicle route through city streets" data-location="Lisbon, Portugal" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDpK20lri-ZL5iJtxPUvao7v7kGOOyS8P6rmbcw1TEsHHv2mWal08rUdrU0LLDbLloppHYp0cnUNEudOV_XuOWKsM5f6_CSWo7ND5dD81-UCHILFIj6r1t-u1HGAdNFxWdnoky8guAFsmQ-6ZDbNOZ3DyCxMOMv8pwvOX0jv3me96cXfYHrraaZMfL78_SOBrXCn-wemimvkYd58ZIV2DjZDkIZ8Q9bB5hy54f9Y4UUtoHvjtff5VWfo4Zii6D4zBd5jZQ-emVcMjE");'>
+</div>
+<!-- Map Overlay Controls -->
+<div class="absolute top-4 right-4 flex flex-col gap-2">
+<button class="flex size-12 items-center justify-center rounded-xl bg-white shadow-lg text-slate-900">
+<span class="material-symbols-outlined">add</span>
+</button>
+<button class="flex size-12 items-center justify-center rounded-xl bg-white shadow-lg text-slate-900 border-t border-slate-100">
+<span class="material-symbols-outlined">remove</span>
+</button>
+<button class="mt-2 flex size-12 items-center justify-center rounded-xl bg-white shadow-lg text-primary">
+<span class="material-symbols-outlined">my_location</span>
+</button>
+</div>
+<!-- Route Info Floating Bar -->
+<div class="absolute top-4 left-4 right-18 max-w-xs">
+<div class="bg-white/90 backdrop-blur-md p-3 rounded-xl shadow-lg border border-white/20 flex items-center gap-3">
+<div class="bg-primary rounded-lg p-2 text-slate-900">
+<span class="material-symbols-outlined">navigation</span>
+</div>
+<div>
+<p class="text-xs text-slate-500 font-medium">Próxima paragem em 5 min</p>
+<p class="text-sm font-bold text-slate-900">Avenida da Liberdade</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Sheet Card -->
+<div class="relative z-20 bg-white rounded-t-xl shadow-[0_-8px_30px_rgb(0,0,0,0.12)] px-4 pb-8">
+<div class="flex h-6 w-full items-center justify-center py-4">
+<div class="h-1.5 w-12 rounded-full bg-slate-200"></div>
+</div>
+<!-- Driver Info -->
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-4">
+<div class="relative">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-16 w-16 border-2 border-primary" data-alt="Professional portrait of driver Ricardo" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBdPSQpRA8TubghANJd8OkzOws7fCXKxzJP9QSg7f6o_w4XDW1p4kPbY5YTG_VU3bF13YGVPmDD-S6X_AK_Iin2l8bnWMocTaspsEAv1Vd5R4si_ocZiEiAb-6MII6EyvisLmPUz5fwcMem6P_YM06pjqO2lKMwUgraJWjOhC-7cby6aFf20JqClSK-AtndQXKp71PJSkU22Kqc17u0fJgOTQFCqVlc4Q5hkk0nExtrQzl1COjBDuP9Ll81aX0JElBEXdr-LnVvVVY");'>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-primary text-slate-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+                            4.9 ★
+                        </div>
+</div>
+<div>
+<h3 class="text-slate-900 text-xl font-bold leading-tight">Ricardo</h3>
+<p class="text-slate-500 text-sm font-medium">Toyota Corolla • <span class="text-slate-900 font-bold">ABC-12-34</span></p>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<p class="text-primary text-2xl font-black">€8,50</p>
+<p class="text-slate-400 text-xs uppercase tracking-wider font-bold">Dinheiro</p>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="grid grid-cols-3 gap-3 mb-6">
+<button class="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-slate-50 border border-slate-100 active:bg-slate-100 transition-colors">
+<span class="material-symbols-outlined text-primary">chat_bubble</span>
+<span class="text-xs font-bold text-slate-700">Chat</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-slate-50 border border-slate-100 active:bg-slate-100 transition-colors">
+<span class="material-symbols-outlined text-primary">call</span>
+<span class="text-xs font-bold text-slate-700">Ligar</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-slate-50 border border-slate-100 active:bg-slate-100 transition-colors">
+<span class="material-symbols-outlined text-primary">share</span>
+<span class="text-xs font-bold text-slate-700">Partilhar</span>
+</button>
+</div>
+<!-- Cancel Button -->
+<button class="w-full py-4 rounded-xl bg-red-50 text-red-500 font-bold text-sm tracking-wide uppercase border border-red-100 active:bg-red-100 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">close</span>
+                Cancelar Viagem
+            </button>
+</div>
+</div>
+</body></html>

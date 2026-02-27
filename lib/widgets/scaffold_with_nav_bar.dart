@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_bottom_nav.dart';
+import '../services/theme_service.dart';
+
 
 class ScaffoldWithNavBar extends StatefulWidget {
   final Widget child;
@@ -33,34 +35,27 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
 
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
-    final isProvider = _role == 'provider';
+    final isProvider = _role == 'provider' || _role == 'driver';
 
     if (isProvider) {
       if (location.startsWith('/provider-home') ||
           location.startsWith('/medical-home')) {
         return 0;
       }
-      if (location.startsWith('/chats')) {
+      if (location.startsWith('/uber-driver-earnings')) {
         return 1;
       }
-      if (location.startsWith('/provider-profile') || location.startsWith('/my-provider-profile')) {
+      if (location.startsWith('/activity')) {
         return 2;
       }
-      if (location.startsWith('/client-settings')) {
+      if (location.startsWith('/client-settings') || location.startsWith('/my-provider-profile')) {
         return 3;
-      } // Provider usa client-settings ou tem settings proprias?
-      // O AppBottomNav provider tem: Home, Chat, Perfil, Configurações.
-      // Configurações pode ser client-settings ou outra rota?
-      // No AppBottomNav original:
-      // case 3: context.push('/client-settings'); (Sim, usa client-settings)
+      }
     } else {
-      if (location.startsWith('/home')) {
+      if (location.startsWith('/home') || location.startsWith('/tracking') || location.startsWith('/uber-request')) {
         return 0;
       }
-      if (location.startsWith('/tracking')) {
-        return 0;
-      } // Tracking mantém Home ativa
-      if (location.startsWith('/chats')) {
+      if (location.startsWith('/chats') || location.startsWith('/chat/')) {
         return 1;
       }
       if (location.startsWith('/client-settings')) {
@@ -72,6 +67,10 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
 
   @override
   Widget build(BuildContext context) {
+    final String location = GoRouterState.of(context).uri.toString();
+    final bool isTripRoute = location.startsWith('/uber-tracking') || 
+                            location.startsWith('/uber-driver-trip');
+
     return Scaffold(
       extendBody: true, // Garante que o conteúdo vá até o fundo real da tela
       body: Stack(
@@ -79,14 +78,34 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
           // Conteúdo Principal
           widget.child,
           
-          // Barra de Navegação Flutuante
+          // Barra de Navegação Flutuante (Estilo Stitch)
           Positioned(
-            left: 20,
-            right: 20,
-            bottom: 20,
-            child: AppBottomNav(
-              currentIndex: _calculateSelectedIndex(context),
-              isProvider: _role == 'provider',
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: ListenableBuilder(
+              listenable: ThemeService(),
+              builder: (context, child) {
+                // Oculta se o ThemeService mandar ou se estiver em uma rota de viagem
+                final isVisible = ThemeService().isNavBarVisible && !isTripRoute;
+                
+                return AnimatedSlide(
+                  duration: const Duration(milliseconds: 400),
+                  offset: isVisible ? Offset.zero : const Offset(0, 1.5),
+                  curve: Curves.easeInOut,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: isVisible ? 1.0 : 0.0,
+                    child: IgnorePointer(
+                      ignoring: !isVisible,
+                      child: AppBottomNav(
+                        currentIndex: _calculateSelectedIndex(context),
+                        isProvider: _role == 'provider' || _role == 'driver',
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

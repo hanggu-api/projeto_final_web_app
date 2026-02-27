@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>101 Service - Finalizar Serviço</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13", // Primary from theme
+                        "brand-yellow": "#FFD700", // Brand requirement
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between p-4 max-w-lg mx-auto w-full">
+<button class="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-100">arrow_back</span>
+</button>
+<h2 class="text-lg font-bold leading-tight tracking-tight">Finalizar Serviço</h2>
+<div class="size-10"></div> <!-- Spacer for centering -->
+</div>
+</header>
+<main class="flex-1 w-full max-w-lg mx-auto p-4 flex flex-col gap-6">
+<!-- Service Summary Card -->
+<section class="bg-white dark:bg-slate-800/50 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-4">
+<div class="size-16 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0">
+<img alt="Foto do profissional Ricardo Silva" class="w-full h-full object-cover" data-alt="Retrato de um profissional eletricista sorridente" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDI1scpzhXHOtGwBaCxEeyOsFxQCgJel6Wm9BWf_9Nb2qX-IyYvdprVMPUz_dxvgoRs_u4gqMipQmE5nYPB_MAE6TN8v_ukJIaekhQXdvjjIuCi8QeuiELKavJYD3aZVfNY9P25fhC0VZBuJhcSCTwrFSjOUPx3Em64gjBxR3zZaJHXPvW1OWaWPAC11U1FBpImQdkvP7ZUvAFSFYCtsCwV1hQz5A4UzVthii6JYkRYv7nA-fdiZfpEjSEgLgc4edxlt5Dm1Fh73c0"/>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-semibold uppercase tracking-wider text-primary">Serviço em andamento</span>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Ricardo Silva</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Eletricista Residencial</p>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+<div class="flex flex-col">
+<span class="text-[10px] text-slate-400 uppercase font-bold">Protocolo</span>
+<span class="text-sm font-mono font-medium">#101-8829-02</span>
+</div>
+<button class="text-primary text-sm font-semibold flex items-center gap-1 hover:underline">
+                    Ver detalhes <span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- OTP Input Section -->
+<section class="flex flex-col items-center text-center py-4">
+<h1 class="text-2xl font-bold mb-2">Código de Confirmação</h1>
+<p class="text-slate-600 dark:text-slate-400 text-sm mb-8 px-4">
+                Insira abaixo o código de 6 dígitos gerado para este atendimento.
+            </p>
+<div class="flex justify-center gap-2 mb-8">
+<input class="size-12 md:size-14 text-center text-2xl font-bold rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-brand-yellow focus:ring-0 transition-all outline-none" maxlength="1" placeholder="-" type="text"/>
+<input class="size-12 md:size-14 text-center text-2xl font-bold rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-brand-yellow focus:ring-0 transition-all outline-none" maxlength="1" placeholder="-" type="text"/>
+<input class="size-12 md:size-14 text-center text-2xl font-bold rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-brand-yellow focus:ring-0 transition-all outline-none" maxlength="1" placeholder="-" type="text"/>
+<div class="w-1 self-center h-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+<input class="size-12 md:size-14 text-center text-2xl font-bold rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-brand-yellow focus:ring-0 transition-all outline-none" maxlength="1" placeholder="-" type="text"/>
+<input class="size-12 md:size-14 text-center text-2xl font-bold rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-brand-yellow focus:ring-0 transition-all outline-none" maxlength="1" placeholder="-" type="text"/>
+<input class="size-12 md:size-14 text-center text-2xl font-bold rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-brand-yellow focus:ring-0 transition-all outline-none" maxlength="1" placeholder="-" type="text"/>
+</div>
+<!-- Security Message Box -->
+<div class="bg-brand-yellow/10 dark:bg-brand-yellow/5 border border-brand-yellow/30 rounded-xl p-4 flex gap-3 text-left max-w-sm">
+<span class="material-symbols-outlined text-brand-yellow shrink-0">info</span>
+<p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+<strong class="text-slate-900 dark:text-white">Atenção:</strong> Compartilhe este código com o profissional <span class="font-bold underline">apenas</span> quando o serviço estiver totalmente concluído e do seu agrado.
+                </p>
+</div>
+</section>
+<!-- Actions -->
+<div class="mt-auto pt-6 flex flex-col gap-4">
+<button class="w-full h-14 bg-brand-yellow hover:bg-brand-yellow/90 text-slate-900 font-bold rounded-xl shadow-lg shadow-brand-yellow/20 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                Confirmar e Finalizar
+                <span class="material-symbols-outlined">check_circle</span>
+</button>
+<button class="w-full py-3 text-slate-500 dark:text-slate-400 text-sm font-medium flex items-center justify-center gap-2 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+<span class="material-symbols-outlined text-lg">report_problem</span>
+                Relatar um problema ou obter ajuda
+            </button>
+</div>
+</main>
+<footer class="p-6 text-center text-xs text-slate-400 dark:text-slate-600">
+        © 2024 101 Service App - Tecnologia para serviços.
+    </footer>
+</body></html>

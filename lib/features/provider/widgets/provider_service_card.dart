@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../../../core/theme/app_theme.dart';
 
@@ -283,7 +284,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.cyan.withOpacity(0.3),
+                          color: Colors.cyan.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -394,10 +395,13 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                                      interactionOptions: const InteractionOptions(flags: InteractiveFlag.all), // Allow interaction
                                    ),
                                    children: [
-                                     TileLayer(
-                                       urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=\${dotenv.env[\'MAPBOX_TOKEN\'] ?? \'\'}',
-                                       userAgentPackageName: 'com.play101.app',
-                                     ),
+                                       TileLayer(
+                                         urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env["MAPBOX_TOKEN"] ?? ""}',
+                                         userAgentPackageName: 'com.play101.app',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 22,
+                                       ),
                                       if (_providerLocation != null)
                                         PolylineLayer(
                                           polylines: [
@@ -499,7 +503,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: clientArrived ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.orange.withValues(alpha: 0.1),
+                          color: clientArrived ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: clientArrived ? AppTheme.primaryBlue : Colors.orange),
                         ),
@@ -948,3 +952,4 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
     );
   }
 }
+

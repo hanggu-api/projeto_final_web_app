@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../services/realtime_service.dart';
+import '../core/theme/app_theme.dart';
 
 class AppBottomNav extends StatefulWidget {
   final int currentIndex;
@@ -38,10 +40,8 @@ class _AppBottomNavState extends State<AppBottomNav> {
         rt.authenticate(userId);
       }
 
-      // Listen for new chat messages
       void handleNewMessage(dynamic data) async {
         final senderId = data is Map ? data['sender_id'] : null;
-        // Don't count my own messages if they ever come back to me
         if (_myUserId != null &&
             senderId != null &&
             senderId.toString() == _myUserId.toString()) {
@@ -61,133 +61,80 @@ class _AppBottomNavState extends State<AppBottomNav> {
 
   @override
   Widget build(BuildContext context) {
-    final isProvider = widget.isProvider ?? (_role == 'provider');
+    final isProvider = widget.isProvider ?? (_role == 'provider' || _role == 'driver');
+    
+    // Stitch inspired items - Consolidating to 5 tabs for Client as per harmonized designs
     final items = isProvider
         ? [
-            BottomNavigationBarItem(
-              icon: const Icon(LucideIcons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(icon: _chatIcon(), label: 'Chat'),
-            BottomNavigationBarItem(
-              icon: const Icon(LucideIcons.user),
-              label: 'Perfil',
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(LucideIcons.settings),
-              label: 'Configurações',
-            ),
+            _NavData(label: 'Início', icon: LucideIcons.home),
+            _NavData(label: 'Ganhos', icon: LucideIcons.banknote),
+            _NavData(label: 'Atividade', icon: LucideIcons.history),
+            _NavData(label: 'Perfil', icon: LucideIcons.user),
           ]
         : [
-            BottomNavigationBarItem(
-              icon: const Icon(LucideIcons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(icon: _chatIcon(), label: 'Chat'),
-            BottomNavigationBarItem(
-              icon: const Icon(LucideIcons.settings),
-              label: 'Configurações',
-            ),
+            _NavData(label: 'Início', icon: LucideIcons.home),
+            _NavData(label: 'Chat', icon: LucideIcons.messageSquare, isBadge: true),
+            _NavData(label: 'Perfil', icon: LucideIcons.user),
           ];
+
     final safeIndex = (widget.currentIndex < 0)
         ? 0
         : (widget.currentIndex >= items.length
               ? items.length - 1
               : widget.currentIndex);
+
     return Container(
-      height: 65,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(40),
-        boxShadow: const [
+        color: Colors.white.withValues(alpha: 0.95), 
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            spreadRadius: 2,
-            offset: Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 30,
+            offset: const Offset(0, -10),
           )
         ],
       ),
+      padding: EdgeInsets.only(
+        left: 20, 
+        right: 20, 
+        bottom: MediaQuery.of(context).padding.bottom + 12,
+        top: 10,
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: items.asMap().entries.map((entry) {
           final idx = entry.key;
-          final item = entry.value;
+          final data = entry.value;
           final isSelected = idx == safeIndex;
+          
           final color = isSelected 
-              ? Theme.of(context).colorScheme.secondary 
-              : Colors.grey.shade600;
+              ? Colors.black // Preto para o selecionado
+              : Colors.black.withValues(alpha: 0.4); // Preto suave para o não selecionado
 
-          // Extrair o ícone real para pintá-lo corretamente
-          Widget iconWidget = item.icon;
-          if (iconWidget is Icon) {
-             iconWidget = Icon(iconWidget.icon, color: color, size: isSelected ? 28 : 24);
-          } else if (iconWidget is Badge) {
-             // Caso seja o chatIcon com Badge
-             final innerIcon = iconWidget.child as Icon;
-             iconWidget = Badge(
-               label: iconWidget.label,
-               child: Icon(innerIcon.icon, color: color, size: isSelected ? 28 : 24),
-             );
-          }
-
-          return GestureDetector(
-            onTap: () {
-              if (isProvider) {
-                switch (idx) {
-                  case 0:
-                    context.go(_isMedical ? '/medical-home' : '/provider-home');
-                    break;
-                  case 1:
-                    context.go('/chats');
-                    break;
-                  case 2:
-                    context.go('/my-provider-profile');
-                    break;
-                  case 3:
-                    context.go('/client-settings');
-                    break;
-                }
-              } else {
-                switch (idx) {
-                  case 0:
-                    // Se estiver no mapa, resetar. Mas via GoRouter, apenas garante a rota.
-                    context.go('/home');
-                    break;
-                  case 1:
-                    context.go('/chats');
-                    break;
-                  case 2:
-                    context.go('/client-settings');
-                    break;
-                }
-              }
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-               child: AnimatedContainer(
-                 duration: const Duration(milliseconds: 200),
-                 curve: Curves.easeInOut,
-                 child: Column(
-                   mainAxisSize: MainAxisSize.min,
-                   mainAxisAlignment: MainAxisAlignment.center,
-                   children: [
-                     iconWidget,
-                     if (isSelected) ...[
-                       const SizedBox(height: 4),
-                       Text(
-                         item.label ?? '',
-                         style: TextStyle(
-                           color: color,
-                           fontSize: 10,
-                           fontWeight: FontWeight.bold,
-                         ),
-                       )
-                     ]
-                   ],
-                 ),
-               ),
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _onTap(idx, isProvider),
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildIcon(data, color, isSelected),
+                  const SizedBox(height: 6),
+                  Text(
+                    data.label,
+                    style: GoogleFonts.manrope(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      letterSpacing: -0.2,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           );
         }).toList(),
@@ -195,13 +142,59 @@ class _AppBottomNavState extends State<AppBottomNav> {
     );
   }
 
-  Widget _chatIcon() {
-    if (_unread > 0) {
+  Widget _buildIcon(_NavData data, Color color, bool isSelected) {
+    Widget icon = Icon(
+      data.icon,
+      color: color,
+      size: 24,
+    );
+
+    if (data.isBadge && _unread > 0) {
       return Badge(
-        label: Text('$_unread'),
-        child: const Icon(LucideIcons.messageSquare),
+        label: Text('$_unread', style: const TextStyle(fontSize: 10, color: Colors.white)),
+        backgroundColor: Colors.red,
+        child: icon,
       );
     }
-    return const Icon(LucideIcons.messageSquare);
+    return icon;
   }
+
+  void _onTap(int idx, bool isProvider) {
+    if (isProvider) {
+      switch (idx) {
+        case 0:
+          context.go(_isMedical ? '/medical-home' : '/provider-home');
+          break;
+        case 1:
+          context.go('/uber-driver-earnings');
+          break;
+        case 2:
+          context.go('/activity'); 
+          break;
+        case 3:
+          context.go('/client-settings'); // Ou perfil do motorista
+          break;
+      }
+    } else {
+      switch (idx) {
+        case 0:
+          context.go('/home');
+          break;
+        case 1:
+          context.go('/chats');
+          break;
+        case 2:
+          context.go('/client-settings');
+          break;
+      }
+    }
+  }
+}
+
+class _NavData {
+  final String label;
+  final IconData icon;
+  final bool isBadge;
+
+  _NavData({required this.label, required this.icon, this.isBadge = false});
 }

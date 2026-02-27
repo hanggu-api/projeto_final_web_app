@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'api_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'data_gateway.dart';
 
 /// ServiceSyncService: Sincronizar estado do serviço com fallback
@@ -56,7 +57,7 @@ class ServiceSyncService {
 
     _watches.remove(serviceId);
 
-    print('[ServiceSync] Parando watch para $serviceId');
+    debugPrint('[ServiceSync] Parando watch para $serviceId');
   }
 
   /// Começar listener do Firebase
@@ -73,12 +74,12 @@ class ServiceSyncService {
               watch.firebaseWorking = true;
               watch.controller.add(service);
 
-              print('[ServiceSync] Firebase update recebido para $serviceId');
+              debugPrint('[ServiceSync] Firebase update recebido para $serviceId');
             },
             onError: (error) {
               // Firebase falhou
               watch.firebaseWorking = false;
-              print(
+              debugPrint(
                 '[ServiceSync] Firebase erro para $serviceId: $error, '
                 'ativando polling fallback...',
               );
@@ -86,7 +87,7 @@ class ServiceSyncService {
           );
     } catch (error) {
       watch.firebaseWorking = false;
-      print('[ServiceSync] Erro ao iniciar Firebase listener: $error');
+      debugPrint('[ServiceSync] Erro ao iniciar Firebase listener: $error');
     }
   }
 
@@ -106,18 +107,19 @@ class ServiceSyncService {
         }
 
         try {
-          final api = ApiService();
-          final response = await api.get('/services/$serviceId');
+          // Fase 6: Usar Supabase SDK em vez da REST API legada
+          final response = await Supabase.instance.client
+              .from('service_requests_new')
+              .select()
+              .eq('id', serviceId)
+              .maybeSingle();
 
-          if (response.containsKey('service')) {
-            final service = response['service'] as Map<String, dynamic>;
-            watch.controller.add(service);
-
-            print('[ServiceSync] Polling update para $serviceId');
+          if (response != null) {
+            watch.controller.add(Map<String, dynamic>.from(response));
+            debugPrint('[ServiceSync] Polling update via Supabase para $serviceId');
           }
         } catch (error) {
-          // Erro no polling, tentar de novo no próximo ciclo
-          print('[ServiceSync] Polling erro para $serviceId: $error');
+          debugPrint('[ServiceSync] Polling erro para $serviceId: $error');
         }
       },
     );
@@ -131,17 +133,21 @@ class ServiceSyncService {
   /// Sincronizar manualmente (forçar update)
   Future<void> syncNow(String serviceId) async {
     try {
-      final api = ApiService();
-      final response = await api.get('/services/$serviceId');
+      // Fase 6: Usar Supabase SDK em vez da REST API legada
+      final response = await Supabase.instance.client
+          .from('service_requests_new')
+          .select()
+          .eq('id', serviceId)
+          .maybeSingle();
 
-      if (response.containsKey('service')) {
+      if (response != null) {
         final watch = _watches[serviceId];
         if (watch != null && !watch.controller.isClosed) {
-          watch.controller.add(response['service']);
+          watch.controller.add(Map<String, dynamic>.from(response));
         }
       }
     } catch (error) {
-      print('[ServiceSync] Erro ao sincronizar: $error');
+      debugPrint('[ServiceSync] Erro ao sincronizar: $error');
     }
   }
 

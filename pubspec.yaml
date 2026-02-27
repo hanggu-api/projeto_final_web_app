@@ -46,6 +46,8 @@ dependencies:
   file_picker: ^10.3.7
   http_parser: ^4.1.2
   geolocator: ^14.0.2
+  flutter_compass: ^0.8.0
+  sensors_plus: ^6.1.1
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
   audioplayers: ^6.5.1
@@ -89,6 +91,7 @@ dependencies:
   chewie: ^1.13.0
   uuid: ^4.5.3
   flutter_dotenv: ^6.0.0
+  google_sign_in: ^7.2.0
 
 
 dev_dependencies:
@@ -115,7 +118,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/icons/app_icon.png
+    - assets/icons/
     - assets/sounds/
     - assets/images/
     - assets/images/slid/slide1.png

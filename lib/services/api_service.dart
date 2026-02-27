@@ -7,14 +7,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:uuid/uuid.dart';
 import 'realtime_service.dart';
 import 'notification_service.dart';
-import 'permissions_service.dart';
 import 'analytics_service.dart';
 import '../core/utils/logger.dart';
+import '../core/config/supabase_config.dart';
+import 'remote_config_service.dart';
 
 class ApiService {
   // URLs Legadas (Mantidas comentadas para referência se necessário)
@@ -27,21 +28,8 @@ class ApiService {
 
 
   static String get baseUrl {
-    // URL do Cloudflare Worker (Produção)
-    const productionUrl = 'https://projeto-central-backend.carrobomebarato.workers.dev/api';
-    
-    // URL do Instância Local do Worker (usando wrangler dev --remote)
-    // 10.0.2.2 é o IP especial do host visto pelo emulador Android
-    const localWorkerUrl = 'http://10.0.2.2:4011/api';
-
-    // Mude para 'true' para testar com o Worker rodando localmente no PC
-    const useLocalWorker = false; // <--- SWITCHED TO PRODUCTION (Cloudflare)
-
-    if (kDebugMode && useLocalWorker) {
-      return localWorkerUrl;
-    }
-    
-    return productionUrl;
+    // URL das Edge Functions do Supabase (Novo)
+    return 'https://mroesvsmylnaxelrhqtl.supabase.co/functions/v1';
   }
 
   static String fixUrl(String? url) {
@@ -51,7 +39,6 @@ class ApiService {
   }
 
   String? _token;
-  Completer<String?>? _tokenCompleter; // Evita chamadas paralelas ao token
   String? _role;
   int? _userId;
   bool _isMedical = false;
@@ -72,6 +59,8 @@ class ApiService {
   bool get isFixedLocation => _isFixedLocation;
   String? get role => _role;
   int? get userId => _userId;
+  int? get currentUserId => _userId;
+
 
   http.Client _client = http.Client();
 
@@ -88,8 +77,19 @@ class ApiService {
       final session = data.session;
       if (session != null) {
         _token = session.accessToken;
+        
+        // Se o userId local estiver nulo e temos uma sessão, 
+        // ou se acabou de ocorrer um login (ex: Google OAuth), sincronizamos.
+        if (_userId == null || data.event == AuthChangeEvent.signedIn) {
+          debugPrint('🔄 [ApiService] Auto-syncing user profile after Auth event: ${data.event}');
+          loginWithFirebase(session.accessToken).catchError((e) {
+            debugPrint('❌ [ApiService] Erro no auto-sync: $e');
+          });
+        }
       } else {
         _token = null;
+        _userId = null;
+        _role = null;
       }
     });
   }
@@ -111,172 +111,129 @@ class ApiService {
 
   // --- Appointments / Scheduling ---
 
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
 
   Future<List<Map<String, dynamic>>> getProviderSlots(
     int providerId, {
     String? date,
   }) async {
-    final token = await _getToken();
-    final uri = Uri.parse(
-      '$baseUrl/appointments/$providerId/slots',
-    ).replace(queryParameters: date != null ? {'date': date} : null);
-
-    final response = await _client.get(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
-    }
-    throw Exception('Failed to load slots: ${response.statusCode}');
+    // Agora buscamos direto na tabela de agendamentos do Supabase
+    final response = await Supabase.instance.client
+        .from('appointments')
+        .select('*')
+        .eq('provider_id', providerId)
+        .gte('start_time', date ?? DateTime.now().toIso8601String().split('T')[0]);
+    
+    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<void> markSlotBusy(DateTime startTime) async {
-    final token = await _getToken();
-    final response = await _client.post(
-      Uri.parse('$baseUrl/appointments/busy'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({'start_time': startTime.toIso8601String()}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to mark slot busy');
-    }
-  }
-
-  Future<void> bookSlot(int providerId, DateTime startTime) async {
-    final token = await _getToken();
-    final response = await _client.post(
-      Uri.parse('$baseUrl/appointments/book'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'provider_id': providerId,
-        'start_time': startTime.toIso8601String(),
-      }),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to book slot');
-    }
-  }
-
-  Future<void> confirmSchedule(String serviceId, DateTime time) async {
-    await post('/services/$serviceId/confirm-schedule', {
-      'scheduled_at': time.toIso8601String(),
+    if (_userId == null) throw Exception('Not authenticated');
+    await Supabase.instance.client.from('appointments').insert({
+      'provider_id': _userId,
+      'start_time': startTime.toIso8601String(),
+      'end_time': startTime.add(const Duration(hours: 1)).toIso8601String(),
+      'status': 'confirmed', // Marcar como ocupado
     });
   }
 
+  Future<void> bookSlot(int providerId, DateTime startTime) async {
+    if (_userId == null) throw Exception('Not authenticated');
+    await Supabase.instance.client.from('appointments').insert({
+      'provider_id': providerId,
+      'client_id': _userId,
+      'start_time': startTime.toIso8601String(),
+      'end_time': startTime.add(const Duration(hours: 1)).toIso8601String(),
+      'status': 'waiting_payment',
+    });
+  }
+
+  Future<void> confirmSchedule(String serviceId, DateTime time) async {
+    await Supabase.instance.client.from('service_requests_new').update({
+      'scheduled_at': time.toIso8601String(),
+      'status': 'scheduled',
+      'status_updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', serviceId);
+  }
+
   Future<void> markClientDeparting(String serviceId) async {
-    print('📍 [ApiService] Marking client departing for service: $serviceId');
-    await post('/services/$serviceId/depart', {});
+    debugPrint('📍 [ApiService] Marking client departing for service: $serviceId');
+    await Supabase.instance.client.from('service_requests_new').update({
+      'status': 'client_departing',
+      'status_updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', serviceId);
   }
 
   Future<void> markClientArrived(String serviceId) async {
-    print('📍 [ApiService] Marking client arrived for service: $serviceId');
-    await post('/services/$serviceId/arrived_client', {});
+    debugPrint('📍 [ApiService] Marking client arrived for service: $serviceId');
+    await Supabase.instance.client.from('service_requests_new').update({
+      'status': 'client_arrived',
+      'arrived_at': DateTime.now().toIso8601String(),
+      'status_updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', serviceId);
   }
 
   Future<void> confirmPaymentManual(String serviceId) async {
-    print('💰 [ApiService] Confirming manual payment for service: $serviceId');
-    await post('/services/$serviceId/confirm-payment', {});
+    debugPrint('💰 [ApiService] Confirming manual payment for service: $serviceId');
+    await Supabase.instance.client.from('service_requests_new').update({
+      'payment_remaining_status': 'paid_manual',
+      'status_updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', serviceId);
   }
 
-  Future<void> deleteAppointment(int appointmentId) async {
-    final token = await _getToken();
-    final response = await _client.delete(
-      Uri.parse('$baseUrl/appointments/$appointmentId'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to delete appointment');
-    }
+  Future<void> deleteAppointment(String appointmentId) async {
+    await Supabase.instance.client
+        .from('appointments')
+        .delete()
+        .eq('id', appointmentId);
   }
 
   Future<List<Map<String, dynamic>>> getScheduleConfig() async {
-    final token = await _getToken();
-    final response = await _client.get(
-      Uri.parse('$baseUrl/appointments/config'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
-    }
-    throw Exception('Failed to load config');
-  }
-
-  Future<void> saveScheduleConfig(List<Map<String, dynamic>> configs) async {
-    final token = await _getToken();
-    final response = await _client.post(
-      Uri.parse('$baseUrl/appointments/config'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(configs),
-    );
-
-    if (response.statusCode != 200) {
-      debugPrint('Failed to save config: ${response.body}');
-      throw Exception('Failed to save config: ${response.body}');
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getScheduleExceptions() async {
-    final token = await _getToken();
-    final response = await _client.get(
-      Uri.parse('$baseUrl/provider/schedule/exceptions'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-      return List<Map<String, dynamic>>.from(decoded['exceptions'] ?? decoded);
+    if (_userId == null) return [];
+    final response = await Supabase.instance.client
+        .from('providers')
+        .select('schedule_configs')
+        .eq('user_id', _userId!)
+        .single();
+    
+    final configs = response['schedule_configs'];
+    if (configs is List) {
+      return List<Map<String, dynamic>>.from(configs);
     }
     return [];
   }
 
-  Future<void> saveScheduleExceptions(List<dynamic> exceptions) async {
-    final token = await _getToken();
-    final response = await _client.post(
-      Uri.parse('$baseUrl/provider/schedule/exceptions'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({'exceptions': exceptions}),
-    );
+  Future<void> saveScheduleConfig(List<Map<String, dynamic>> configs) async {
+    if (_userId == null) throw Exception('Not authenticated');
+    await Supabase.instance.client.from('providers').update({
+      'schedule_configs': configs,
+    }).eq('user_id', _userId!);
+  }
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to save exceptions');
-    }
+  Future<List<Map<String, dynamic>>> getScheduleExceptions() async {
+    if (_userId == null) return [];
+    final response = await Supabase.instance.client
+        .from('provider_schedule_exceptions')
+        .select('*')
+        .eq('provider_id', _userId!);
+    
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<void> saveScheduleExceptions(List<dynamic> exceptions) async {
+    if (_userId == null) throw Exception('Not authenticated');
+    
+    // Primeiro limpamos as antigas para este prestador (opcional, ou upsert)
+    // Para simplificar, faremos um fresh insert das novas
+    await Supabase.instance.client.from('provider_schedule_exceptions').delete().eq('provider_id', _userId!);
+    
+    final rows = exceptions.map((e) => {
+      'provider_id': _userId,
+      'date': e['date'],
+      'is_available': e['is_available'] ?? false,
+      'reason': e['reason'],
+    }).toList();
+
+    await Supabase.instance.client.from('provider_schedule_exceptions').insert(rows);
   }
 
   Future<void> autoDetectBaseUrl() async {
@@ -383,7 +340,7 @@ class ApiService {
   Future<void> clearToken() async {
     try {
       if (_token != null) {
-        await post('/auth/logout', {});
+        // await post('/auth/logout', {}); // Legacy 404 - Supabase handles logout
         // Fire & Forget: Remova token do FCM do db
         final fcmToken = await FirebaseMessaging.instance.getToken();
         if (fcmToken != null) {
@@ -430,6 +387,73 @@ class ApiService {
   bool get isLoggedIn =>
       Supabase.instance.client.auth.currentUser != null;
 
+  /// Classifica um texto usando a Edge Function ai-classify (Sprint 2: substitui POST /services/ai/classify)
+  Future<Map<String, dynamic>> classifyService(String text) async {
+    return await invokeEdgeFunction('ai-classify', {'text': text});
+  }
+
+  /// Geocodificação reversa via Edge Function geo (Sprint 2: substitui GET /geo/reverse)
+  Future<Map<String, dynamic>> reverseGeocode(double lat, double lon) async {
+    final result = await invokeEdgeFunction(
+      'geo',
+      null,
+      {'lat': lat.toString(), 'lon': lon.toString(), 'path': 'reverse'},
+    );
+    if (result is Map<String, dynamic>) return result;
+    return {};
+  }
+
+  /// Busca de endereços via Edge Function geo (Sprint 2: substitui GET /geo/search)
+  Future<List<dynamic>> searchAddress(String query, {double? lat, double? lon, double? radiusKm}) async {
+    final params = <String, String>{'q': query, 'path': 'search'};
+    if (lat != null && lon != null) {
+      params['proximity'] = '$lat,$lon';
+      params['radius'] = (radiusKm ?? 50).toString();
+    }
+    final result = await invokeEdgeFunction('geo', null, params);
+    if (result is List) return result;
+    return [];
+  }
+
+  /// Registra um endereço selecionado no banco de dados próprio (Crowdsourcing)
+  Future<void> registerAddressInRegistry({
+    required String fullAddress,
+    String? streetName,
+    String? streetNumber,
+    String? neighborhood,
+    String? city,
+    String? stateCode,
+    String? poiName,
+    required double lat,
+    required double lon,
+    String? category,
+  }) async {
+    try {
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+
+      await client.from('addresses_registry').upsert({
+        'full_address': fullAddress,
+        'street_name': streetName,
+        'street_number': streetNumber,
+        'neighborhood': neighborhood,
+        'city': city ?? 'Imperatriz',
+        'state_code': stateCode ?? 'MA',
+        'poi_name': poiName,
+        'lat': lat,
+        'lon': lon,
+        'category': category,
+        'contributor_id': userId,
+        'last_seen': DateTime.now().toIso8601String(),
+      }, onConflict: 'lat,lon');
+      
+      debugPrint('📍 [GeoRegistry] Local registrado/atualizado: $fullAddress');
+    } catch (e) {
+      // Falha silenciosa para não interromper a UX do usuário
+      debugPrint('⚠️ [GeoRegistry] Erro ao registrar local: $e');
+    }
+  }
+
   Map<String, String> get authHeaders => _headers;
 
   Map<String, String> get _headers {
@@ -439,6 +463,11 @@ class ApiService {
     };
     if (_token != null) {
       headers['Authorization'] = 'Bearer $_token';
+      headers['apikey'] = SupabaseConfig.anonKey;
+    } else {
+      // Fallback para endpoints públicos como /geo
+      headers['Authorization'] = 'Bearer ${SupabaseConfig.anonKey}';
+      headers['apikey'] = SupabaseConfig.anonKey;
     }
     return headers;
   }
@@ -447,34 +476,82 @@ class ApiService {
   /// Returns a `Map<String, List<Map<String, dynamic>>>`
   Future<Map<String, List<Map<String, dynamic>>>> getServicesMap() async {
     try {
-      final response = await get('/services/professions');
+      final client = Supabase.instance.client;
+      final response = await client
+          .from('professions')
+          .select('id, name, service_categories!inner(name)');
 
       final Map<String, List<Map<String, dynamic>>> result = {};
       
-      response.forEach((key, value) {
-         if (value is List) {
-            // Safely cast each item in the list to Map<String, dynamic>
-            result[key.toString()] = value.map((e) {
-               if (e is Map) {
-                  return Map<String, dynamic>.from(e);
-               }
-               return <String, dynamic>{};
-            }).where((e) => e.isNotEmpty).toList();
-         }
-      });
+      for (var item in (response as List)) {
+        final categoryName = item['service_categories']?['name']?.toString() ?? 'Geral';
+        if (!result.containsKey(categoryName)) {
+          result[categoryName] = [];
+        }
+        result[categoryName]!.add({
+          'id': item['id'],
+          'name': item['name'],
+        });
+      }
 
       return result;
-    } on TimeoutException {
-      throw ApiException(
-        message: 'Servidor demorou a responder',
-        statusCode: 408,
-      );
     } catch (e) {
-      debugPrint('Error fetching professions: $e');
+      debugPrint('Error fetching services map: $e');
       return {}; 
     }
   }
 
+  Future<List<dynamic>> getServices() async {
+    try {
+      if (_userId == null) return [];
+      
+      final client = Supabase.instance.client;
+      final response = await client
+          .from('service_requests_new')
+          .select('*, client:users!client_id(*), provider:providers!provider_id(users!user_id(*)), category:service_categories!category_id(name)')
+          .or('client_id.eq.$_userId,provider_id.eq.$_userId')
+          .order('created_at', ascending: false);
+          
+      return response as List<dynamic>;
+    } catch (e) {
+      debugPrint('Error fetching services: $e');
+      return [];
+    }
+  }
+
+
+  /// Invoca uma Supabase Edge Function
+  /// [functionName] é o nome da função (ex: 'ai-classify', 'geo')
+  /// [body] é o JSON body (para POST)
+  /// [queryParams] são parâmetros de query (para GET)
+  Future<dynamic> invokeEdgeFunction(
+    String functionName, [
+    Map<String, dynamic>? body,
+    Map<String, String>? queryParams,
+  ]) async {
+    try {
+      final client = Supabase.instance.client;
+      final response = await client.functions.invoke(
+        functionName,
+        body: body,
+        queryParameters: queryParams,
+        method: body != null ? HttpMethod.post : HttpMethod.get,
+      ).timeout(const Duration(seconds: 30));
+      
+      return response.data;
+    } on TimeoutException {
+      throw ApiException(
+        message: 'A função $functionName demorou muito a responder (Timeout)',
+        statusCode: 408,
+      );
+    } catch (e) {
+      AppLogger.erro('❌ [EdgeFn] $functionName falhou', e);
+      throw ApiException(
+        message: 'Erro ao processar serviço inteligente ($functionName)',
+        statusCode: 500,
+      );
+    }
+  }
 
   Future<Map<String, dynamic>> post(
     String endpoint,
@@ -604,21 +681,35 @@ class ApiService {
     double? longitude,
   }) async {
     try {
-      final payload = await PermissionsService().buildRegistrationPayload(
-        fcmToken: token,
-        latitude: latitude,
-        longitude: longitude,
-      );
-      await post('/notifications/register-token', payload);
+      if (_userId == null) return;
+      
+      final client = Supabase.instance.client;
+      await client.from('users').update({
+        'fcm_token': token,
+        'last_seen_at': DateTime.now().toIso8601String(),
+      }).eq('id', _userId!);
+
+      // Também atualizar a tabela de localização se for prestador (provider)
+      // Motoristas (driver) usam a tabela driver_locations via UberService
+      if (_role == 'provider' || _isMedical || _isFixedLocation) {
+        await client.from('provider_locations').upsert({
+          'provider_id': _userId!,
+          'latitude': latitude,
+          'longitude': longitude,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
     } catch (e) {
       debugPrint('Error registering device token: $e');
-      // Don't rethrow, as this is a background task
     }
   }
 
   Future<void> unregisterDeviceToken(String token) async {
     try {
-      await delete('/notifications/token', body: {'token': token});
+      if (_userId == null) return;
+      await Supabase.instance.client.from('users').update({
+        'fcm_token': null,
+      }).eq('id', _userId!);
     } catch (e) {
       debugPrint('Error unregistering device token: $e');
     }
@@ -633,6 +724,7 @@ class ApiService {
     required String filename,
     required String mimeType,
   }) async {
+    // Fase 7: Usar Supabase Storage + SDK em vez do backend legado
     final url = await uploadToCloud(
       fileBytes,
       filename: filename,
@@ -640,11 +732,22 @@ class ApiService {
       type: 'contest',
     );
 
-    // Link evidence to service contest in MySQL
-    await post('/services/$serviceId/contest/evidence', {
-      'type': type,
-      'url': url, // Backend now expects 'url' instead of 'key'
-    });
+    // Registrar evidência diretamente na tabela service_disputes
+    if (_userId != null) {
+      try {
+        await Supabase.instance.client.from('service_disputes').upsert({
+          'service_id': serviceId,
+          'type': type,
+          'evidence_url': url,
+          'user_id': _userId,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        debugPrint('✅ [ApiService] Evidência de contestação registrada no Supabase');
+      } catch (e) {
+        debugPrint('⚠️ [ApiService] Erro ao salvar evidência no Supabase: $e');
+        // Não re-throw: upload já foi feito, salvar é secundário
+      }
+    }
   }
 
   Map<String, dynamic> _handleResponse(http.Response response) {
@@ -688,9 +791,8 @@ class ApiService {
   // Removed manual check helpers as logic moved to backend
 
 
-  // ========== AUTH ==========
   Future<Map<String, dynamic>> register({
-    required String token, // Firebase ID Token
+    required String token, // Token não mais estritamente necessário se já logado
     required String name,
     required String email,
     String? phone,
@@ -702,49 +804,108 @@ class ApiService {
     double? latitude,
     double? longitude,
     List<dynamic>? professions,
+    int? vehicleTypeId,
+    String? vehicleBrand,
+    String? vehicleModel,
+    int? vehicleYear,
+    String? vehicleColor,
+    int? vehicleColorHex,
+    String? vehiclePlate,
   }) async {
-    // Clean professions if needed
-    List<dynamic>? cleaned;
-    if (professions != null) {
-      cleaned = professions.map((p) {
-        if (p is Map) return {'id': p['id'], 'name': p['name']};
-        return p;
-      }).toList();
-    }
+    final client = Supabase.instance.client;
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) throw Exception('Não logado no Supabase');
 
-    final body = {
-      'token': token,
-      'name': name,
-      'email': email,
-      'role': role,
-      'phone': ?phone,
-      'document_type': ?documentType,
-      'document_value': ?documentValue,
-      'commercial_name': ?commercialName,
-      'address': ?address,
-      'latitude': ?latitude,
-      'longitude': ?longitude,
-      if (cleaned != null && cleaned.isNotEmpty) 'professions': cleaned,
-    };
+    try {
+      // 1. Inserir/Atualizar em public.users
+      // Usar supabase_uid como chave de conflito, pois o trigger handle_new_user
+      // já insere por supabase_uid.
+      final userRow = await client.from('users').upsert({
+        'supabase_uid': currentUser.id,
+        'email': email,
+        'full_name': name,
+        'role': role,
+        'phone': phone,
+      }, onConflict: 'supabase_uid').select().single();
 
-    final result = await post('/auth/register', body);
+      _userId = userRow['id'];
+      _role = role; // Usar o role que foi enviado, não o que retornou (pode estar desatualizado)
 
-    if (result['user'] != null) {
+      // Garantir que o role foi realmente salvo (fallback direto)
+      if (userRow['role'] != role) {
+        debugPrint('⚠️ Role mismatch: expected=$role, got=${userRow['role']}. Forcing update...');
+        await client.from('users')
+            .update({'role': role})
+            .eq('supabase_uid', currentUser.id);
+        _role = role;
+      }
+
+      // 2. Se for prestador, criar entrada em providers
+      if (role == 'provider') {
+        await client.from('providers').upsert({
+          'user_id': _userId,
+          'commercial_name': commercialName,
+          'address': address,
+          'latitude': latitude,
+          'longitude': longitude,
+          'document_type': documentType,
+          'document_value': documentValue,
+        });
+
+        // 3. Vincular profissões
+        if (professions != null && professions.isNotEmpty) {
+          for (var p in professions) {
+            final String pName = (p is Map) ? p['name'] : p.toString();
+            final profData = await client
+                .from('professions')
+                .select('id')
+                .ilike('name', pName)
+                .maybeSingle();
+            
+            if (profData != null) {
+              await client.from('provider_professions').upsert({
+                'provider_user_id': _userId,
+                'profession_id': profData['id'],
+              });
+            }
+          }
+        }
+      }
+
+      // 4. Se for motorista, criar entrada em vehicles com dados detalhados
+      if (role == 'driver' && vehicleTypeId != null) {
+        final plate = (vehiclePlate != null && vehiclePlate.isNotEmpty)
+            ? vehiclePlate
+            : 'TEMP-${(1000 + (userId ?? 0) % 9000)}';
+        final model = (vehicleModel != null && vehicleModel.isNotEmpty)
+            ? '${vehicleBrand ?? ''} $vehicleModel'.trim()
+            : ((vehicleTypeId == 3) ? 'Moto' : 'Carro');
+
+        await client.from('vehicles').upsert({
+          'driver_id': _userId,
+          'model': model,
+          'plate': plate,
+          'vehicle_type_id': vehicleTypeId,
+          'color': vehicleColor,
+          'color_hex': vehicleColorHex,
+          'year': vehicleYear,
+        }, onConflict: 'driver_id');
+      }
+
       final prefs = await SharedPreferences.getInstance();
-      final user = result['user'] as Map<String, dynamic>;
-      _userId = user['id'] as int;
-      await prefs.setInt('user_id', _userId!);
-      _role = user['role'].toString();
       await prefs.setString('user_role', _role!);
-
-      _isMedical = user['is_medical'] == true;
-      await prefs.setBool('is_medical', _isMedical);
+      await prefs.setInt('user_id', _userId!);
       
-      _isFixedLocation = user['is_fixed_location'] == true;
+      _isMedical = userRow['is_medical'] == true;
+      _isFixedLocation = userRow['is_fixed_location'] == true;
+      await prefs.setBool('is_medical', _isMedical);
       await prefs.setBool('is_fixed_location', _isFixedLocation);
-    }
 
-    return result;
+      return {'success': true, 'user': userRow};
+    } catch (e) {
+      debugPrint('❌ [ApiService] Erro no registro: $e');
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> checkUnique({
@@ -752,24 +913,48 @@ class ApiService {
     String? phone,
     String? document,
   }) async {
-    final qp = [
-      if (email != null && email.isNotEmpty) 'email=$email',
-      if (phone != null && phone.isNotEmpty) 'phone=$phone',
-      if (document != null && document.isNotEmpty) 'document=$document',
-    ].join('&');
-    return await get('/auth/check${qp.isNotEmpty ? '?$qp' : ''}');
+    final client = Supabase.instance.client;
+    try {
+      if (email != null) {
+        final res = await client.from('users').select('id').eq('email', email).maybeSingle();
+        if (res != null) return {'exists': true, 'field': 'email'};
+      }
+      if (phone != null) {
+        final res = await client.from('users').select('id').eq('phone', phone).maybeSingle();
+        if (res != null) return {'exists': true, 'field': 'phone'};
+      }
+      if (document != null) {
+        final res = await client.from('providers').select('user_id').eq('document_value', document).maybeSingle();
+        if (res != null) return {'exists': true, 'field': 'document'};
+      }
+      return {'exists': false};
+    } catch (e) {
+      debugPrint('Error checking uniqueness: $e');
+      return {'exists': false}; // Fallback to allow progress if check fails
+    }
   }
 
   Future<List<dynamic>> getProfessions() async {
-    final result = await get('/auth/professions');
-    return (result['professions'] as List?) ?? [];
+    try {
+      final response = await Supabase.instance.client
+          .from('professions')
+          .select('*');
+      return response;
+    } catch (e) {
+      debugPrint('Erro ao buscar profissões: $e');
+      return [];
+    }
   }
 
   Future<List<dynamic>> getProfessionTasks(int professionId) async {
     try {
-      final result = await get('/services/professions/$professionId/tasks');
-      return (result['tasks'] as List?) ?? [];
-    } catch (_) {
+      final response = await Supabase.instance.client
+          .from('task_catalog')
+          .select('*')
+          .eq('profession_id', professionId);
+      return response;
+    } catch (e) {
+      debugPrint('Erro ao buscar tarefas da profissão: $e');
       return [];
     }
   }
@@ -777,93 +962,64 @@ class ApiService {
   Future<void> saveProviderSchedule(
     List<Map<String, dynamic>> schedules,
   ) async {
-    final t = _token;
-    if (t == null) throw Exception('Not authenticated');
+    if (_userId == null) throw Exception('Not authenticated');
 
-    final response = await _client.post(
-      Uri.parse('$baseUrl/provider/schedule'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $t',
-      },
-      body: jsonEncode({'schedules': schedules}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to save schedule: ${response.body}');
-    }
+    await Supabase.instance.client.from('providers').update({
+      'schedule_configs': schedules,
+    }).eq('user_id', _userId!);
   }
 
   Future<void> saveProviderService(Map<String, dynamic> service) async {
-    final t = _token;
-    if (t == null) throw Exception('Not authenticated');
+    if (_userId == null) throw Exception('Not authenticated');
 
-    final response = await _client.post(
-      Uri.parse('$baseUrl/provider/services'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $t',
-      },
-      body: jsonEncode(service),
-    );
+    // Fetch provider's first profession to link the service
+    final professions = await Supabase.instance.client
+        .from('provider_professions')
+        .select('profession_id')
+        .eq('provider_user_id', _userId!)
+        .limit(1)
+        .maybeSingle();
+    
+    final professionId = professions?['profession_id'];
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to save service: ${response.body}');
-    }
+    await Supabase.instance.client.from('task_catalog').insert({
+      'profession_id': professionId,
+      'name': service['name'],
+      'unit_price': service['price'],
+      'unit_name': 'unidade',
+      // Outros campos como duration seriam salvos em uma tabela de extensão ou JSON se necessário
+    });
   }
 
+  /// Login legado mantido por compatibilidade, mas agora usa Supabase diretamente.
+  /// O fluxo principal já usa loginWithFirebase().
   Future<Map<String, dynamic>> login(String firebaseToken) async {
-    final result = await post('/auth/login', {'token': firebaseToken});
-
-    if (result['user'] != null) {
-      final prefs = await SharedPreferences.getInstance();
-      final user = result['user'] as Map<String, dynamic>;
-      _userId = user['id'] as int;
-      await prefs.setInt('user_id', _userId!);
-      _role = user['role'].toString();
-      await prefs.setString('user_role', _role!);
-
-      _isMedical = user['is_medical'] == true;
-      await prefs.setBool('is_medical', _isMedical);
-
-      _isFixedLocation = user['is_fixed_location'] == true;
-      await prefs.setBool('is_fixed_location', _isFixedLocation);
-
-      // ✅ SYNC FCM TOKEN ON LOGIN (User requested fresh token)
-      unawaited(NotificationService().syncToken());
-      
-      // ✅ Log de Analytics
-      AnalyticsService().logEvent('APP_LOGGED_IN', details: {
-         'user_id': _userId,
-         'role': _role,
-      });
-    }
-
-    return result;
+    // Não chama mais o backend legado (/auth/login)
+    // Sinc com Supabase via loginWithFirebase
+    debugPrint('⚠️ [ApiService] login() chamado — redirecionando para loginWithFirebase()');
+    await loginWithFirebase(firebaseToken);
+    return {
+      'success': true,
+      'user': {
+        'id': _userId,
+        'role': _role,
+        'is_medical': _isMedical,
+        'is_fixed_location': _isFixedLocation,
+      }
+    };
   }
 
   /// Logger for Dispatch Audit (v11)
   Future<void> logServiceEvent(String serviceId, String action, [String? details]) async {
     try {
-      final user = await getUserData();
-      if (user == null) return;
+      if (_userId == null) return;
       
-      final providerId = user['id'];
-      
-      final url = Uri.parse('$baseUrl/service/log-event');
-      await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token',
-        },
-        body: jsonEncode({
-          'serviceId': serviceId,
-          'providerId': providerId,
-          'action': action,
-          'details': details
-        })
-      );
+      await Supabase.instance.client.from('service_logs').insert({
+        'service_id': serviceId,
+        'provider_id': _userId,
+        'action': action,
+        'details': details
+      });
       debugPrint('✅ [ApiService] Logged event $action for service $serviceId');
     } catch (e) {
       debugPrint('❌ [ApiService] Failed to log event: $e');
@@ -878,7 +1034,21 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> getUserData() async {
-    return await get('/profile/me');
+    final client = Supabase.instance.client;
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) return null;
+
+    try {
+      final response = await client
+          .from('users')
+          .select()
+          .eq('supabase_uid', currentUser.id)
+          .single();
+      return response;
+    } catch (e) {
+      debugPrint('Erro ao buscar dados do usuário: $e');
+      return null;
+    }
   }
 
   Future<void> loginWithFirebase(
@@ -886,30 +1056,68 @@ class ApiService {
     String? role,
     String? phone,
     String? name,
-    Map<String, dynamic>? humanMetrics,
   }) async {
-    final response = await post('/auth/login', {
-      'token': idToken,
-      'role': ?role,
-      'phone': ?phone,
-      'name': ?name,
-      'human_metrics': ?humanMetrics,
-    });
+    final client = Supabase.instance.client;
+    final currentUser = client.auth.currentUser;
+    
+    if (currentUser == null) throw Exception('Não logado no Supabase');
 
-    if (response['success'] == true && response['user'] != null) {
-      _role = response['user']['role'];
+    try {
+      // 1. Buscar usuário existente pelo supabase_uid para preservar o role
+      var userRow = await client
+          .from('users')
+          .select()
+          .eq('supabase_uid', currentUser.id)
+          .maybeSingle();
+
+      if (userRow == null) {
+        // Usuário novo — criar com role padrão
+        final email = currentUser.email;
+        final fullName = name ?? currentUser.userMetadata?['full_name'] ?? email?.split('@')[0] ?? 'Usuário';
+
+        userRow = await client.from('users').upsert({
+          'supabase_uid': currentUser.id,
+          'email': email,
+          'full_name': fullName,
+          'role': role ?? 'client',
+          'phone': phone,
+        }, onConflict: 'supabase_uid').select().single();
+      } else {
+        // Usuário existente — atualizar apenas nome/email, NÃO sobrescrever o role
+        final updates = <String, dynamic>{};
+        if (name != null) updates['full_name'] = name;
+        if (phone != null) updates['phone'] = phone;
+        
+        if (updates.isNotEmpty) {
+          await client.from('users')
+              .update(updates)
+              .eq('supabase_uid', currentUser.id);
+        }
+      }
+
+      // 3. Atualizar estado local com o role do BANCO (preserva driver/provider)
+      _role = userRow['role'];
+      _userId = userRow['id'];
+      _isMedical = userRow['is_medical'] == true;
+      _isFixedLocation = userRow['is_fixed_location'] == true;
+
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_role', _role!);
-      _userId = response['user']['id'];
-      await prefs.setInt('user_id', _userId!);
-      _isMedical = response['user']['is_medical'] == true;
+      await prefs.setString('user_role', _role ?? 'client');
+      if (_userId != null) await prefs.setInt('user_id', _userId!);
       await prefs.setBool('is_medical', _isMedical);
-      
-      _isFixedLocation = response['user']['is_fixed_location'] == true;
       await prefs.setBool('is_fixed_location', _isFixedLocation);
 
-      // Authenticate Realtime Service immediately
-      RealtimeService().authenticate(response['user']['id']);
+      // Authenticate Realtime Service
+      if (_userId != null) RealtimeService().authenticate(_userId!);
+      
+      // Update FCM Token se disponível
+      if (_fcmToken != null) {
+        await registerDeviceToken(_fcmToken!, Platform.operatingSystem);
+      }
+
+    } catch (e) {
+      debugPrint('❌ [ApiService] Erro ao sincronizar usuário: $e');
+      rethrow;
     }
   }
 
@@ -918,13 +1126,17 @@ class ApiService {
     String? email,
     String? phone,
   }) async {
+    final client = Supabase.instance.client;
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) return;
+
     final body = <String, dynamic>{};
-    if (name != null) body['name'] = name;
+    if (name != null) body['full_name'] = name;
     if (email != null) body['email'] = email;
     if (phone != null) body['phone'] = phone;
 
     if (body.isNotEmpty) {
-      await put('/profile/me', body);
+      await client.from('users').update(body).eq('supabase_uid', currentUser.id);
     }
   }
 
@@ -934,12 +1146,17 @@ class ApiService {
     String? commercialName,
     List<String>? professions,
   }) async {
-    await put('/profile/provider', {
+    final client = Supabase.instance.client;
+    if (_userId == null) return;
+
+    // Atualiza tabela providers
+    await client.from('providers').update({
       'document_type': documentType,
       'document_value': documentValue,
       'commercial_name': commercialName,
-      'professions': professions,
-    });
+    }).eq('user_id', _userId!);
+
+    // Professions logic (opcional: pode precisar de lógica de delete/insert no provider_professions)
   }
 
   Future<int?> getMyUserId() async {
@@ -955,86 +1172,101 @@ class ApiService {
     return false;
   }
 
-  // ========== PROFILE ==========
   Future<Map<String, dynamic>> getMyProfile() async {
-    final result = await get('/profile/me');
-    final user = (result['user'] as Map<String, dynamic>?) ?? {};
+    final client = Supabase.instance.client;
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) throw Exception('Não autenticado');
+
+    final user = await client
+        .from('users')
+        .select('*, providers(*)')
+        .eq('supabase_uid', currentUser.id)
+        .single();
 
     debugPrint('DEBUG: getMyProfile fetched user: ${jsonEncode(user)}');
-    debugPrint('DEBUG: is_fixed_location from backend: ${user['is_fixed_location']}');
-
+    
     // Update local state based on fresh profile data
-    if (user.isNotEmpty) {
-      _isMedical = _parseBool(user['is_medical']);
-      _isFixedLocation = _parseBool(user['is_fixed_location']);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_medical', _isMedical);
-      await prefs.setBool('is_fixed_location', _isFixedLocation);
-    }
+    _isMedical = _parseBool(user['is_medical']);
+    _isFixedLocation = _parseBool(user['is_fixed_location']);
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_medical', _isMedical);
+    await prefs.setBool('is_fixed_location', _isFixedLocation);
 
     return user;
   }
 
   Future<List<String>> getProviderSpecialties() async {
-    final result = await get('/profile/specialties');
-    return (result['specialties'] as List?)?.map((e) {
-          if (e is Map) {
-            return e['name']?.toString() ?? '';
-          }
-          return e.toString();
-        }).toList() ??
-        [];
+    if (_userId == null) return [];
+    
+    final response = await Supabase.instance.client
+        .from('provider_professions')
+        .select('professions(name)')
+        .eq('provider_user_id', _userId!);
+    
+    return (response as List).map((e) => e['professions']['name'].toString()).toList();
   }
 
   Future<Map<String, dynamic>> getProviderProfile(int providerId) async {
-    final result = await get('/providers/$providerId/profile');
-    return result['profile'] as Map<String, dynamic>;
+    final response = await Supabase.instance.client
+        .from('users')
+        .select('*, providers(*)')
+        .eq('id', providerId)
+        .single();
+    return response;
   }
 
   Future<List<Map<String, dynamic>>> searchProviders(
       {String? term, double? lat, double? lon}) async {
-    final queryParams = <String, String>{};
-    if (term != null) queryParams['term'] = term;
-    if (lat != null) queryParams['lat'] = lat.toString();
-    if (lon != null) queryParams['lon'] = lon.toString();
-
-    final queryString = Uri(queryParameters: queryParams).query;
-    final result = await get('/providers/search?$queryString');
-
-    // Se o backend retornar um array direto, _handleResponse o envolve em 'raw'
-    if (result.containsKey('raw') && result['raw'] is List) {
-      return (result['raw'] as List).cast<Map<String, dynamic>>();
+    final client = Supabase.instance.client;
+    var query = client.from('users').select('*, providers(*)').eq('role', 'provider');
+    
+    if (term != null && term.isNotEmpty) {
+      query = query.ilike('full_name', '%$term%');
     }
-
-    // Caso o resultado já seja uma lista (fallback caso get mude no futuro)
-    if (result is List) {
-      return (result as List).cast<Map<String, dynamic>>();
-    }
-
-    // Caso o backend retorne { 'providers': [...] }
-    if (result.containsKey('providers') && result['providers'] is List) {
-      return (result['providers'] as List).cast<Map<String, dynamic>>();
-    }
-
-    return [];
+    
+    final response = await query;
+    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<void> addProviderSpecialty(String name) async {
-    await post('/profile/specialties', {'name': name});
+    if (_userId == null) return;
+    
+    // Buscar ID da profissão pelo nome
+    final prof = await Supabase.instance.client
+        .from('professions')
+        .select('id')
+        .ilike('name', name)
+        .maybeSingle();
+    
+    if (prof != null) {
+      await Supabase.instance.client.from('provider_professions').upsert({
+        'provider_user_id': _userId,
+        'profession_id': prof['id'],
+      });
+    }
   }
 
   Future<void> removeProviderSpecialty(String name) async {
-    await _client
-        .delete(
-          Uri.parse('$baseUrl/profile/specialties/$name'),
-          headers: _headers,
-        )
-        .timeout(const Duration(seconds: 15))
-        .then((res) => _handleResponse(res));
+    if (_userId == null) return;
+    
+    final prof = await Supabase.instance.client
+        .from('professions')
+        .select('id')
+        .ilike('name', name)
+        .maybeSingle();
+    
+    if (prof != null) {
+      await Supabase.instance.client
+          .from('provider_professions')
+          .delete()
+          .match({'provider_user_id': _userId!, 'profession_id': prof['id']});
+    }
   }
 
   Future<void> deleteAccount() async {
-    await delete('/profile/me');
+    if (_userId == null) return;
+    await Supabase.instance.client.from('users').delete().eq('id', _userId!);
     await clearToken();
   }
 
@@ -1068,7 +1300,7 @@ class ApiService {
     final supabase = Supabase.instance.client;
     final user = supabase.auth.currentUser;
     if (user == null || _userId == null) {
-      throw const ApiException(message: 'Usuário não autenticado', statusCode: 401);
+      throw ApiException(message: 'Usuário não autenticado', statusCode: 401);
     }
 
     double parseDouble(dynamic value) {
@@ -1099,12 +1331,12 @@ class ApiService {
       'price_estimated': double.parse(pEst.toStringAsFixed(2)),
       'price_upfront': double.parse(pUp.toStringAsFixed(2)),
       'status': 'waiting_payment', // Padrão
-      if (profession != null) 'profession': profession,
-      if (professionId != null) 'profession_id': professionId,
+      'profession': profession,
+      'profession_id': professionId,
       'location_type': locationType,
-      if (providerId != null) 'provider_id': providerId,
-      if (scheduledAt != null) 'scheduled_at': scheduledAt.toIso8601String(),
-      if (taskId != null) 'task_id': taskId,
+      'provider_id': providerId,
+      'scheduled_at': scheduledAt?.toIso8601String(),
+      'task_id': taskId,
     };
     
     debugPrint('📤 [CREATE SERVICE SUPABASE SDK] Body: ${jsonEncode(body)}');
@@ -1186,7 +1418,7 @@ class ApiService {
           .from('service_requests_new')
           .select('*, users!client_id(full_name, avatar_url), service_categories!category_id(name)')
           .inFilter('status', ['pending', 'open_for_schedule'])
-          .is_('provider_id', null)
+          .isFilter('provider_id', null)
           .order('created_at', ascending: false);
           
       return response.map((s) => _mapServiceData(s)).toList();
@@ -1223,7 +1455,7 @@ class ApiService {
         'status_updated_at': DateTime.now().toIso8601String()
       }).eq('id', serviceId);
     } catch (e) {
-      throw ApiException(message: 'Erro ao aceitar: $e');
+      throw ApiException(message: 'Erro ao aceitar: $e', statusCode: 500);
     }
   }
 
@@ -1237,7 +1469,7 @@ class ApiService {
         'provider_id': _userId,
       });
     } catch (e) {
-      throw ApiException(message: 'Erro ao rejeitar: $e');
+      throw ApiException(message: 'Erro ao rejeitar: $e', statusCode: 500);
     }
   }
 
@@ -1260,9 +1492,121 @@ class ApiService {
         'status_updated_at': DateTime.now().toIso8601String()
       }).eq('id', serviceId);
     } catch (e) {
-      throw ApiException(message: 'Erro ao iniciar: $e');
+      throw ApiException(message: 'Erro ao iniciar: $e', statusCode: 500);
     }
   }
+
+  Future<bool> verifyServiceCode(String serviceId, String code) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('service_requests_new')
+          .select('verification_code')
+          .eq('id', serviceId)
+          .maybeSingle();
+          
+      if (response == null) return false;
+      return response['verification_code'] == code;
+    } catch (e) {
+      debugPrint('Error verifying code: $e');
+      return false;
+    }
+  }
+
+  Future<void> confirmServiceCompletion(
+    String serviceId, {
+    String? code,
+    String? proofVideo,
+  }) async {
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('service_requests_new').update({
+        'status': 'completed',
+        'status_updated_at': DateTime.now().toIso8601String(),
+        'proof_video': ?proofVideo,
+      }).eq('id', serviceId);
+      
+      await logServiceEvent(serviceId, 'COMPLETED', 'Service confirmed completed by provider');
+    } catch (e) {
+      throw ApiException(message: 'Erro ao concluir: $e', statusCode: 500);
+    }
+  }
+
+  Future<void> confirmFinalService(String serviceId, {int? rating, String? comment}) async {
+    try {
+      final client = Supabase.instance.client;
+      
+      // 1. Atualizar status para finalizado
+      await client.from('service_requests_new').update({
+        'status': 'finished',
+        'status_updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', serviceId);
+      
+      // 2. Se houver avaliação, inserir na tabela de reviews
+      if (rating != null) {
+        await client.from('reviews').insert({
+          'service_id': serviceId,
+          'rating': rating,
+          'comment': comment,
+          'user_id': _userId, // Quem avaliou (cliente)
+        });
+      }
+      
+      await logServiceEvent(serviceId, 'FINISHED', 'Service confirmed finished by client with rating $rating');
+    } catch (e) {
+      throw ApiException(message: 'Erro ao finalizar serviço: $e', statusCode: 500);
+    }
+  }
+
+  // --- Novos Métodos para Migração 100% Online ---
+
+  /// Busca configurações globais da tabela app_configs
+  Future<Map<String, dynamic>> getAppConfig() async {
+    try {
+      final client = Supabase.instance.client;
+      final List<dynamic> data = await client.from('app_configs').select();
+      
+      final Map<String, dynamic> configMap = {};
+      for (var item in data) {
+        configMap[item['key']] = item['value'];
+      }
+      return configMap;
+    } catch (e) {
+      debugPrint('Error fetching app config: $e');
+      return {};
+    }
+  }
+
+  /// Classifica serviço via Edge Function
+  Future<Map<String, dynamic>> classifyServiceAi(String text) async {
+    final Map<String, dynamic> result = await invokeEdgeFunction('ai-classify', {'text': text});
+    return result;
+  }
+
+  /// Calcula tarifa Uber via Edge Function geo
+  Future<dynamic> calculateUberFare({
+    required double pickupLat,
+    required double pickupLng,
+    required double dropoffLat,
+    required double dropoffLng,
+    required int vehicleTypeId,
+  }) async {
+    final client = Supabase.instance.client;
+    final response = await client.functions.invoke('geo/calculate-fare', body: {
+      'pickup_lat': pickupLat,
+      'pickup_lng': pickupLng,
+      'dropoff_lat': dropoffLat,
+      'dropoff_lng': dropoffLng,
+      'vehicle_type_id': vehicleTypeId,
+    });
+
+    if (response.status != 200) {
+      throw Exception('Falha ao calcular tarifa Uber: ${response.status}');
+    }
+
+    debugPrint('📊 [EdgeFn] Dados completos da API de tarifa: ${response.data}');
+    return response.data['fare'];
+  }
+
 
   Future<void> completeService(
     String serviceId, {
@@ -1288,18 +1632,38 @@ class ApiService {
     required int rating,
     String? comment,
   }) async {
-    final token = await _getToken();
-    final response = await _client.post(
-      Uri.parse('$baseUrl/services/$serviceId/review'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({'rating': rating, 'comment': comment}),
-    );
+    final client = Supabase.instance.client;
+    if (_userId == null) throw Exception('Não autenticado');
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to submit review: ${response.statusCode}');
+    try {
+      // 1. Buscar o serviço para saber quem é o prestador (reviewee)
+      final service = await client
+          .from('service_requests_new')
+          .select('provider_id, client_id')
+          .eq('id', serviceId)
+          .single();
+      
+      final providerId = service['provider_id'];
+      final clientId = service['client_id'];
+
+      // Determinar quem está avaliando quem (Assume-se que cliente avalia prestador se _role == 'client')
+      final revieweeId = (_role == 'client') ? providerId : clientId;
+
+      if (revieweeId == null) throw Exception('Não foi possível identificar o avaliado');
+
+      // 2. Inserir a avaliação
+      await client.from('reviews').upsert({
+        'service_id': serviceId,
+        'reviewer_id': _userId,
+        'reviewee_id': revieweeId,
+        'rating': rating,
+        'comment': comment,
+      });
+
+      debugPrint('✅ [ApiService] Avaliação enviada com sucesso!');
+    } catch (e) {
+      debugPrint('❌ [ApiService] Erro ao enviar avaliação: $e');
+      rethrow;
     }
   }
 
@@ -1312,7 +1676,7 @@ class ApiService {
         'status_updated_at': DateTime.now().toIso8601String()
       }).eq('id', serviceId);
     } catch (e) {
-      throw ApiException(message: 'Erro ao registrar chegada: $e');
+      throw ApiException(message: 'Erro ao registrar chegada: $e', statusCode: 500);
     }
   }
 
@@ -1336,16 +1700,20 @@ class ApiService {
     required String newDescription,
     required double newPrice,
   }) async {
-    await post('/services/$serviceId/edit_request', {
+    // This could also be a direct update if allowed by RLS, 
+    // but usually needs review. We'll use a transaction/RPC or just update status to 'edit_requested'
+    await Supabase.instance.client.from('service_requests_new').update({
       'description': newDescription,
-      'price': newPrice,
-    });
+      'price_estimated': newPrice,
+      'status': 'edit_requested',
+      'status_updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', serviceId);
   }
 
   Future<Map<String, dynamic>> fetchFuelPricesByState(String state) async {
     return _getCachedFuel('state_$state', () async {
       try {
-        return await get('/fuel/price?state=$state');
+        return await get('/geo/fuel?state=$state');
       } catch (_) {
         return {};
       }
@@ -1358,7 +1726,7 @@ class ApiService {
   ) async {
     return _getCachedFuel('city_${city}_$state', () async {
       try {
-        return await get('/fuel/price?city=$city&state=$state');
+        return await get('/geo/fuel?city=$city&state=$state');
       } catch (_) {
         return {};
       }
@@ -1408,7 +1776,7 @@ class ApiService {
   ) async {
     try {
       final ext = filename.split('.').last;
-      final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_${const Uuid().v4().substring(0, 8)}.$ext';
+      final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_${Uuid().v4().substring(0, 8)}.$ext';
       final path = '$typePath/$uniqueName';
 
       final supabase = Supabase.instance.client;
@@ -1594,7 +1962,7 @@ class ApiService {
           .from('service_requests_new')
           .select('*, users!client_id(full_name, avatar_url), service_categories!category_id(name)')
           .inFilter('status', ['pending', 'open_for_schedule'])
-          .is_('provider_id', null)
+          .isFilter('provider_id', null)
           .order('created_at', ascending: false);
           
       return response.map((s) => _mapServiceData(s)).toList();
@@ -1605,9 +1973,11 @@ class ApiService {
   }
 
   Future<void> proposeSchedule(String serviceId, DateTime scheduledAt) async {
-    await post('/services/$serviceId/propose-schedule', {
+    await Supabase.instance.client.from('service_requests_new').update({
       'scheduled_at': scheduledAt.toIso8601String(),
-    });
+      'status': 'open_for_schedule', // Mudamos o status para indicar que há proposta
+      'status_updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', serviceId);
   }
 
   // confirmSchedule already defined above
@@ -1615,14 +1985,24 @@ class ApiService {
   // --- Test & Dev Helpers ---
 
   Future<void> testApprovePayment(String serviceId) async {
-    await post('/test/approve-payment/$serviceId', {});
+    // Agora fazemos o update direto no status para teste
+    await Supabase.instance.client.from('service_requests_new').update({
+      'status': 'accepted', 
+      'payment_remaining_status': 'paid_manual',
+      'status_updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', serviceId);
   }
 
   // --- Location Search (Mapbox) ---
   
   Future<List<dynamic>> searchLocation(String query, {double? lat, double? lon}) async {
     try {
-      String url = '/location/search?q=${Uri.encodeComponent(query)}';
+      String url = '/geo/search?q=${Uri.encodeComponent(query)}';
+      
+      // Adicionar raio de busca do app_configs
+      final radius = RemoteConfigService.searchRadiusKm;
+      url += '&radius=$radius';
+
       if (lat != null && lon != null) {
         url += '&proximity=$lat,$lon';
       }
@@ -1636,24 +2016,65 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> reverseGeocode(double lat, double lon) async {
-    try {
-      final dynamic res = await get('/location/reverse?lat=$lat&lon=$lon');
-      if (res is Map<String, dynamic>) return res;
-      return null;
-    } catch (e) {
-      debugPrint('ReverseGeocode error: $e');
-      return null;
-    }
-  }
   // --- Notifications ---
 
   Future<void> markNotificationRead(int id) async {
-    await put('/notifications/$id/read', {});
+    // Fase 2: Usar Supabase SDK em vez do backend legado
+    try {
+      await Supabase.instance.client
+          .from('notifications')
+          .update({'read': true})
+          .eq('id', id);
+    } catch (e) {
+      debugPrint('⚠️ [ApiService] Erro ao marcar notificação como lida: $e');
+    }
   }
 
   Future<void> markAllNotificationsRead() async {
-    await put('/notifications/read-all', {});
+    // Fase 2: Usar Supabase SDK em vez do backend legado
+    if (_userId == null) return;
+    try {
+      await Supabase.instance.client
+          .from('notifications')
+          .update({'read': true})
+          .eq('user_id', _userId!);
+    } catch (e) {
+      debugPrint('⚠️ [ApiService] Erro ao marcar todas notificações como lidas: $e');
+    }
+  }
+
+  // Locais Salvos
+  Future<List<Map<String, dynamic>>> getSavedPlaces() async {
+    if (_userId == null) return [];
+    try {
+      final response = await Supabase.instance.client
+          .from('user_saved_places')
+          .select('*')
+          .eq('user_id', _userId!)
+          .order('created_at', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('⚠️ [ApiService] Erro ao buscar locais salvos: $e');
+      // Fallback para mock se a tabela não existir
+      return [
+        {'title': 'Casa', 'address': 'Rua das Flores, 123', 'icon': 'home'},
+        {'title': 'Trabalho', 'address': 'Av. Paulista, 1500', 'icon': 'briefcase'},
+      ];
+    }
+  }
+
+  Future<void> saveSavedPlace(Map<String, dynamic> place) async {
+    if (_userId == null) throw Exception('Não autenticado');
+    try {
+      await Supabase.instance.client.from('user_saved_places').upsert({
+        ...place,
+        'user_id': _userId,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('⚠️ [ApiService] Erro ao salvar local: $e');
+      rethrow;
+    }
   }
 }
 

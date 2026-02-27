@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>101 Service - Product Requirements Document</title>
+<!-- Tailwind CSS v3 with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Manrope -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandYellow: '#FFD700',
+            documentBg: '#F9FAFB',
+          },
+          fontFamily: {
+            sans: ['Manrope', 'sans-serif'],
+          },
+          borderRadius: {
+            'ios': '24px',
+          },
+          boxShadow: {
+            'soft': '0 4px 20px rgba(0, 0, 0, 0.05)',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="document-layout">
+    body {
+      background-color: #F9FAFB;
+      color: #111827;
+      line-height: 1.6;
+    }
+    .prd-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      min-height: 100vh;
+      padding: 40px 24px;
+    }
+    .section-border {
+      border-left: 4px solid #FFD700;
+      padding-left: 1.5rem;
+    }
+  </style>
+</head>
+<body class="font-sans antialiased">
+<!-- BEGIN: MainDocument -->
+<main class="prd-container shadow-sm">
+<!-- BEGIN: DocumentHeader -->
+<header class="mb-12 border-b pb-8">
+<div class="flex items-center gap-3 mb-6" data-purpose="branding">
+<div class="w-12 h-12 bg-brandYellow rounded-xl flex items-center justify-center font-extrabold text-2xl shadow-sm">101</div>
+<div>
+<h1 class="text-3xl font-extrabold tracking-tight">101 Service</h1>
+<p class="text-gray-500 font-medium">Technical Specification &amp; Vision</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-ios border border-gray-100" data-purpose="meta-info">
+<div>
+<span class="text-gray-400 block uppercase tracking-wider text-[10px] font-bold">Project Phase</span>
+<span class="font-semibold text-gray-700 underline decoration-brandYellow decoration-2">Development Briefing</span>
+</div>
+<div>
+<span class="text-gray-400 block uppercase tracking-wider text-[10px] font-bold">Last Updated</span>
+<span class="font-semibold text-gray-700">October 2023</span>
+</div>
+</div>
+</header>
+<!-- END: DocumentHeader -->
+<!-- BEGIN: AppVision -->
+<section class="mb-12" data-purpose="vision-section">
+<h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+<span class="w-2 h-6 bg-brandYellow rounded-full"></span>
+        App Name &amp; Vision
+      </h2>
+<div class="bg-white p-6 rounded-ios border border-gray-100 shadow-soft">
+<p class="text-lg font-semibold text-gray-800 mb-2">101 Service: The Hybrid Marketplace</p>
+<p class="text-gray-600">
+          A unified ecosystem merging on-demand mobility with localized professional services. 101 Service acts as the bridge between transportation and home/fixed-site services, providing a seamless user experience for both moving people and bringing expertise to the user's doorstep.
+        </p>
+</div>
+</section>
+<!-- END: AppVision -->
+<!-- BEGIN: VisualIdentity -->
+<section class="mb-12" data-purpose="visual-identity-section">
+<h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+<span class="w-2 h-6 bg-brandYellow rounded-full"></span>
+        Visual Identity &amp; UI Standards
+      </h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="p-4 border border-gray-100 rounded-ios bg-white shadow-soft text-center">
+<div class="w-10 h-10 bg-brandYellow mx-auto rounded-full mb-2"></div>
+<span class="text-xs font-bold text-gray-400">BRAND COLOR</span>
+<p class="font-mono text-sm">#FFD700</p>
+</div>
+<div class="p-4 border border-gray-100 rounded-ios bg-white shadow-soft text-center">
+<div class="text-xl font-bold mb-2">Aa</div>
+<span class="text-xs font-bold text-gray-400">TYPOGRAPHY</span>
+<p class="text-sm">Manrope (Sans)</p>
+</div>
+<div class="p-4 border border-gray-100 rounded-ios bg-white shadow-soft text-center">
+<div class="w-10 h-10 border-2 border-brandYellow border-dashed mx-auto rounded-[24px] mb-2"></div>
+<span class="text-xs font-bold text-gray-400">CORNERS</span>
+<p class="text-sm">24px Rounded</p>
+</div>
+</div>
+<p class="mt-4 text-sm text-gray-500 italic">Guidelines: Use soft iOS-style shadows, high-contrast black text on white backgrounds, and yellow accents for actionable elements.</p>
+</section>
+<!-- END: VisualIdentity -->
+<!-- BEGIN: CoreLogic -->
+<section class="mb-12" data-purpose="payment-logic-section">
+<div class="bg-gray-900 text-white p-8 rounded-ios shadow-xl relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-brandYellow opacity-10 rounded-full -mr-16 -mt-16"></div>
+<h2 class="text-xl font-bold mb-6 text-brandYellow">Core Payment Logic: The 30/70 Rule</h2>
+<div class="flex items-center gap-8">
+<div class="flex-1">
+<div class="text-3xl font-extrabold text-brandYellow mb-1">30%</div>
+<p class="text-sm font-medium text-gray-300">Upfront Service Commitment (Escrow)</p>
+</div>
+<div class="text-2xl text-gray-500 font-light">+</div>
+<div class="flex-1">
+<div class="text-3xl font-extrabold text-white mb-1">70%</div>
+<p class="text-sm font-medium text-gray-300">Post-Completion Settlement</p>
+</div>
+</div>
+<p class="mt-6 text-xs text-gray-400 border-t border-gray-800 pt-4">
+          This rule applies specifically to Mobile Services to ensure provider commitment and user security.
+        </p>
+</div>
+</section>
+<!-- END: CoreLogic -->
+<!-- BEGIN: Security -->
+<section class="mb-12" data-purpose="security-section">
+<h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+<span class="w-2 h-6 bg-brandYellow rounded-full"></span>
+        Security &amp; Trust
+      </h2>
+<div class="section-border">
+<h3 class="font-bold text-gray-800 mb-2">6-Digit Verification System</h3>
+<p class="text-gray-600 mb-4">A unique, single-use 6-digit code is generated for every mobile service transaction. This code acts as the "Digital Key" to confirm successful arrival and service completion.</p>
+<div class="flex gap-2">
+<div class="w-8 h-10 bg-gray-100 rounded-md border flex items-center justify-center font-bold">4</div>
+<div class="w-8 h-10 bg-gray-100 rounded-md border flex items-center justify-center font-bold">8</div>
+<div class="w-8 h-10 bg-gray-100 rounded-md border flex items-center justify-center font-bold">2</div>
+<div class="w-8 h-10 border-2 border-brandYellow rounded-md flex items-center justify-center font-bold animate-pulse">_</div>
+<div class="w-8 h-10 bg-gray-50 rounded-md border flex items-center justify-center font-bold"></div>
+<div class="w-8 h-10 bg-gray-50 rounded-md border flex items-center justify-center font-bold"></div>
+</div>
+</div>
+</section>
+<!-- END: Security -->
+<!-- BEGIN: UserFlows -->
+<section class="mb-12" data-purpose="user-flows-section">
+<h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+<span class="w-2 h-6 bg-brandYellow rounded-full"></span>
+        Key User Flows
+      </h2>
+<div class="space-y-6">
+<!-- Mobility -->
+<div class="p-5 border border-gray-100 rounded-ios bg-white hover:border-brandYellow transition-colors">
+<h4 class="font-bold text-gray-900 mb-2 flex items-center justify-between">
+            1. Mobility 
+            <span class="text-[10px] bg-gray-100 px-2 py-1 rounded-full uppercase tracking-tighter">Uber Style</span>
+</h4>
+<ul class="text-sm text-gray-600 list-disc list-inside space-y-1">
+<li>Instant vehicle request based on current GPS.</li>
+<li>Real-time driver tracking on map.</li>
+<li>Fare estimation and in-app payment.</li>
+</ul>
+</div>
+<!-- Fixed Services -->
+<div class="p-5 border border-gray-100 rounded-ios bg-white hover:border-brandYellow transition-colors">
+<h4 class="font-bold text-gray-900 mb-2 flex items-center justify-between">
+            2. Fixed Services
+            <span class="text-[10px] bg-gray-100 px-2 py-1 rounded-full uppercase tracking-tighter">Location Based</span>
+</h4>
+<ul class="text-sm text-gray-600 list-disc list-inside space-y-1">
+<li>Discover nearby salons, barbers, or clinics.</li>
+<li>In-app calendar for direct booking.</li>
+<li>User reviews and portfolio viewing.</li>
+</ul>
+</div>
+<!-- Mobile Services -->
+<div class="p-5 border-2 border-brandYellow rounded-ios bg-brandYellow/5">
+<h4 class="font-bold text-gray-900 mb-2 flex items-center justify-between">
+            3. Mobile Services (In-Home)
+            <span class="text-[10px] bg-brandYellow px-2 py-1 rounded-full uppercase tracking-tighter font-bold text-black">Priority Flow</span>
+</h4>
+<ol class="text-sm text-gray-700 space-y-2 mt-3 list-decimal list-inside">
+<li><span class="font-semibold">Booking:</span> Request service + Pay <span class="bg-brandYellow/20 px-1 rounded">30% upfront</span>.</li>
+<li><span class="font-semibold">Tracking:</span> Provider en-route visualization.</li>
+<li><span class="font-semibold">Arrival:</span> Push notification + User provides safety code.</li>
+<li><span class="font-semibold">Completion:</span> Finalize service + Automated <span class="bg-brandYellow/20 px-1 rounded">70% payment</span>.</li>
+</ol>
+</div>
+</div>
+</section>
+<!-- END: UserFlows -->
+<!-- BEGIN: TechStack -->
+<section class="mb-12" data-purpose="tech-stack-section">
+<h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+<span class="w-2 h-6 bg-brandYellow rounded-full"></span>
+        Technical Stack Suggestions
+      </h2>
+<div class="grid grid-cols-2 gap-6">
+<div class="bg-gray-50 p-4 rounded-xl">
+<p class="text-xs font-bold text-gray-400 uppercase mb-2">Geolocation</p>
+<p class="text-sm text-gray-700">Google Maps API / Mapbox for real-time provider tracking and spatial indexing.</p>
+</div>
+<div class="bg-gray-50 p-4 rounded-xl">
+<p class="text-xs font-bold text-gray-400 uppercase mb-2">Notifications</p>
+<p class="text-sm text-gray-700">Firebase Cloud Messaging (FCM) for instant arrival and payment alerts.</p>
+</div>
+<div class="bg-gray-50 p-4 rounded-xl">
+<p class="text-xs font-bold text-gray-400 uppercase mb-2">Payments</p>
+<p class="text-sm text-gray-700">Stripe Connect for automated split-payments (30/70) and escrow handling.</p>
+</div>
+<div class="bg-gray-50 p-4 rounded-xl">
+<p class="text-xs font-bold text-gray-400 uppercase mb-2">Authentication</p>
+<p class="text-sm text-gray-700">OTP via SMS / Bio-metrics (FaceID) for secure provider verification.</p>
+</div>
+</div>
+</section>
+<!-- END: TechStack -->
+<!-- BEGIN: Footer -->
+<footer class="mt-20 pt-8 border-t border-gray-100 text-center text-gray-400 text-xs">
+<p>© 2023 101 Service Project. Confidential Technical Document.</p>
+<div class="mt-4 flex justify-center gap-4">
+<span class="flex items-center gap-1">
+<svg class="w-3 h-3" fill="currentColor" viewbox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path><path clip-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" fill-rule="evenodd"></path></svg>
+          Review Copy
+        </span>
+<span class="flex items-center gap-1">
+<svg class="w-3 h-3" fill="currentColor" viewbox="0 0 20 20"><path clip-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" fill-rule="evenodd"></path></svg>
+          Restricted Access
+        </span>
+</div>
+</footer>
+<!-- END: Footer -->
+</main>
+<!-- END: MainDocument -->
+</body></html>

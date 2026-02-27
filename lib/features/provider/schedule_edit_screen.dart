@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
@@ -14,7 +15,7 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
   final ApiService _api = ApiService();
   bool _isLoading = true;
   List<Map<String, dynamic>> _schedules = [];
-  List<Map<String, dynamic>> _services = [];
+  final List<Map<String, dynamic>> _services = [];
   List<Map<String, dynamic>> _exceptions = [];
 
   // Day names mapping (0 = Sunday in some systems, but let's check backend)
@@ -38,55 +39,55 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    final providerId = ApiService().userId;
+    if (providerId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
     try {
-      final response = await _api.get('/provider/setup');
-      if (response['success'] == true) {
-        setState(() {
-          // Schedules
-          final List<dynamic> schedulesData = response['schedules'] ?? [];
-          // Initialize all 7 days if not present
-          _schedules = List.generate(7, (index) {
-            final existing = schedulesData.cast<Map<String, dynamic>?>().firstWhere(
-              (s) => s?['day_of_week'] == index,
-              orElse: () => null,
-            );
+      // Sprint 2: Supabase SDK em vez de GET /provider/setup
+      final schedulesRaw = await Supabase.instance.client
+          .from('provider_schedule_configs')
+          .select()
+          .eq('provider_id', providerId);
 
-            final bool isEnabled = existing != null
-                ? (existing['is_enabled'] == 1 ||
-                    existing['is_enabled'] == true)
-                : (index != 0 && index != 6);
+      final exceptionsRaw = await Supabase.instance.client
+          .from('provider_schedule_exceptions')
+          .select()
+          .eq('provider_id', providerId);
 
-            final Map<String, dynamic> data = (existing != null)
-                ? Map<String, dynamic>.from(existing)
-                : {
-                    'day_of_week': index,
-                    'start_time': '09:00',
-                    'end_time': '18:00',
-                    'break_start': '12:00',
-                    'break_end': '13:00',
-                  };
-            data['is_enabled'] = isEnabled;
-            return data;
-          });
+      setState(() {
+        final List<dynamic> schedulesData = schedulesRaw;
+        _schedules = List.generate(7, (index) {
+          final existing = schedulesData.cast<Map<String, dynamic>?>().firstWhere(
+            (s) => s?['day_of_week'] == index,
+            orElse: () => null,
+          );
 
-          // Services
-          final List<dynamic> servicesData = response['services'] ?? [];
-          _services = servicesData
-              .map((s) => Map<String, dynamic>.from(s))
-              .toList();
+          final bool isEnabled = existing != null
+              ? (existing['is_enabled'] == 1 || existing['is_enabled'] == true)
+              : (index != 0 && index != 6);
 
-          // Exceptions
-          final List<dynamic> exceptionsData = response['exceptions'] ?? [];
-          _exceptions = exceptionsData
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
+          final Map<String, dynamic> data = (existing != null)
+              ? Map<String, dynamic>.from(existing)
+              : {
+                  'day_of_week': index,
+                  'start_time': '09:00',
+                  'end_time': '18:00',
+                  'break_start': '12:00',
+                  'break_end': '13:00',
+                };
+          data['is_enabled'] = isEnabled;
+          return data;
         });
-      }
+
+        _exceptions = exceptionsRaw
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -144,8 +145,15 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
     }
 
     setState(() => _isLoading = true);
+    final providerId = ApiService().userId;
+    if (providerId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
     try {
+      // Sprint 2: Supabase SDK em vez de POST /provider/schedule
       final schedulesToSend = _schedules.map((s) => {
+        'provider_id': providerId,
         'day_of_week': s['day_of_week'],
         'start_time': s['start_time'],
         'end_time': s['end_time'],
@@ -154,19 +162,25 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
         'is_enabled': s['is_enabled'] == true,
       }).toList();
 
-      final List<Future> operations = [
-        _api.post('/provider/schedule', {'schedules': schedulesToSend}),
-        _api.post('/provider/schedule/exceptions', {'exceptions': _exceptions}),
-      ];
+      await Supabase.instance.client
+          .from('provider_schedule_configs')
+          .upsert(schedulesToSend, onConflict: 'provider_id,day_of_week');
 
-      // Parallelize service updates
-      for (final service in _services) {
-        operations.add(_api.put('/provider/services/${service['id']}', {
-          'duration': service['duration'],
-        }));
+      // Exceptions: delete all and re-insert
+      await Supabase.instance.client
+          .from('provider_schedule_exceptions')
+          .delete()
+          .eq('provider_id', providerId);
+
+      if (_exceptions.isNotEmpty) {
+        final exceptionsToSend = _exceptions.map((e) => {
+          ...Map<String, dynamic>.from(e),
+          'provider_id': providerId,
+        }).toList();
+        await Supabase.instance.client
+            .from('provider_schedule_exceptions')
+            .insert(exceptionsToSend);
       }
-
-      await Future.wait(operations);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Configurações salvas com sucesso!')));

@@ -24,7 +24,7 @@ class RemoteThemeService {
   Future<void> loadTheme() async {
     try {
       debugPrint('🎨 [RemoteTheme] Loading theme from backend...');
-      final response = await _api.get('/theme/active');
+      final response = await _api.invokeEdgeFunction('theme');
 
       if (response['success'] == true && response['theme'] != null) {
         _currentTheme = RemoteThemeData.fromJson(response['theme']);
@@ -48,7 +48,7 @@ class RemoteThemeService {
   Future<void> loadStrings(String language) async {
     try {
       debugPrint('🌐 [RemoteTheme] Loading strings for $language...');
-      final response = await _api.get('/strings/$language');
+      final response = await _api.invokeEdgeFunction('strings', null, {'lang': language});
 
       if (response['success'] == true && response['strings'] != null) {
         _strings = Map<String, String>.from(response['strings']);
@@ -66,7 +66,7 @@ class RemoteThemeService {
   Future<void> loadConfig() async {
     try {
       debugPrint('⚙️ [RemoteTheme] Loading config...');
-      final response = await _api.get('/config');
+      final response = await _api.invokeEdgeFunction('config');
 
       if (response['success'] == true && response['config'] != null) {
         _config = Map<String, dynamic>.from(response['config']);
