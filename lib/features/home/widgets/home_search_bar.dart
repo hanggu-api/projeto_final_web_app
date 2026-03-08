@@ -6,10 +6,7 @@ import '../../../core/theme/app_theme.dart';
 class HomeSearchBar extends StatelessWidget {
   final VoidCallback onTap;
 
-  const HomeSearchBar({
-    Key? key,
-    required this.onTap,
-  }) : super(key: key);
+  const HomeSearchBar({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +14,7 @@ class HomeSearchBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: GestureDetector(
         onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
@@ -52,7 +50,10 @@ class HomeSearchBar extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 16),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -66,7 +67,11 @@ class HomeSearchBar extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(LucideIcons.clock, size: 14, color: AppTheme.textDark),
+                    const Icon(
+                      LucideIcons.clock,
+                      size: 14,
+                      color: AppTheme.textDark,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'Agora',
@@ -77,7 +82,11 @@ class HomeSearchBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.keyboard_arrow_down, size: 16, color: AppTheme.textDark),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: AppTheme.textDark,
+                    ),
                   ],
                 ),
               ),

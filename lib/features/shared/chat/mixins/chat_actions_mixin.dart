@@ -4,7 +4,8 @@ import '../chat_state.dart';
 import '../../../../services/data_gateway.dart';
 import '../../../../services/realtime_service.dart';
 
-mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
+mixin ChatActionsMixin<T extends StatefulWidget>
+    on State<T>, ChatStateMixin<T> {
   void reconcilePendingMessages() {
     if (pendingMessages.isEmpty) return;
     pendingMessages.removeWhere((pending) {
@@ -19,10 +20,16 @@ mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> 
 
   Future<void> sendMessage(String serviceId, {String? content}) async {
     final text = content ?? messageController.text.trim();
-    if (text.isEmpty) return;
+    debugPrint(
+      '[ChatActionsMixin] sendMessage called - serviceId: $serviceId, text: $text',
+    );
+    if (text.isEmpty) {
+      debugPrint('[ChatActionsMixin] Mensagem vazia, ignorando.');
+      return;
+    }
 
     messageController.clear();
-    
+
     final tempId = DateTime.now().millisecondsSinceEpoch;
     final optimisticMsg = {
       'id': 'temp_$tempId',
@@ -41,15 +48,21 @@ mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> 
       await DataGateway().sendChatMessage(serviceId, text, 'text');
       if (mounted) {
         setState(() {
-          final index = pendingMessages.indexWhere((m) => m['id'] == 'temp_$tempId');
+          final index = pendingMessages.indexWhere(
+            (m) => m['id'] == 'temp_$tempId',
+          );
           if (index != -1) pendingMessages[index]['status'] = 'sent';
         });
       }
       scrollToBottom();
     } catch (e) {
       if (mounted) {
-        setState(() => pendingMessages.removeWhere((m) => m['id'] == 'temp_$tempId'));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao enviar: $e')));
+        setState(
+          () => pendingMessages.removeWhere((m) => m['id'] == 'temp_$tempId'),
+        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao enviar: $e')));
       }
     }
   }
@@ -58,11 +71,15 @@ mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> 
     try {
       await api.confirmSchedule(serviceId, date);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Agendamento confirmado!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Agendamento confirmado!')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao confirmar: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao confirmar: $e')));
       }
     }
   }
@@ -70,7 +87,11 @@ mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> 
   void scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (scrollController.hasClients) {
-        scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+        scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -87,7 +108,7 @@ mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> 
 
   DateTime parseMessageDate(Map<String, dynamic> msg) {
     try {
-      final dateStr = msg['created_at'] ?? msg['createdAt'];
+      final dateStr = msg['created_at'] ?? msg['sent_at'] ?? msg['createdAt'];
       if (dateStr == null) return DateTime.now();
       return DateTime.parse(dateStr);
     } catch (e) {
@@ -95,14 +116,19 @@ mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> 
     }
   }
 
-  Future<void> loadServiceInfo(String serviceId, Function onCalculateOther) async {
+  Future<void> loadServiceInfo(
+    String serviceId,
+    Function onCalculateOther,
+  ) async {
     try {
-      final details = await api.getServiceDetails(serviceId);
+      final details = await DataGateway().getServiceDetails(serviceId);
       if (mounted) {
         setState(() => serviceDetails = details);
         onCalculateOther();
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[ChatActionsMixin] Erro ao carregar info do serviço: $e');
+    }
   }
 
   void calculateOtherUser(Function(int, Function(bool)) onCheckStatus) {
@@ -111,19 +137,23 @@ mixin ChatActionsMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> 
 
     final s = serviceDetails!;
     bool isMeClient = role == 'client';
-    
+
     // Logic from the original calculateOtherUser
     if (role == null) {
       final myIdStr = myUserId?.toString();
-      dynamic userIdRaw = s['user_id'] ?? (s['client'] is Map ? s['client']['id'] : null);
+      dynamic userIdRaw =
+          s['user_id'] ?? (s['client'] is Map ? s['client']['id'] : null);
       isMeClient = userIdRaw?.toString() == myIdStr;
     }
 
     int? targetId;
     if (isMeClient) {
-      targetId = s['provider_id'] ?? (s['provider'] is Map ? s['provider']['id'] : null);
+      targetId =
+          s['provider_id'] ??
+          (s['provider'] is Map ? s['provider']['id'] : null);
     } else {
-      targetId = s['client_id'] ?? (s['client'] is Map ? s['client']['id'] : null);
+      targetId =
+          s['client_id'] ?? (s['client'] is Map ? s['client']['id'] : null);
     }
 
     if (targetId != null && targetId != otherUserId) {

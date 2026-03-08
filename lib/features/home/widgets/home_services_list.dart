@@ -9,11 +9,11 @@ class HomeServicesList extends StatelessWidget {
   final VoidCallback onRefreshNeeded;
 
   const HomeServicesList({
-    Key? key,
+    super.key,
     required this.isLoading,
     required this.services,
     required this.onRefreshNeeded,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

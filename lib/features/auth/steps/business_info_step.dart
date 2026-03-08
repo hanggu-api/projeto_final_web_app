@@ -37,7 +37,7 @@ class BusinessInfoStep extends StatefulWidget {
 
 class _BusinessInfoStepState extends State<BusinessInfoStep> {
   final MapController _mapController = MapController();
-  LatLng _currentCenter = const LatLng(-23.550520, -46.633308); // SP Default
+  LatLng _currentCenter = const LatLng(-5.5265, -47.4761); // Imperatriz Default
   bool _locating = false;
 
   @override
@@ -119,11 +119,12 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
+                          urlTemplate:
+                              'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
                           userAgentPackageName: 'com.play101.app',
-                    tileSize: 512,
-                    zoomOffset: -1,
-                    maxZoom: 22,
+                          tileSize: 512,
+                          zoomOffset: -1,
+                          maxZoom: 22,
                         ),
                         const MarkerLayer(
                           markers: [
@@ -171,7 +172,10 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
             // FIELDS
             TextFormField(
               controller: widget.addressController,
-              decoration: AppTheme.inputDecoration('Endereço Completo', Icons.map),
+              decoration: AppTheme.inputDecoration(
+                'Endereço Completo',
+                Icons.map,
+              ),
               validator: (v) =>
                   v?.isEmpty == true ? 'Informe o endereço' : null,
             ),
@@ -179,7 +183,10 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
 
             TextFormField(
               controller: widget.businessNameController,
-              decoration: AppTheme.inputDecoration('Nome do Local (Barbearia)', Icons.store),
+              decoration: AppTheme.inputDecoration(
+                'Nome do Local (Barbearia)',
+                Icons.store,
+              ),
               validator: (v) =>
                   v?.isEmpty == true ? 'Informe o nome do local' : null,
             ),
@@ -190,7 +197,10 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
                 Expanded(
                   child: TextFormField(
                     controller: widget.docController,
-                    decoration: AppTheme.inputDecoration('CPF ou CNPJ', Icons.badge),
+                    decoration: AppTheme.inputDecoration(
+                      'CPF ou CNPJ',
+                      Icons.badge,
+                    ),
                     keyboardType: TextInputType.number,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
@@ -212,7 +222,10 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
 
             TextFormField(
               controller: widget.phoneController,
-              decoration: AppTheme.inputDecoration('Telefone / WhatsApp', Icons.phone),
+              decoration: AppTheme.inputDecoration(
+                'Telefone / WhatsApp',
+                Icons.phone,
+              ),
               keyboardType: TextInputType.phone,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -237,7 +250,10 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
 
             TextFormField(
               controller: widget.nameController,
-              decoration: AppTheme.inputDecoration('Nome do Responsável', Icons.person),
+              decoration: AppTheme.inputDecoration(
+                'Nome do Responsável',
+                Icons.person,
+              ),
               validator: (v) => v?.isEmpty == true ? 'Obrigatório' : null,
             ),
             const SizedBox(height: 16),
@@ -264,4 +280,3 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
     );
   }
 }
-

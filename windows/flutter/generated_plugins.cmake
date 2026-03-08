@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
   file_selector_windows
   firebase_core
+  firebase_remote_config
   firebase_storage
   flutter_secure_storage_windows
   flutter_tts

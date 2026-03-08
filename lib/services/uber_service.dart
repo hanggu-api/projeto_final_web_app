@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'api_service.dart';
+import 'app_config_service.dart';
 
 class UberService {
   final ApiService _api = ApiService();
@@ -22,9 +24,31 @@ class UberService {
   Future<bool> isModuleEnabled() async {
     try {
       final config = await _api.getAppConfig();
-      return config['uber_module_enabled'] == 'true' || config['uber_module_enabled'] == true;
+      return config['uber_module_enabled'] == 'true' ||
+          config['uber_module_enabled'] == true;
     } catch (e) {
       return false;
+    }
+  }
+
+  // Taxas por tipo de pagamento
+  static const double feePixPlataforma = 0.02; // 2%
+  static const double feeCartaoPlataforma = 0.05; // 5%
+  static const double feeCartaoMaquina = 0.05; // 5%
+
+  /// Calcula o preço final com taxas baseado no método de pagamento
+  double calculateFareWithFees(double baseFare, String paymentMethod) {
+    switch (paymentMethod) {
+      case 'PIX Direto':
+        return baseFare;
+      case 'PIX Plataforma':
+        return baseFare * (1 + feePixPlataforma);
+      case 'Cartão (Plataforma)':
+        return baseFare * (1 + feeCartaoPlataforma);
+      case 'Cartão (Máquina)':
+        return baseFare * (1 + feeCartaoMaquina);
+      default:
+        return baseFare;
     }
   }
 
@@ -35,14 +59,48 @@ class UberService {
     required double dropoffLat,
     required double dropoffLng,
     required int vehicleTypeId,
+    double? distanceKm,
+    double? durationMin,
   }) async {
-    return await _api.calculateUberFare(
-      pickupLat: pickupLat,
-      pickupLng: pickupLng,
-      dropoffLat: dropoffLat,
-      dropoffLng: dropoffLng,
-      vehicleTypeId: vehicleTypeId,
-    );
+    try {
+      // Tenta calcular via Edge Function (Backend)
+      final backendFare = await _api.calculateUberFare(
+        pickupLat: pickupLat,
+        pickupLng: pickupLng,
+        dropoffLat: dropoffLat,
+        dropoffLng: dropoffLng,
+        vehicleTypeId: vehicleTypeId,
+      );
+      return backendFare;
+    } catch (e) {
+      debugPrint(
+        '⚠️ [UberService] Falha no cálculo via Backend, usando lógica local: $e',
+      );
+
+      // Fallback local se o backend falhar ou se for Moto com config específica
+      if (vehicleTypeId == 3) {
+        // Moto
+        final config = AppConfigService();
+        final dist = distanceKm ?? 0.0;
+        final dur = durationMin ?? 0.0;
+
+        double fare =
+            config.motoBaseFare +
+            (dist * config.motoPerKm) +
+            (dur * config.motoPerMinute);
+
+        if (fare < config.motoMinimumFare) fare = config.motoMinimumFare;
+
+        return {
+          'fare': fare,
+          'is_local': true,
+          'details': 'Calculado localmente (Moto)',
+        };
+      }
+
+      // Fallback genérico para outros veículos (preservando comportamento)
+      rethrow;
+    }
   }
 
   /// Solicita uma nova viagem
@@ -58,9 +116,11 @@ class UberService {
     double? fare,
   }) async {
     final client = Supabase.instance.client;
-    
+
     if (fare == null || fare == 0) {
-      debugPrint('⚠️ [DB_SAVE] ATENÇÃO: A tarifa está sendo enviada como $fare');
+      debugPrint(
+        '⚠️ [DB_SAVE] ATENÇÃO: A tarifa está sendo enviada como $fare',
+      );
     }
 
     final tripData = {
@@ -74,43 +134,78 @@ class UberService {
       'dropoff_address': dropoffAddress,
       'status': 'searching',
       'fare_estimated': fare,
+      'payment_method_id': paymentMethod,
     };
 
     debugPrint('💾 [DB_SAVE] Tentando salvar nova viagem no banco:');
     debugPrint(const JsonEncoder.withIndent('  ').convert(tripData));
 
     try {
-      final response = await client.from('trips').insert(tripData).select().single().timeout(const Duration(seconds: 15));
+      final response = await client
+          .from('trips')
+          .insert(tripData)
+          .select()
+          .single()
+          .timeout(const Duration(seconds: 15));
       debugPrint('✅ [DB_SAVE] Viagem salva com sucesso! ID: ${response['id']}');
+
+      // Notifica os motoristas próximos (Backend Trigger)
+      unawaited(_notifyNearbyDrivers(response['id'], vehicleTypeId));
+
       return {'trip_id': response['id'], 'success': true, ...response};
     } on TimeoutException {
-      throw ApiException(message: 'Tempo esgotado ao solicitar viagem. Verifique sua conexão.', statusCode: 408);
+      throw ApiException(
+        message: 'Tempo esgotado ao solicitar viagem. Verifique sua conexão.',
+        statusCode: 408,
+      );
     } catch (e) {
       debugPrint('❌ [DB_SAVE] Erro ao salvar viagem: $e');
-      throw ApiException(message: 'Erro ao processar sua solicitação de viagem. Tente novamente.', statusCode: 500);
+      throw ApiException(
+        message:
+            'Erro ao processar sua solicitação de viagem. Tente novamente.',
+        statusCode: 500,
+      );
     }
   }
 
-  /// Motorista: Alterna entre online e offline
+  /// Motorista: Alterna entre ATIVO e INATIVO
+  /// is_active = true → visível no mapa, recebe corridas
+  /// is_active = false → invisível, não recebe corridas
   Future<void> toggleDriverStatus({
-    required bool isOnline,
+    required bool isActive,
     required int driverId,
     double? latitude,
     double? longitude,
   }) async {
     final client = Supabase.instance.client;
-    
-    await client.from('users').update({
-      'is_online': isOnline,
-      'last_seen_at': DateTime.now().toIso8601String(),
-    }).eq('id', driverId);
+    final now = DateTime.now().toUtc().toIso8601String();
 
-    if (latitude != null && longitude != null) {
+    final updateData = <String, dynamic>{
+      'is_active': isActive,
+      'last_seen_at': now,
+    };
+
+    // Se ficou ativo, registra o timestamp de ativação
+    if (isActive) {
+      updateData['activated_at'] = now;
+    }
+
+    await client.from('users').update(updateData).eq('id', driverId);
+
+    // Se ficar INATIVO, remove da tabela de tempo real imediatamente
+    if (!isActive) {
+      debugPrint(
+        '🛑 [UberService] Motorista $driverId INATIVO — removendo localização real-time',
+      );
+      await client.from('driver_locations').delete().eq('driver_id', driverId);
+    }
+
+    if (latitude != null && longitude != null && isActive) {
       await updateDriverLocation(
         driverId: driverId,
         latitude: latitude,
         longitude: longitude,
-        forceHistory: true, // Força registro no histórico ao entrar/sair de online
+        forceHistory: true,
       );
     }
   }
@@ -134,23 +229,26 @@ class UberService {
         'driver_id': driverId,
         'latitude': latitude,
         'longitude': longitude,
-        'updated_at': now.toIso8601String(),
+        'updated_at': now.toUtc().toIso8601String(),
       }, onConflict: 'driver_id');
 
       // 2. Salva no histórico de longa data para Heatmaps
       // Salva se for forçado ou se passaram mais de 60 segundos desde a última gravação
       final lastLog = _lastHistoryLog[driverId];
-      if (forceHistory || lastLog == null || now.difference(lastLog).inSeconds >= 60) {
+      if (forceHistory ||
+          lastLog == null ||
+          now.difference(lastLog).inSeconds >= 60) {
         await client.from('driver_location_history').insert({
           'driver_id': driverId,
           'latitude': latitude,
           'longitude': longitude,
-          'recorded_at': now.toIso8601String(),
+          'recorded_at': now.toUtc().toIso8601String(),
         });
         _lastHistoryLog[driverId] = now;
-        debugPrint('📈 [GPS_HISTORY] Localização persistida para histórico/heatmap');
+        debugPrint(
+          '📈 [GPS_HISTORY] Localização persistida para histórico/heatmap',
+        );
       }
-      
     } catch (e) {
       debugPrint('❌ [GPS] Erro ao atualizar localização: $e');
     }
@@ -162,17 +260,22 @@ class UberService {
         .from('trips')
         .stream(primaryKey: ['id'])
         .map((trips) {
-          final filtered = trips.where((trip) => 
-            trip['status'] == 'searching' && 
-            trip['vehicle_type_id'] == vehicleTypeId
-          ).toList();
-          
+          final filtered = trips
+              .where(
+                (trip) =>
+                    trip['status'] == 'searching' &&
+                    trip['vehicle_type_id'] == vehicleTypeId,
+              )
+              .toList();
+
           filtered.sort((a, b) {
-            final dateA = DateTime.tryParse(a['requested_at'] ?? '') ?? DateTime(0);
-            final dateB = DateTime.tryParse(b['requested_at'] ?? '') ?? DateTime(0);
+            final dateA =
+                DateTime.tryParse(a['requested_at'] ?? '') ?? DateTime(0);
+            final dateB =
+                DateTime.tryParse(b['requested_at'] ?? '') ?? DateTime(0);
             return dateB.compareTo(dateA);
           });
-          
+
           return filtered;
         });
   }
@@ -180,18 +283,25 @@ class UberService {
   /// Motorista: Aceita uma corrida
   Future<void> acceptTrip(String tripId, int driverId) async {
     final client = Supabase.instance.client;
-    
+
     // Captura localização atual para o marco de aceite
     LatLng? currentPos;
     try {
-      final pos = await Geolocator.getCurrentPosition();
-      currentPos = LatLng(pos.latitude, pos.longitude);
+      if (!kIsWeb) {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+        currentPos = LatLng(pos.latitude, pos.longitude);
+      }
     } catch (_) {}
 
     final Map<String, dynamic> updates = {
       'status': 'accepted',
       'driver_id': driverId,
-      'accepted_at': DateTime.now().toIso8601String(),
+      'accepted_at': DateTime.now().toUtc().toIso8601String(),
     };
 
     if (currentPos != null) {
@@ -216,44 +326,121 @@ class UberService {
     }
   }
 
+  /// Busca as preferências de pagamento do motorista
+  Future<Map<String, bool>> getDriverPaymentPreferences(int driverId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('accepts_pix_direct, accepts_card_machine')
+          .eq('id', driverId)
+          .maybeSingle();
+
+      return {
+        'pix_direct': (response?['accepts_pix_direct'] ?? true) as bool,
+        'card_machine': (response?['accepts_card_machine'] ?? false) as bool,
+      };
+    } catch (e) {
+      return {'pix_direct': true, 'card_machine': false};
+    }
+  }
+
   /// Busca dados de qualquer usuário (cliente ou motorista)
   Future<Map<String, dynamic>?> getUserProfile(int userId) async {
     try {
       debugPrint('🔎 [UberService] Buscando perfil do usuário: $userId');
       final response = await Supabase.instance.client
           .from('users')
-          .select('full_name, avatar_url, role')
+          .select('full_name, avatar_url, role, pix_key')
           .eq('id', userId)
           .maybeSingle();
       return response;
     } catch (e) {
-      debugPrint('❌ [UberService] ERRO CRÍTICO ao buscar perfil do usuário $userId: $e');
+      debugPrint(
+        '❌ [UberService] ERRO CRÍTICO ao buscar perfil do usuário $userId: $e',
+      );
       if (e.toString().contains('Failed host lookup')) {
-        debugPrint('🌐 [UberService] DICA: Verifique a conexão com a internet ou as configurações de DNS do Supabase.');
+        debugPrint(
+          '🌐 [UberService] DICA: Verifique a conexão com a internet ou as configurações de DNS do Supabase.',
+        );
       }
       return null;
     }
   }
 
-  /// Motorista ou Cliente: Atualiza o status de uma viagem
-  Future<void> updateTripStatus(String tripId, String status, {int? clientId}) async {
+  /// Busca a chave PIX de um motorista específico
+  Future<String?> getDriverPixKey(int driverId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('pix_key')
+          .eq('id', driverId)
+          .maybeSingle();
+      return response?['pix_key'] as String?;
+    } catch (e) {
+      debugPrint('❌ [UberService] Erro ao buscar chave PIX do motorista: $e');
+      return null;
+    }
+  }
+
+  /// Envia uma avaliação de viagem
+  Future<void> submitTripReview({
+    required String tripId,
+    required int reviewerId,
+    required int revieweeId,
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      final data = {
+        'trip_id': tripId,
+        'reviewer_id': reviewerId,
+        'reviewee_id': revieweeId,
+        'rating': rating,
+        'comment': comment,
+      };
+
+      await Supabase.instance.client.from('trips_reviews').insert(data);
+      debugPrint(
+        '✅ [UberService] Avaliação enviada com sucesso para a viagem $tripId',
+      );
+    } catch (e) {
+      debugPrint('❌ [UberService] Erro ao enviar avaliação: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTripStatus(
+    String tripId,
+    String status, {
+    int? clientId,
+    String? cancellationReason,
+  }) async {
     final client = Supabase.instance.client;
     final Map<String, dynamic> updates = {'status': status};
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     // Captura localização atual para os marcos de embarque e desembarque
     LatLng? currentPos;
     try {
-      final pos = await Geolocator.getCurrentPosition();
-      currentPos = LatLng(pos.latitude, pos.longitude);
+      if (!kIsWeb) {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+        currentPos = LatLng(pos.latitude, pos.longitude);
+      }
     } catch (_) {}
-    
+
     if (status == 'in_progress') {
       updates['started_at'] = now.toIso8601String();
       if (currentPos != null) {
         updates['boarding_lat'] = currentPos.latitude;
         updates['boarding_lon'] = currentPos.longitude;
       }
+    } else if (status == 'arrived') {
+      updates['arrived_at'] = DateTime.now().toUtc().toIso8601String();
     } else if (status == 'completed') {
       updates['completed_at'] = now.toIso8601String();
       if (currentPos != null) {
@@ -262,10 +449,13 @@ class UberService {
       }
     } else if (status == 'cancelled') {
       updates['cancelled_at'] = now.toIso8601String();
+      if (cancellationReason != null) {
+        updates['cancellation_reason'] = cancellationReason;
+      }
     }
 
     var query = client.from('trips').update(updates).eq('id', tripId);
-    
+
     if (clientId != null) {
       query = query.eq('client_id', clientId);
     }
@@ -282,6 +472,42 @@ class UberService {
         .map((snapshot) => snapshot.isNotEmpty ? snapshot.first : {});
   }
 
+  /// Stream para acompanhar TODOS os motoristas online (para o mapa do cliente)
+  Stream<List<Map<String, dynamic>>> watchAllOnlineDrivers() {
+    return Supabase.instance.client
+        .from('driver_locations')
+        .stream(primaryKey: ['driver_id'])
+        .map((snapshot) {
+          debugPrint(
+            '🚗 [OnlineDrivers] Stream recebeu ${snapshot.length} registros de driver_locations',
+          );
+          final now = DateTime.now().toUtc();
+          final filtered = snapshot.map((e) => e).where((
+            driver,
+          ) {
+            final updatedAt = DateTime.tryParse(driver['updated_at'] ?? '');
+            if (updatedAt == null) {
+              debugPrint(
+                '⚠️ [OnlineDrivers] Motorista ${driver['driver_id']} sem updated_at',
+              );
+              return false;
+            }
+            final diff = now.difference(updatedAt).inMinutes;
+            if (diff >= 5) {
+              debugPrint(
+                '👻 [OnlineDrivers] Motorista ${driver['driver_id']} inativo há ${diff}min — filtrado',
+              );
+              return false;
+            }
+            return true;
+          }).toList();
+          debugPrint(
+            '🚗 [OnlineDrivers] Após filtro: ${filtered.length} motoristas ativos',
+          );
+          return filtered;
+        });
+  }
+
   /// Stream para acompanhar a localização do motorista em tempo real
   /// Stream para acompanhar a localização do motorista em tempo real.
   /// Aceita [int] driverId para performance máxima ou [String] tripId para compatibilidade.
@@ -292,43 +518,69 @@ class UberService {
           .stream(primaryKey: ['driver_id'])
           .eq('driver_id', identifier);
     }
-    
-    // Fallback para tripId (String) - Mantém compatibilidade com telas antigas
+
+    // Fallback para tripId (String) - Mapeia para o driver_id e retorna a stream VERDADEIRA
     final tripId = identifier.toString();
-    return Supabase.instance.client
+    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
+    StreamSubscription? locationSub;
+
+    Supabase.instance.client
         .from('trips')
-        .stream(primaryKey: ['id'])
+        .select('driver_id')
         .eq('id', tripId)
-        .asyncMap((trips) async {
-          if (trips.isEmpty || trips.first['driver_id'] == null) return [];
-          final driverId = trips.first['driver_id'];
-          final locations = await Supabase.instance.client
+        .maybeSingle()
+        .then((trip) {
+          if (trip == null || trip['driver_id'] == null) {
+            controller.add([]);
+            return;
+          }
+
+          final driverId = trip['driver_id'];
+          locationSub = Supabase.instance.client
               .from('driver_locations')
-              .select()
-              .eq('driver_id', driverId);
-          return (locations as List).map((e) => e as Map<String, dynamic>).toList();
+              .stream(primaryKey: ['driver_id'])
+              .eq('driver_id', driverId)
+              .listen((data) {
+                if (!controller.isClosed) {
+                  controller.add(data);
+                }
+              });
+        })
+        .catchError((e) {
+          if (!controller.isClosed) {
+            controller.addError(e);
+          }
         });
+
+    controller.onCancel = () {
+      locationSub?.cancel();
+    };
+
+    return controller.stream;
   }
 
   /// Busca a viagem ativa do cliente
   Future<Map<String, dynamic>?> getActiveTripForClient(int clientId) async {
     try {
-      debugPrint('🔎 [DB_QUERY] Buscando viagem ativa para o cliente: $clientId');
-      
-      final dayAgo = DateTime.now().subtract(const Duration(hours: 24)).toIso8601String();
+      debugPrint(
+        '🔎 [DB_QUERY] Buscando viagem ativa para o cliente: $clientId',
+      );
 
       final response = await Supabase.instance.client
           .from('trips')
           .select('*, vehicle_types(display_name)')
           .eq('client_id', clientId)
-          .filter('status', 'in', '("searching", "accepted", "arrived", "in_progress")')
-          .gte('requested_at', dayAgo) // Ignora viagens fantasmas antigas
+          .or(
+            'status.eq.searching,status.eq.accepted,status.eq.arrived,status.eq.in_progress',
+          )
           .order('requested_at', ascending: false)
           .limit(1)
           .maybeSingle();
-      
+
       if (response != null) {
-        debugPrint('✅ [DB_QUERY] Viagem ativa recuperada para cliente: ${response['id']} (Status: ${response['status']})');
+        debugPrint(
+          '✅ [DB_QUERY] Viagem ativa recuperada para cliente: ${response['id']} (Status: ${response['status']})',
+        );
       }
       return response;
     } catch (e) {
@@ -340,22 +592,23 @@ class UberService {
   /// Busca a viagem ativa do motorista
   Future<Map<String, dynamic>?> getActiveTripForDriver(int driverId) async {
     try {
-      debugPrint('🔎 [DB_QUERY] Buscando viagem ativa para o motorista: $driverId');
-      
-      final dayAgo = DateTime.now().subtract(const Duration(hours: 24)).toIso8601String();
+      debugPrint(
+        '🔎 [DB_QUERY] Buscando viagem ativa para o motorista: $driverId',
+      );
 
       final response = await Supabase.instance.client
           .from('trips')
           .select('*, vehicle_types(display_name)')
           .eq('driver_id', driverId)
-          .filter('status', 'in', '("accepted", "arrived", "in_progress")')
-          .gte('requested_at', dayAgo) // Ignora viagens fantasmas antigas
+          .or('status.eq.accepted,status.eq.arrived,status.eq.in_progress')
           .order('requested_at', ascending: false)
           .limit(1)
           .maybeSingle();
-      
+
       if (response != null) {
-        debugPrint('✅ [DB_QUERY] Viagem ativa recuperada para motorista: ${response['id']} (Status: ${response['status']})');
+        debugPrint(
+          '✅ [DB_QUERY] Viagem ativa recuperada para motorista: ${response['id']} (Status: ${response['status']})',
+        );
       }
       return response;
     } catch (e) {
@@ -373,7 +626,7 @@ class UberService {
           .eq('client_id', userId)
           .filter('status', 'in', '("completed", "cancelled")')
           .order('requested_at', ascending: false);
-      
+
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('❌ [UberService] Erro ao buscar histórico: $e');
@@ -389,11 +642,13 @@ class UberService {
   }) async {
     try {
       // Usaremos as colunas 'rating' e 'rating_comment' que assumimos existir na tabela trips
-      await Supabase.instance.client.from('trips').update({
-        'rating': rating,
-        'rating_comment': comment,
-      }).eq('id', tripId);
-      debugPrint('✅ [UberService] Avaliação salva com sucesso para a viagem $tripId');
+      await Supabase.instance.client
+          .from('trips')
+          .update({'rating': rating, 'rating_comment': comment})
+          .eq('id', tripId);
+      debugPrint(
+        '✅ [UberService] Avaliação salva com sucesso para a viagem $tripId',
+      );
     } catch (e) {
       debugPrint('❌ [UberService] Erro ao salvar avaliação: $e');
       // Não lançar erro crítico para não travar a UI, apenas logamos
@@ -428,7 +683,9 @@ class UberService {
       currentIndex++;
     });
 
-    debugPrint('🚀 [Simulador] Iniciado para o motorista $driverId com ${polyline.length} pontos');
+    debugPrint(
+      '🚀 [Simulador] Iniciado para o motorista $driverId com ${polyline.length} pontos',
+    );
   }
 
   /// Para a simulação de movimento
@@ -438,5 +695,27 @@ class UberService {
     _simulationProgressController?.close();
     _simulationProgressController = null;
     debugPrint('🛑 [Simulador] Parado');
+    _simulationProgressController = null;
+  }
+
+  /// Aciona a notificação para motoristas próximos via Edge Function
+  Future<void> _notifyNearbyDrivers(String tripId, int vehicleTypeId) async {
+    try {
+      debugPrint(
+        '🔔 [NOTIFY] Acionando notificação para motoristas (Trip: $tripId)',
+      );
+      // Aqui chamamos a Edge Function do Supabase que lida com o disparo de FCM
+      // Se a função não existir, o erro será capturado, mas a inserção no banco já garante
+      // que quem estiver com o app aberto e online receberá via Realtime.
+      final response = await Supabase.instance.client.functions.invoke(
+        'notify-drivers',
+        body: {'trip_id': tripId, 'vehicle_type_id': vehicleTypeId},
+      );
+      debugPrint('🔔 [NOTIFY] Resposta do backend: ${response.status}');
+    } catch (e) {
+      debugPrint(
+        '⚠️ [NOTIFY] Erro ao acionar notificações (pode ser ausência da Edge Function): $e',
+      );
+    }
   }
 }

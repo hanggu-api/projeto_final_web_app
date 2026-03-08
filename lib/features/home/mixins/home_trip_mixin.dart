@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_map/flutter_map.dart';
 import '../home_state.dart';
 import '../../../services/map_service.dart';
 import '../../../services/uber_service.dart';

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../home_state.dart';
 import '../../../services/api_service.dart';
-import '../../../core/theme/app_theme.dart';
 
 mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
   final ApiService _api = ApiService();

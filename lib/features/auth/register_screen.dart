@@ -141,13 +141,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() {
       _currentStep = prefs.getInt('register_step') ?? 0;
-      
+
       if (widget.initialRole != null) {
         _isClient = widget.initialRole == 'client';
         _isDriver = widget.initialRole == 'driver';
-        if (_isClient != (prefs.getBool('register_is_client') ?? false) || 
+        if (_isClient != (prefs.getBool('register_is_client') ?? false) ||
             _isDriver != (prefs.getBool('register_is_driver') ?? false)) {
-             _currentStep = 0; 
+          _currentStep = 0;
         }
       } else {
         _isClient = prefs.getBool('register_is_client') ?? false;
@@ -336,7 +336,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           docController: _docController,
           phoneController: _phoneController,
           role: _isDriver ? 'driver' : (_isClient ? 'client' : 'provider'),
-          onRoleToggle: () {}, 
+          onRoleToggle: () {},
           onValidationChanged: (isValidating, errors) {
             setState(() {
               _isValidatingData = isValidating;
@@ -427,9 +427,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'A senha deve ter pelo menos 6 caracteres.',
-            ),
+            content: Text('A senha deve ter pelo menos 6 caracteres.'),
           ),
         );
       }
@@ -446,17 +444,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else if (!_isClient) {
         role = 'provider';
       }
-      
-      final professionName = (_isClient || _isDriver) ? null : _selectedProfession?['name'];
+
+      final professionName = (_isClient || _isDriver)
+          ? null
+          : _selectedProfession?['name'];
       final docClean = _docController.text.replaceAll(RegExp(r'\D'), '');
 
       final authResponse = await Supabase.instance.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        data: {
-          'full_name': _nameController.text.trim(),
-          'role': role,
-        },
+        data: {'full_name': _nameController.text.trim(), 'role': role},
       );
 
       final session = authResponse.session;
@@ -468,7 +465,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           );
         }
-        return; 
+        return;
       }
 
       if (session == null) throw Exception('Falha ao obter token do Supabase');
@@ -497,6 +494,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         vehicleColor: _vehicleDetails['color'],
         vehicleColorHex: _vehicleDetails['color_hex'],
         vehiclePlate: _vehicleDetails['plate'],
+        pixKey: _vehicleDetails['pix_key'],
       );
 
       if (!_isClient) {
@@ -566,7 +564,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _redirectUserBasedOnRole() {
     if (!mounted) return;
-    
+
     final api = ApiService();
     final role = api.role;
     debugPrint('🚀 [Register] Redirecionando usuário com role: $role');
@@ -669,7 +667,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: (_isLoading || _isValidatingData || _fieldValidationErrors.values.any((e) => e != null))
+                        onPressed:
+                            (_isLoading ||
+                                _isValidatingData ||
+                                _fieldValidationErrors.values.any(
+                                  (e) => e != null,
+                                ))
                             ? null
                             : () {
                                 if (steps[_currentStep] is BasicInfoStep) {
@@ -705,11 +708,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   return;
                                 }
 
-                                if (steps[_currentStep] is VehicleSelectionStep &&
+                                if (steps[_currentStep]
+                                        is VehicleSelectionStep &&
                                     _selectedVehicleTypeId == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Selecione o tipo de veículo.'),
+                                      content: Text(
+                                        'Selecione o tipo de veículo.',
+                                      ),
                                     ),
                                   );
                                   return;
@@ -720,10 +726,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   final model = _vehicleDetails['model'];
                                   final color = _vehicleDetails['color'];
                                   final plate = _vehicleDetails['plate'];
-                                  if (brand == null || model == null || color == null || plate == null || plate.isEmpty) {
+                                  if (brand == null ||
+                                      model == null ||
+                                      color == null ||
+                                      plate == null ||
+                                      plate.isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Preencha os dados do veículo.'),
+                                        content: Text(
+                                          'Preencha os dados do veículo.',
+                                        ),
                                       ),
                                     );
                                     return;
@@ -734,7 +746,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     _customServices.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Selecione pelo menos um serviço.'),
+                                      content: Text(
+                                        'Selecione pelo menos um serviço.',
+                                      ),
                                     ),
                                   );
                                   return;
@@ -758,7 +772,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ? const SizedBox(
                                 height: 24,
                                 width: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : Text(
                                 isLastStep ? 'CONCLUIR CADASTRO' : 'PRÓXIMO',

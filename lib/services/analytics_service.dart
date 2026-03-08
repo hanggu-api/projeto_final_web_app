@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'api_service.dart';
 
 class AnalyticsService {
@@ -18,7 +19,7 @@ class AnalyticsService {
   Future<void> initSession() async {
     final prefs = await SharedPreferences.getInstance();
     _currentSessionId = prefs.getString('current_session_id');
-    
+
     if (_currentSessionId == null) {
       _currentSessionId = _uuid.v4();
       await prefs.setString('current_session_id', _currentSessionId!);
@@ -34,27 +35,24 @@ class AnalyticsService {
 
   /// Registra um evento genérico na fila interna (Fire and forget)
   void logEvent(String actionType, {Map<String, dynamic>? details}) {
-    // Busca user_id (Zero se offline local)
     int? userId;
     try {
-        final apiId = ApiService().userId; 
-        userId = apiId;
-    } catch(e) {}
+      final apiId = ApiService().userId;
+      userId = apiId;
+    } catch (e) {}
 
-    // Sem userId num app logado não se enquadra na regra de negócio atual,
-    // mas se for app deslogado não rastreia por agora.
-    if (userId == null && actionType != 'APP_OPENED') return; 
+    if (userId == null && actionType != 'APP_OPENED') return;
 
     final event = {
-      'user_id': userId, // Se null, é descartado na batch da Cloudflare
+      'user_id': userId,
       'session_id': _currentSessionId,
       'action_type': actionType,
       'action_details': details != null ? jsonEncode(details) : null,
-      'created_at': DateTime.now().toIso8601String()
+      'created_at': DateTime.now().toIso8601String(),
     };
 
     _queue.add(event);
-    _processQueue(); // Aciona async para dar flush na Cloudflare
+    _processQueue();
   }
 
   Future<void> _processQueue() async {
@@ -64,20 +62,25 @@ class AnalyticsService {
     try {
       final api = ApiService();
       if (!api.isLoggedIn) {
-         _isProcessing = false;
-         return; 
+        _isProcessing = false;
+        return;
       }
 
-      // Tira um "recorte" da fila atual
       final batch = List<Map<String, dynamic>>.from(_queue);
       _queue.clear();
 
-      final response = await api.postRaw('/analytics/log', batch);
-      
-      if (response.statusCode != 200) {
-        // Se falhou por HTTP err, devolve para a fila pra tentar no proximo tick
-        if (_queue.length < 100) { // Limite estrito de memory-leak local
-           _queue.insertAll(0, batch); 
+      // Usa o SDK do Supabase para evitar o erro 401 (Token gerenciado pelo SDK)
+      try {
+        await Supabase.instance.client.functions.invoke(
+          'analytics',
+          body: batch,
+          method: HttpMethod.post,
+        );
+      } catch (e) {
+        debugPrint('⚠️ [AnalyticsService] SDK error: $e');
+        // Devolve para a fila se falhou
+        if (_queue.length < 100) {
+          _queue.insertAll(0, batch);
         }
       }
     } catch (e) {

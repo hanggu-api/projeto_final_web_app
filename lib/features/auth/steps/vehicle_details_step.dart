@@ -24,6 +24,7 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
   late int? _selectedYear;
   late Map<String, dynamic>? _selectedColor;
   late TextEditingController _plateController;
+  late TextEditingController _pixKeyController;
 
   @override
   void initState() {
@@ -40,11 +41,15 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
     _plateController = TextEditingController(
       text: widget.vehicleDetails['plate'] ?? '',
     );
+    _pixKeyController = TextEditingController(
+      text: widget.vehicleDetails['pix_key'] ?? '',
+    );
   }
 
   @override
   void dispose() {
     _plateController.dispose();
+    _pixKeyController.dispose();
     super.dispose();
   }
 
@@ -56,6 +61,7 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
       'color': _selectedColor?['name'],
       'color_hex': _selectedColor?['hex'],
       'plate': _plateController.text.toUpperCase(),
+      'pix_key': _pixKeyController.text.trim(),
     });
   }
 
@@ -92,17 +98,21 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
               if (textEditingValue.text.isEmpty) {
                 return brands.keys;
               }
-              return brands.keys.where((b) =>
-                  b.toLowerCase().contains(textEditingValue.text.toLowerCase()));
-            },
-            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-              return _buildTextField(
-                controller: controller,
-                focusNode: focusNode,
-                hint: 'Ex: Toyota, Honda...',
-                icon: Icons.business,
+              return brands.keys.where(
+                (b) => b.toLowerCase().contains(
+                  textEditingValue.text.toLowerCase(),
+                ),
               );
             },
+            fieldViewBuilder:
+                (context, controller, focusNode, onFieldSubmitted) {
+                  return _buildTextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    hint: 'Ex: Toyota, Honda...',
+                    icon: Icons.business,
+                  );
+                },
             onSelected: (brand) {
               setState(() {
                 _selectedBrand = brand;
@@ -125,20 +135,26 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
             optionsBuilder: (textEditingValue) {
               if (models.isEmpty) return const Iterable.empty();
               if (textEditingValue.text.isEmpty) return models;
-              return models.where((m) =>
-                  m.toLowerCase().contains(textEditingValue.text.toLowerCase()));
-            },
-            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-              return _buildTextField(
-                controller: controller,
-                focusNode: focusNode,
-                hint: _selectedBrand != null
-                    ? 'Selecione o modelo'
-                    : 'Selecione a marca primeiro',
-                icon: widget.isMoto ? Icons.two_wheeler_outlined : Icons.directions_car_outlined,
-                enabled: _selectedBrand != null,
+              return models.where(
+                (m) => m.toLowerCase().contains(
+                  textEditingValue.text.toLowerCase(),
+                ),
               );
             },
+            fieldViewBuilder:
+                (context, controller, focusNode, onFieldSubmitted) {
+                  return _buildTextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    hint: _selectedBrand != null
+                        ? 'Selecione o modelo'
+                        : 'Selecione a marca primeiro',
+                    icon: widget.isMoto
+                        ? Icons.two_wheeler_outlined
+                        : Icons.directions_car_outlined,
+                    enabled: _selectedBrand != null,
+                  );
+                },
             onSelected: (model) {
               setState(() => _selectedModel = model);
               _emitChange();
@@ -162,10 +178,7 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down),
                 items: VehicleData.years.map((year) {
-                  return DropdownMenuItem(
-                    value: year,
-                    child: Text('$year'),
-                  );
+                  return DropdownMenuItem(value: year, child: Text('$year'));
                 }).toList(),
                 onChanged: (year) {
                   setState(() => _selectedYear = year);
@@ -202,7 +215,9 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
                     border: Border.all(
                       color: isSelected
                           ? AppTheme.primaryYellow
-                          : (isBright ? Colors.grey.shade300 : Colors.transparent),
+                          : (isBright
+                                ? Colors.grey.shade300
+                                : Colors.transparent),
                       width: isSelected ? 3 : 1,
                     ),
                     boxShadow: isSelected
@@ -211,19 +226,22 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
                               color: colorValue.withValues(alpha: 0.4),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
-                            )
+                            ),
                           ]
                         : [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
-                            )
+                            ),
                           ],
                   ),
                   child: isSelected
-                      ? Icon(Icons.check,
-                          color: isBright ? Colors.black : Colors.white, size: 24)
+                      ? Icon(
+                          Icons.check,
+                          color: isBright ? Colors.black : Colors.white,
+                          size: 24,
+                        )
                       : null,
                 ),
               );
@@ -252,6 +270,23 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
             icon: Icons.badge_outlined,
             onChanged: (_) => _emitChange(),
             textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 18),
+
+          // ========== CHAVE PIX ==========
+          _buildLabel('Chave PIX'),
+          const SizedBox(height: 6),
+          _buildTextField(
+            controller: _pixKeyController,
+            hint: 'CPF, telefone, e-mail ou chave aleatória',
+            icon: Icons.pix,
+            onChanged: (_) => _emitChange(),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Informe sua chave PIX para receber pagamentos diretamente.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
         ],
@@ -307,7 +342,10 @@ class _VehicleDetailsStepState extends State<VehicleDetailsStep> {
           hintStyle: TextStyle(color: Colors.grey.shade400),
           prefixIcon: Icon(icon, color: AppTheme.primaryYellow, size: 22),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
       ),
     );

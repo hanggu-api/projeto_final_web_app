@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/realtime_service.dart';
-import '../core/theme/app_theme.dart';
+import '../services/uber_service.dart';
 
 class AppBottomNav extends StatefulWidget {
   final int currentIndex;
@@ -47,7 +46,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
             senderId.toString() == _myUserId.toString()) {
           return;
         }
-        
+
         _unread += 1;
         final p = await SharedPreferences.getInstance();
         await p.setInt('unread_chat_count', _unread);
@@ -56,13 +55,33 @@ class _AppBottomNavState extends State<AppBottomNav> {
 
       rt.on('chat.message', handleNewMessage);
       rt.on('chat_message', handleNewMessage);
+
+      _checkActiveTrip();
     });
+  }
+
+  String? _activeTripId;
+
+  Future<void> _checkActiveTrip() async {
+    if (_myUserId == null) return;
+    try {
+      final trip = (_role == 'provider' || _role == 'driver')
+          ? await UberService().getActiveTripForDriver(_myUserId!)
+          : await UberService().getActiveTripForClient(_myUserId!);
+
+      if (mounted) {
+        setState(() {
+          _activeTripId = trip != null ? trip['id']?.toString() : null;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    final isProvider = widget.isProvider ?? (_role == 'provider' || _role == 'driver');
-    
+    final isProvider =
+        widget.isProvider ?? (_role == 'provider' || _role == 'driver');
+
     // Stitch inspired items - Consolidating to 5 tabs for Client as per harmonized designs
     final items = isProvider
         ? [
@@ -73,7 +92,11 @@ class _AppBottomNavState extends State<AppBottomNav> {
           ]
         : [
             _NavData(label: 'Início', icon: LucideIcons.home),
-            _NavData(label: 'Chat', icon: LucideIcons.messageSquare, isBadge: true),
+            _NavData(
+              label: 'Chat',
+              icon: LucideIcons.messageSquare,
+              isBadge: true,
+            ),
             _NavData(label: 'Perfil', icon: LucideIcons.user),
           ];
 
@@ -83,75 +106,108 @@ class _AppBottomNavState extends State<AppBottomNav> {
               ? items.length - 1
               : widget.currentIndex);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95), 
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 30,
-            offset: const Offset(0, -10),
-          )
-        ],
-      ),
-      padding: EdgeInsets.only(
-        left: 20, 
-        right: 20, 
-        bottom: MediaQuery.of(context).padding.bottom + 12,
-        top: 10,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: items.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final data = entry.value;
-          final isSelected = idx == safeIndex;
-          
-          final color = isSelected 
-              ? Colors.black // Preto para o selecionado
-              : Colors.black.withValues(alpha: 0.4); // Preto suave para o não selecionado
+    final List<Widget> navWidgets = items.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final data = entry.value;
+      final isSelected = idx == safeIndex;
 
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => _onTap(idx, isProvider),
-              behavior: HitTestBehavior.opaque,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildIcon(data, color, isSelected),
-                  const SizedBox(height: 6),
-                  Text(
-                    data.label,
-                    style: GoogleFonts.manrope(
-                      color: color,
-                      fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      letterSpacing: -0.2,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+      final color = isSelected
+          ? Colors
+                .black // Could be AppTheme.primaryPurple depending on theme later
+          : Colors.black.withValues(alpha: 0.4);
+
+      final bgColor = isSelected
+          ? Colors.black.withValues(alpha: 0.05)
+          : Colors.transparent;
+
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _onTap(idx, isProvider),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: _buildIcon(data, color, isSelected),
+          ),
+        ),
+      );
+    }).toList();
+
+    if (_activeTripId != null) {
+      navWidgets.insert(
+        items.length ~/ 2,
+        Expanded(
+          child: GestureDetector(
+            onTap: () => context.push('/uber-tracking/$_activeTripId'),
+            behavior: HitTestBehavior.opaque,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade600,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                  child: const Icon(
+                    Icons.drive_eta,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ],
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(50),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.21),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: navWidgets,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildIcon(_NavData data, Color color, bool isSelected) {
-    Widget icon = Icon(
-      data.icon,
-      color: color,
-      size: 24,
-    );
+    Widget icon = Icon(data.icon, color: color, size: 24);
 
     if (data.isBadge && _unread > 0) {
       return Badge(
-        label: Text('$_unread', style: const TextStyle(fontSize: 10, color: Colors.white)),
+        label: Text(
+          '$_unread',
+          style: const TextStyle(fontSize: 10, color: Colors.white),
+        ),
         backgroundColor: Colors.red,
         child: icon,
       );
@@ -169,10 +225,12 @@ class _AppBottomNavState extends State<AppBottomNav> {
           context.go('/uber-driver-earnings');
           break;
         case 2:
-          context.go('/activity'); 
+          context.go('/activity');
           break;
         case 3:
-          context.go('/client-settings'); // Ou perfil do motorista
+          context.go(
+            _role == 'driver' ? '/driver-settings' : '/client-settings',
+          );
           break;
       }
     } else {

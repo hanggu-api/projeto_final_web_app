@@ -737,7 +737,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: 7,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final date = DateTime.now().add(Duration(days: index));
               final isSelected = _selectedDate.day == date.day && _selectedDate.month == date.month;

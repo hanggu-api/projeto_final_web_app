@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
+
 import 'package:latlong2/latlong.dart';
 import '../home_state.dart';
 import '../../../services/api_service.dart';
 
-mixin HomeLocationMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
+mixin HomeLocationMixin<T extends StatefulWidget>
+    on State<T>, HomeStateMixin<T> {
   final ApiService _apiService = ApiService();
 
   Future<void> checkLocationPermission() async {
@@ -13,6 +16,36 @@ mixin HomeLocationMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T>
       isLocating = true;
       locationError = null;
     });
+
+    // 🌐 WEB: GPS no Chrome é instável. Tentamos por 8s e continuamos sem bloquear.
+    if (kIsWeb) {
+      try {
+        final posRaw = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 8),
+          ),
+        ).timeout(const Duration(seconds: 9));
+
+        if (mounted) {
+          final lat = posRaw.latitude;
+          final lon = posRaw.longitude;
+          setState(() {
+            currentPosition = LatLng(lat, lon);
+            pickupLocation = currentPosition;
+            locationError = null;
+            isLocating = false;
+          });
+          if (!isInTripMode) mapController.move(currentPosition, 15);
+          await updateCurrentAddress(lat, lon);
+        }
+      } catch (e) {
+        debugPrint('🌐 [HomeGPS Web] Falhou (normal): $e');
+      } finally {
+        if (mounted) setState(() => isLocating = false);
+      }
+      return; // Não bloqueia mais nada no web
+    }
 
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -44,43 +77,60 @@ mixin HomeLocationMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T>
 
       if (permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse) {
-        // Tenta pegar a última conhecida primeiro (mais rápido)
-        final lastPos = await Geolocator.getLastKnownPosition();
-        if (lastPos != null && mounted) {
-          setState(() {
-            currentPosition = LatLng(lastPos.latitude, lastPos.longitude);
-            pickupLocation = currentPosition;
-          });
-          if (!isInTripMode) {
-            mapController.move(currentPosition, 15);
+        try {
+          final lastPos = await Geolocator.getLastKnownPosition();
+          if (lastPos != null && mounted) {
+            setState(() {
+              currentPosition = LatLng(lastPos.latitude, lastPos.longitude);
+              pickupLocation = currentPosition;
+            });
+            if (!isInTripMode) {
+              mapController.move(currentPosition, 15);
+            }
           }
+        } catch (e) {
+          debugPrint('Erro ao obter última localização (ignorando): $e');
         }
 
-        // Busca posição atual com timeout
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
-          ),
-        );
+        dynamic posRaw;
+        try {
+          posRaw = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 10),
+            ),
+          ).timeout(const Duration(seconds: 12));
+        } catch (e) {
+          debugPrint('Erro GPS Mixin ($e)');
+          if (mounted) {
+            setState(() {
+              locationError = 'Não foi possível obter sua localização exata.';
+              isLocating = false;
+            });
+          }
+          return;
+        }
 
-        if (mounted) {
+        if (posRaw != null && mounted) {
+          final double lat = posRaw.latitude;
+          final double lon = posRaw.longitude;
+
           setState(() {
-            currentPosition = LatLng(pos.latitude, pos.longitude);
+            currentPosition = LatLng(lat, lon);
             pickupLocation = currentPosition;
             locationError = null;
           });
           if (!isInTripMode) {
             mapController.move(currentPosition, 15);
           }
-          await updateCurrentAddress(pos.latitude, pos.longitude);
+          await updateCurrentAddress(lat, lon);
         }
       }
     } catch (e) {
-      debugPrint('Erro ao obter localização: $e');
+      debugPrint('Erro Fatal Localização: $e');
       if (mounted) {
         setState(() {
-          locationError = 'Erro ao obter localização. Tente novamente.';
+          locationError = 'Erro ao obter localização. Tente manualmente.';
         });
       }
     } finally {

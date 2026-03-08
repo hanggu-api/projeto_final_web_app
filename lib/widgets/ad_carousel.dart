@@ -16,8 +16,8 @@ class AdCarousel extends StatefulWidget {
 
 class _AdCarouselState extends State<AdCarousel> {
   final PageController _pageController = PageController();
-  List<String> _imageUrls = [];
-  bool _isLoading = true;
+  List<String> _imageUrls = ['assets/images/IMG-20260301-WA0001.jpg'];
+  bool _isLoading = false;
   Timer? _timer;
   int _currentPage = 0;
   bool _hasFetched = false;
@@ -36,13 +36,15 @@ class _AdCarouselState extends State<AdCarousel> {
     try {
       // Use Cloudflare Worker proxy to avoid CORS on web
       final response = await http.get(
-        Uri.parse('https://projeto-central-backend.carrobomebarato.workers.dev/api/campaign/baraiba01'),
+        Uri.parse(
+          'https://projeto-central-backend.carrobomebarato.workers.dev/api/campaign/baraiba01',
+        ),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final items = data['items'] as List?;
-        
+
         if (items != null) {
           final urls = items
               .where((item) => item['type'] == 'image' && item['url'] != null)
@@ -51,7 +53,8 @@ class _AdCarouselState extends State<AdCarousel> {
 
           if (mounted) {
             setState(() {
-              _imageUrls = urls;
+              // Mantém a imagem estática principal em primeiro lugar
+              _imageUrls = ['assets/images/IMG-20260301-WA0001.jpg', ...urls];
               _isLoading = false;
             });
             _startAutoPlay();
@@ -67,11 +70,9 @@ class _AdCarouselState extends State<AdCarousel> {
 
   void _precacheImages() {
     for (final url in _imageUrls) {
+      if (url.startsWith('assets/')) continue; // assets locais carregam rápido
       try {
-        precacheImage(
-          CachedNetworkImageProvider(url, maxWidth: 600), 
-          context,
-        );
+        precacheImage(CachedNetworkImageProvider(url, maxWidth: 600), context);
       } catch (e) {
         debugPrint('Erro ao fazer precache: $e');
       }
@@ -80,7 +81,7 @@ class _AdCarouselState extends State<AdCarousel> {
 
   void _startAutoPlay() {
     if (_imageUrls.length <= 1) return;
-    
+
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
       if (_pageController.hasClients) {
@@ -147,12 +148,20 @@ class _AdCarouselState extends State<AdCarousel> {
                   setState(() => _currentPage = index);
                 },
                 itemBuilder: (context, index) {
+                  final String imgUrl = _imageUrls[index];
+
+                  // Checa se a imagem é um asset local
+                  if (imgUrl.startsWith('assets/')) {
+                    return Image.asset(imgUrl, fit: BoxFit.cover);
+                  }
+
                   return CachedNetworkImage(
-                    imageUrl: _imageUrls[index],
+                    imageUrl: imgUrl,
                     fit: BoxFit.cover,
                     // OTIMIZAÇÃO CRÍTICA: Reduzir tamanho em memória (VRAM)
                     // Redimensiona a imagem para ~largura da tela antes de decodificar
-                    memCacheWidth: 600, // HD width suficiente para mobile, evita 4K textures
+                    memCacheWidth:
+                        600, // HD width suficiente para mobile, evita 4K textures
                     placeholder: (context, url) => _buildSkeleton(),
                     errorWidget: (context, url, error) => const Center(
                       child: Icon(Icons.error_outline, color: Colors.grey),
@@ -160,7 +169,7 @@ class _AdCarouselState extends State<AdCarousel> {
                   );
                 },
               ),
-              
+
               // Indicator Dots
               if (_imageUrls.length > 1)
                 Positioned(
@@ -176,8 +185,8 @@ class _AdCarouselState extends State<AdCarousel> {
                         height: 8,
                         width: _currentPage == index ? 24 : 8,
                         decoration: BoxDecoration(
-                          color: _currentPage == index 
-                              ? Colors.white 
+                          color: _currentPage == index
+                              ? Colors.white
                               : Colors.white.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(4),
                         ),

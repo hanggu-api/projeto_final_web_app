@@ -8,10 +8,10 @@ class HomeSavedPlaces extends StatelessWidget {
   final Function(dynamic) onPlaceTap;
 
   const HomeSavedPlaces({
-    Key? key,
+    super.key,
     required this.savedPlaces,
     required this.onPlaceTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

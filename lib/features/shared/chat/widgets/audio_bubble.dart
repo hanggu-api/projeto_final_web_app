@@ -7,7 +7,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../services/api_service.dart';
-import '../../../../services/data_gateway.dart';
 
 class AudioBubble extends StatefulWidget {
   final String mediaKey;

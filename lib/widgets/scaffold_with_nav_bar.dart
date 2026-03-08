@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_bottom_nav.dart';
 import '../services/theme_service.dart';
 
-
 class ScaffoldWithNavBar extends StatefulWidget {
   final Widget child;
 
@@ -16,12 +15,30 @@ class ScaffoldWithNavBar extends StatefulWidget {
 }
 
 class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
+  final GlobalKey _navBarKey = GlobalKey();
+  double _navBarHeight = 100.0;
   String? _role;
 
   @override
   void initState() {
     super.initState();
     _loadRole();
+  }
+
+  void _updateHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final RenderBox? renderBox =
+          _navBarKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        final newHeight = renderBox.size.height + 32;
+        if ((_navBarHeight - newHeight).abs() > 1.0) {
+          setState(() {
+            _navBarHeight = newHeight;
+          });
+        }
+      }
+    });
   }
 
   Future<void> _loadRole() async {
@@ -48,11 +65,14 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
       if (location.startsWith('/activity')) {
         return 2;
       }
-      if (location.startsWith('/client-settings') || location.startsWith('/my-provider-profile')) {
+      if (location.startsWith('/client-settings') ||
+          location.startsWith('/my-provider-profile')) {
         return 3;
       }
     } else {
-      if (location.startsWith('/home') || location.startsWith('/tracking') || location.startsWith('/uber-request')) {
+      if (location.startsWith('/home') ||
+          location.startsWith('/tracking') ||
+          location.startsWith('/uber-request')) {
         return 0;
       }
       if (location.startsWith('/chats') || location.startsWith('/chat/')) {
@@ -68,8 +88,9 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
   @override
   Widget build(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
-    final bool isTripRoute = location.startsWith('/uber-tracking') || 
-                            location.startsWith('/uber-driver-trip');
+    final bool isTripRoute =
+        location.startsWith('/uber-tracking') ||
+        location.startsWith('/uber-driver-trip');
 
     return Scaffold(
       extendBody: true, // Garante que o conteúdo vá até o fundo real da tela
@@ -77,18 +98,22 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
         children: [
           // Conteúdo Principal
           widget.child,
-          
+
           // Barra de Navegação Flutuante (Estilo Stitch)
           Positioned(
+            key: _navBarKey,
             left: 16,
             right: 16,
-            bottom: 24,
+            bottom: 24 + MediaQuery.of(context).padding.bottom,
             child: ListenableBuilder(
               listenable: ThemeService(),
               builder: (context, child) {
+                _updateHeight();
+
                 // Oculta se o ThemeService mandar ou se estiver em uma rota de viagem
-                final isVisible = ThemeService().isNavBarVisible && !isTripRoute;
-                
+                final isVisible =
+                    ThemeService().isNavBarVisible && !isTripRoute;
+
                 return AnimatedSlide(
                   duration: const Duration(milliseconds: 400),
                   offset: isVisible ? Offset.zero : const Offset(0, 1.5),

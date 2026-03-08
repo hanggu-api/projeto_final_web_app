@@ -15,11 +15,11 @@
             },
             "oauth_client": [
                 {
-                    "client_id": "478559853980-uabno5avdatpjk69ou25jdpct228hdf3.apps.googleusercontent.com",
+                    "client_id": "478559853980-q57fsi1jtdmrcka9l81p275qpkbmhakd.apps.googleusercontent.com",
                     "client_type": 1,
                     "android_info": {
                         "package_name": "com.play101.app",
-                        "certificate_hash": "b3821f704d9ba12306f6192f9887c2c09626a8da"
+                        "certificate_hash": "15e76a0ef804a2fc3fd6510667d504d71cb6d647"
                     }
                 },
                 {

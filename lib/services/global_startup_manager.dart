@@ -4,20 +4,27 @@ import 'package:flutter/foundation.dart';
 /// Controla quando widgets pesados (mapas, vídeos, webviews) podem ser carregados.
 class GlobalStartupManager {
   static final GlobalStartupManager instance = GlobalStartupManager._internal();
-  
+
   // Notifier booleano: false = bloqueado, true = liberado
   final ValueNotifier<bool> canLoadHeavyWidgets = ValueNotifier(false);
+  final ValueNotifier<bool> isStartingUp = ValueNotifier(true);
 
   GlobalStartupManager._internal();
 
-  /// Libera o carregamento de widgets pesados
-  void unleashTheBeast() {
+  /// Libera o carregamento de widgets pesados com delay de segurança
+  Future<void> unleashTheBeast() async {
     if (canLoadHeavyWidgets.value) return;
-    
-    debugPrint('🦁 [GlobalStartupManager] Liberando a besta! (Widgets pesados autorizados)');
+
+    // Pequeno respiro antes de autorizar widgets pesados (evita context loss)
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    debugPrint(
+      '🦁 [GlobalStartupManager] Liberando a besta! (Widgets pesados autorizados)',
+    );
     canLoadHeavyWidgets.value = true;
+    isStartingUp.value = false;
   }
-  
+
   /// (Opcional) Reseta o estado (ex: ao fazer logout)
   void reset() {
     canLoadHeavyWidgets.value = false;

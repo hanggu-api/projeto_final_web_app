@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -165,9 +163,14 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
           return;
         }
         final config = const RecordConfig();
-        final dir = await getTemporaryDirectory();
-        final path = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        await rec.start(config, path: path);
+        if (kIsWeb) {
+          final path = 'audio_${DateTime.now().millisecondsSinceEpoch}.webm';
+          await rec.start(config, path: path);
+        } else {
+          final dir = await getTemporaryDirectory();
+          final path = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+          await rec.start(config, path: path);
+        }
         setState(() {
           isRecording = true;
           recordStartAt = DateTime.now();
@@ -210,8 +213,9 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
             filename = 'audio.webm';
             bytes = await readFileBytes(path);
           } else {
-            if (path.endsWith('.m4a')) mime = 'audio/x-m4a';
-            else if (path.endsWith('.aac')) mime = 'audio/aac';
+            if (path.endsWith('.m4a')) {
+              mime = 'audio/x-m4a';
+            } else if (path.endsWith('.aac')) mime = 'audio/aac';
             else if (path.endsWith('.wav')) mime = 'audio/wav';
           }
           

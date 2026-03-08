@@ -7,9 +7,9 @@ class HomeCategoryRow extends StatelessWidget {
   final Function(int) onCategoryTap;
 
   const HomeCategoryRow({
-    Key? key,
+    super.key,
     required this.onCategoryTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

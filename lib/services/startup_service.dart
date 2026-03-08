@@ -19,15 +19,17 @@ class StartupService {
   /// Fase 0: Inicialização Crítica (Bloqueante)
   /// Ocorre antes ou durante a Splash Screen.
   /// Carrega apenas o necessário para montar a UI básica.
-  Future<void> initializeCritical(GlobalKey<NavigatorState> navigatorKey) async {
+  Future<void> initializeCritical(
+    GlobalKey<NavigatorState> navigatorKey,
+  ) async {
     if (_isCriticalInitialized) return;
 
     try {
       AppLogger.sistema('Iniciando Fase 0: Crítica (Bloqueante)');
-      
+
       // 1. Remote Config (Features flags, URLs essenciais)
       await RemoteConfigService.init();
-      
+
       // 2. Tema (Para evitar flash de cores erradas)
       await ThemeService().loadTheme();
 
@@ -45,7 +47,7 @@ class StartupService {
   /// Autenticação e dados vitais do usuário.
   Future<void> postFrameInitialization() async {
     AppLogger.sistema('Iniciando Fase 1: Pós-Frame (Prioridade Alta)');
-    
+
     final api = ApiService();
     // Carregar token cached para requests futuros
     await api.loadToken();
@@ -58,7 +60,7 @@ class StartupService {
     if (role != null) {
       ThemeService().setProviderMode(role == 'provider');
     }
-    
+
     await Future.delayed(const Duration(milliseconds: 200));
 
     // Refresh de perfil (importante para flags de UI como biometria/status)
@@ -72,39 +74,56 @@ class StartupService {
     }
   }
 
-  /// Fase 2: Inicialização Background (Lazy / Low Priority)
-  /// Ocorre com delay (ex: 2-3s após o boot) para não travar animações.
-  /// Geolocator, Sync pesado de FCM, Cache de imagens, TTS.
-  Future<void> initializeBackground() async {
-    AppLogger.sistema('Iniciando Fase 2: Background (Lazy)');
+  Future<void> _waitFor(int ms) => Future.delayed(Duration(milliseconds: ms));
 
-    // Delay maior (5s) para garantir que a UI e animações iniciais terminaram - Otimização Moto G34
-    await Future.delayed(const Duration(seconds: 5));
-    
+  /// Fase 2: Inicialização Background (Lazy / Low Priority)
+  /// Ocorre com delay para não travar animações de entrada.
+  Future<void> initializeBackground() async {
+    AppLogger.sistema('⚙️ [STARTUP] Iniciando Fase 2: Background (Lazy)');
+
+    // 1. ESPERA INICIAL (Reduzido para 3s para dar feedback mais rápido ao usuário)
+    await _waitFor(3000);
+
     final currentUser = Supabase.instance.client.auth.currentUser;
 
-    // 1. Sync FCM Token (I/O pesado)
+    // --- LOTE 1: SERVIÇOS DE DADOS ---
+    AppLogger.sistema('📦 [STARTUP] Lote 1: Dados e Configurações');
+    await Future.wait([
+      // AdConfigService, etc se houvesse
+      NotificationService().syncToken(),
+    ]).timeout(const Duration(seconds: 10)).catchError((e) {
+      AppLogger.erro('Erro Lote 1', e);
+      return <void>[];
+    });
+
+    await _waitFor(500);
+
+    // --- LOTE 2: PERMISSÕES E STATUS ---
+    AppLogger.sistema('📦 [STARTUP] Lote 2: Permissões e Perfil');
     if (currentUser != null) {
       try {
-        await NotificationService().syncToken();
-        
-        // Se for prestador, solicitar permissões avançadas (Overlay)
+        final api = ApiService();
+        await api.getMyProfile();
+
         final prefs = await SharedPreferences.getInstance();
         final role = prefs.getString('user_role');
         if (role == 'provider') {
-           // DISABLED: Requesting overlay on startup causes errors on some devices (e.g. Motorola)
-           // Moving to a manual button in Settings
-           // await NotificationService().requestProviderPermissions();
+          // Permissões de Overlay etc
         }
       } catch (e) {
-        AppLogger.erro('Erro ao sincronizar token FCM no background', e);
+        AppLogger.erro('Erro Lote 2', e);
       }
     }
 
-    // 2. Outros serviços pesados podem vir aqui (ex: Pré-cache agressivo)
-    
-    // 3. Liberar widgets pesados (AdCarousel, Mapas, etc)
-    // Isso notificará todos os ouvintes que a "Fase Pesada" começou
-    GlobalStartupManager.instance.unleashTheBeast();
+    await _waitFor(500);
+
+    // --- LOTE 3: FINALIZAÇÃO ---
+    AppLogger.sistema('📦 [STARTUP] Lote 3: Finalização e Liberação');
+
+    // Libera widgets pesados (AdCarousel, Mapas, etc)
+    // unleashTheBeast agora tem seu próprio delay interno de 500ms
+    await GlobalStartupManager.instance.unleashTheBeast();
+
+    AppLogger.sistema('✅ [STARTUP] Fase 2 Concluída. A besta foi liberada!');
   }
 }

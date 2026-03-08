@@ -29,7 +29,7 @@ class LocationStep extends StatefulWidget {
 
 class _LocationStepState extends State<LocationStep> {
   final MapController _mapController = MapController();
-  LatLng _currentCenter = const LatLng(-23.550520, -46.633308); // SP Default
+  LatLng _currentCenter = const LatLng(-5.5265, -47.4761); // Imperatriz Default
   bool _locating = false;
   bool _isGeocoding = false;
   Timer? _debounce;
@@ -228,11 +228,12 @@ class _LocationStepState extends State<LocationStep> {
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
+                          urlTemplate:
+                              'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
                           userAgentPackageName: 'com.play101.app',
-                    tileSize: 512,
-                    zoomOffset: -1,
-                    maxZoom: 22,
+                          tileSize: 512,
+                          zoomOffset: -1,
+                          maxZoom: 22,
                         ),
                         // Fixed marker at center
                         // Note: MarkerLayer with a fixed marker at center is tricky if we want the map to move under it.
@@ -293,19 +294,23 @@ class _LocationStepState extends State<LocationStep> {
             // ADDRESS FIELD
             TextFormField(
               controller: widget.addressController,
-              decoration: AppTheme.inputDecoration('Endereço Completo', Icons.map).copyWith(
-                suffixIcon: _isGeocoding
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : null,
-                helperText: 'Rua, Número, Bairro, Cidade - UF',
-              ),
+              decoration:
+                  AppTheme.inputDecoration(
+                    'Endereço Completo',
+                    Icons.map,
+                  ).copyWith(
+                    suffixIcon: _isGeocoding
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                    helperText: 'Rua, Número, Bairro, Cidade - UF',
+                  ),
               maxLines: 2,
               validator: (v) =>
                   v?.isEmpty == true ? 'Informe o endereço completo' : null,
@@ -317,4 +322,3 @@ class _LocationStepState extends State<LocationStep> {
     );
   }
 }
-

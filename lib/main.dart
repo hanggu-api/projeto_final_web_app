@@ -10,8 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'features/agency/screens/agency_home_screen.dart';
 import 'features/agency/screens/agency_onboarding_screen.dart';
 import 'features/agency/screens/agency_public_profile_screen.dart';
@@ -53,13 +52,16 @@ import 'features/uber/uber_tracking_screen.dart';
 import 'features/uber/driver_home_screen.dart';
 import 'features/uber/driver_trip_screen.dart';
 import 'features/uber/driver_earnings_screen.dart';
+import 'features/uber/driver_settings_screen.dart';
 import 'features/uber/user_history_screen.dart';
 import 'firebase_options.dart';
 import 'services/api_service.dart';
 import 'services/startup_service.dart';
 import 'services/theme_service.dart';
 import 'services/analytics_service.dart';
+import 'services/uber_service.dart';
 import 'services/remote_config_service.dart';
+import 'services/app_config_service.dart';
 import 'widgets/scaffold_with_nav_bar.dart';
 import 'core/utils/logger.dart';
 import 'core/config/supabase_config.dart';
@@ -74,29 +76,53 @@ void main() async {
     // Inicializa variáveis de ambiente e Supabase primeiro
     try {
       await SupabaseConfig.initialize();
-      debugPrint('✅ [Main] Supabase initialized from .env');
+
+      // Inicializa o token do Mapbox para o SDK oficial
+      try {
+        final mapboxToken = SupabaseConfig.mapboxToken;
+        if (mapboxToken.isNotEmpty) {
+          mapbox.MapboxOptions.setAccessToken(mapboxToken);
+          debugPrint('✅ [Main] Mapbox Access Token initialized');
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Main] Mapbox init error: $e');
+      }
+
+      await AppConfigService().preload();
+      debugPrint('✅ [Main] Supabase & AppConfig initialized');
     } catch (e) {
       debugPrint('⚠️ [Main] Supabase init failed (missing .env or keys): $e');
     }
 
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Firebase é opcional em plataformas Desktop não configuradas
+    if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        debugPrint('✅ [Main] Firebase initialized');
+      } catch (e) {
+        debugPrint('⚠️ [Main] Firebase init failed: $e');
+      }
+    } else {
+      debugPrint('ℹ️ [Main] Firebase skipped on this platform');
+    }
 
     await AnalyticsService().initSession();
-    AnalyticsService().logEvent('APP_OPENED', details: {
-      'platform': kIsWeb ? 'web' : Platform.operatingSystem
-    });
-    
+    AnalyticsService().logEvent(
+      'APP_OPENED',
+      details: {'platform': kIsWeb ? 'web' : 'mobile'},
+    );
+
     await initializeDateFormatting('pt_BR', null);
 
-    if (!kIsWeb) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       // Initialize Analytics to log app open and prevent "library missing" warning
       try {
         await FirebaseAnalytics.instance.logEvent(name: 'app_open');
       } catch (e) {
         // Ignore analytics errors in debug/dev
-        debugPrint('Analytics init error: $e');
+        debugPrint('Firebase Analytics error: $e');
       }
     }
 
@@ -180,86 +206,138 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
   }
 
   Future<void> _init() async {
+    String step = 'start';
     try {
+      step = 'ApiService()';
       final api = ApiService();
-      await api.loadToken(); // Rápido (SecureStorage) - Deve rodar antes de requests de API
 
-      // Fase 0: Critical (Bloqueante mas rápida)
+      step = 'api.loadToken()';
+      await api.loadToken();
+
+      step = 'StartupService.initializeCritical()';
       await StartupService().initializeCritical(navigatorKey);
-      
-      // Carregar tema remoto via ThemeService (para triggers de UI)
+
+      step = 'ThemeService.loadTheme()';
       try {
         debugPrint('🎨 [Main] Initializing Remote Theme via ThemeService...');
         await ThemeService().loadTheme();
         debugPrint('✅ [Main] Remote Theme synced successfully');
       } catch (e) {
         debugPrint('⚠️ [Main] Error loading remote theme: $e');
-        // Continua com tema padrão
       }
-      
-      // Carregar configurações do app (feature flags)
+
+      step = 'RemoteConfigService.init()';
       try {
         await RemoteConfigService.init();
-      } catch(e) {
+      } catch (e) {
         debugPrint('⚠️ [Main] Error loading remote config: $e');
       }
-      
-      // Delay pequeno para garantir rendering da Splash
+
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Determinar rota inicial
+      step = 'Supabase.auth.currentUser';
       var currentUser = Supabase.instance.client.auth.currentUser;
       final prefs = await SharedPreferences.getInstance();
       var role = prefs.getString('user_role');
 
-      // Se currentUser for nulo mas temos um role, pode ser que a sessão 
-      // esteja em fase de restauração assíncrona. Aguardamos um pouco.
       if (currentUser == null && role != null) {
-        debugPrint('⏳ [Main] Usuário logado mas sessão ainda não restaurada. Aguardando...');
+        debugPrint(
+          '⏳ [Main] Usuário logado mas sessão ainda não restaurada. Aguardando...',
+        );
         await Future.delayed(const Duration(milliseconds: 800));
         currentUser = Supabase.instance.client.auth.currentUser;
-        // Se após o wait ainda for nulo, tentamos ler via loadToken/SecureStorage
         if (currentUser == null) {
           await api.loadToken();
         }
       }
 
+      step = 'setState(_initialized)';
       if (mounted) {
-        setState(() {
-          // Se ainda for nulo após o wait, vai para login
-          if (currentUser == null) {
-            _initialLocation = '/login';
-          } else if (role == null) {
-            _initialLocation = '/login';
-          } else {
-            if (role == 'driver') {
-              ThemeService().setProviderMode(true);
-              _initialLocation = '/uber-driver';
-            } else if (role == 'provider') {
-              ThemeService().setProviderMode(true);
-              _initialLocation = api.isMedical ? '/medical-home' : '/provider-home';
-            } else {
-              ThemeService().setProviderMode(false);
-              _initialLocation = '/home';
+        // 1. Definir rota inicial baseada no role
+        if (currentUser == null || role == null) {
+          _initialLocation = '/login';
+        } else if (role == 'driver') {
+          ThemeService().setProviderMode(true);
+          _initialLocation = '/uber-driver';
+        } else if (role == 'provider') {
+          ThemeService().setProviderMode(true);
+          _initialLocation = api.isMedical ? '/medical-home' : '/provider-home';
+        } else {
+          ThemeService().setProviderMode(false);
+          _initialLocation = '/home';
+        }
+
+        // 2. Garantir que api.userId está populado antes de verificar viagem ativa
+        if (currentUser != null && role != null && role != 'provider') {
+          if (api.userId == null) {
+            try {
+              step = 'loginWithFirebase (sync userId)';
+              final token =
+                  Supabase.instance.client.auth.currentSession?.accessToken;
+              if (token != null) await api.loginWithFirebase(token);
+            } catch (e) {
+              debugPrint('⚠️ [Main] Erro ao popular userId: $e');
             }
           }
-          _initialized = true;
-        });
 
-        // Agendar Fases 1 e 2 para depois do render
+          // 3. Verificar viagem ativa
+          if (api.userId != null) {
+            step = 'UberService.getActiveTrip';
+            try {
+              if (role == 'driver') {
+                final activeDriverTrip = await UberService()
+                    .getActiveTripForDriver(api.userId!);
+                if (activeDriverTrip != null) {
+                  debugPrint(
+                    '✅ [Main] Viagem ativa motorista: ${activeDriverTrip['id']}',
+                  );
+                  _initialLocation =
+                      '/uber-driver-trip/${activeDriverTrip['id']}';
+                }
+              } else {
+                final activeClientTrip = await UberService()
+                    .getActiveTripForClient(api.userId!);
+                if (activeClientTrip != null) {
+                  debugPrint(
+                    '✅ [Main] Viagem ativa cliente: ${activeClientTrip['id']}',
+                  );
+                  _initialLocation = '/uber-tracking/${activeClientTrip['id']}';
+                } else {
+                  debugPrint(
+                    'ℹ️ [Main] Nenhuma viagem ativa para userId=${api.userId}',
+                  );
+                }
+              }
+            } catch (e) {
+              debugPrint('⚠️ [Main] Erro ao buscar viagem ativa no boot: $e');
+            }
+          } else {
+            debugPrint(
+              '⚠️ [Main] api.userId ainda null. Verificação de viagem ignorada.',
+            );
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _initialized = true;
+          });
+        }
+
         WidgetsBinding.instance.addPostFrameCallback((_) async {
-           // Fase 1: Auth/Dados (Imediato após render)
-           await StartupService().postFrameInitialization();
-           
-           // Fase 2: Pesados (Com delay gerenciado pelo Service)
-           await StartupService().initializeBackground();
+          step = 'postFrameInitialization';
+          await StartupService().postFrameInitialization();
+
+          step = 'initializeBackground';
+          await StartupService().initializeBackground();
         });
       }
     } catch (e, stack) {
-      debugPrint('Erro fatal ao inicializar app: $e\n$stack');
+      final msg = '❌ STEP: $step\n\n$e\n\n--- Stack Trace ---\n$stack';
+      debugPrint('Erro fatal ao inicializar app: $msg');
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = msg;
         });
       }
     }
@@ -305,9 +383,10 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
     }
 
     if (!_initialized) {
-      return const MaterialApp(
+      return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: SplashScreen(),
+        onGenerateRoute: (_) =>
+            MaterialPageRoute(builder: (context) => const SplashScreen()),
       );
     }
 
@@ -420,19 +499,20 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-
 GoRouter _buildRouter(String initialLocation) => GoRouter(
   navigatorKey: navigatorKey,
   initialLocation: initialLocation,
-  redirect: (context, state) {
+  redirect: (context, state) async {
     final api = ApiService();
     final logged = api.isLoggedIn;
     final loggingIn = state.matchedLocation == '/login';
     final registering = state.matchedLocation == '/register';
     final simulating = state.matchedLocation == '/simulation';
+
     if (!logged && !loggingIn && !registering && !simulating) {
       return '/login';
     }
+
     if (logged && loggingIn) {
       if (api.role == 'driver') {
         ThemeService().setProviderMode(true);
@@ -445,11 +525,42 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       ThemeService().setProviderMode(false);
       return '/home';
     }
+
+    // Verificação de viagem ativa ao entrar na Home ou Driver Home
+    if (logged &&
+        (state.matchedLocation == '/home' ||
+            state.matchedLocation == '/uber-driver' ||
+            state.matchedLocation == '/')) {
+      try {
+        if (api.role == 'driver') {
+          final activeTrip = await UberService().getActiveTripForDriver(
+            api.userId!,
+          );
+          if (activeTrip != null) {
+            return '/uber-driver-trip/${activeTrip['id']}';
+          }
+        } else if (api.role == 'client') {
+          final activeTrip = await UberService().getActiveTripForClient(
+            api.userId!,
+          );
+          if (activeTrip != null) return '/uber-tracking/${activeTrip['id']}';
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Redirect] Erro ao buscar viagem ativa: $e');
+      }
+    }
+
     // Motorista logado acessando rota errada → redirecionar para /uber-driver
     if (logged && api.role == 'driver' && state.matchedLocation == '/home') {
       ThemeService().setProviderMode(true);
       return '/uber-driver';
     }
+
+    // Se estiver na raiz (/), redireciona para home ou login
+    if (state.matchedLocation == '/') {
+      return logged ? '/home' : '/login';
+    }
+
     return null;
   },
   routes: [
@@ -469,22 +580,18 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       builder: (context, state, child) => ScaffoldWithNavBar(child: child),
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-        GoRoute(path: '/servicos', builder: (context, state) => const ServiceDiscoveryScreen()),
+        GoRoute(
+          path: '/servicos',
+          builder: (context, state) => const ServiceDiscoveryScreen(),
+        ),
         GoRoute(
           path: '/uber-request',
           builder: (context, state) => const UberRequestScreen(),
         ),
         GoRoute(
           path: '/uber-tracking/:tripId',
-          builder: (context, state) => UberTrackingScreen(
-            tripId: state.pathParameters['tripId'] ?? '',
-          ),
-        ),
-        GoRoute(
-          path: '/uber-tracking/:tripId',
-          builder: (context, state) => UberTrackingScreen(
-            tripId: state.pathParameters['tripId']!,
-          ),
+          builder: (context, state) =>
+              UberTrackingScreen(tripId: state.pathParameters['tripId'] ?? ''),
         ),
         GoRoute(
           path: '/uber-history',
@@ -492,17 +599,26 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         ),
         GoRoute(
           path: '/uber-driver',
-          builder: (context, state) => const DriverHomeScreen(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return DriverHomeScreen(
+              cancellationMessage: extra?['cancellationMessage'],
+              cancellationFee: (extra?['cancellationFee'] as num?)?.toDouble(),
+            );
+          },
         ),
         GoRoute(
           path: '/uber-driver-trip/:tripId',
-          builder: (context, state) => DriverTripScreen(
-            tripId: state.pathParameters['tripId'] ?? '',
-          ),
+          builder: (context, state) =>
+              DriverTripScreen(tripId: state.pathParameters['tripId'] ?? ''),
         ),
         GoRoute(
           path: '/uber-driver-earnings',
           builder: (context, state) => const DriverEarningsScreen(),
+        ),
+        GoRoute(
+          path: '/driver-settings',
+          builder: (context, state) => const DriverSettingsScreen(),
         ),
         GoRoute(
           path: '/chats',
@@ -550,7 +666,8 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         ),
         GoRoute(
           path: '/my-provider-profile',
-          builder: (context, state) => const Scaffold(body: ProviderProfileContent()),
+          builder: (context, state) =>
+              const Scaffold(body: ProviderProfileContent()),
         ),
         GoRoute(
           path: '/my-services',
@@ -651,8 +768,12 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       builder: (context, state) {
         final serviceId = state.pathParameters['serviceId'] ?? '';
         final extra = state.extra;
-        final Map<String, dynamic>? extraMap = extra is Map<String, dynamic> ? extra : null;
-        final String extraServiceId = extra is String ? extra : (extraMap?['serviceId']?.toString() ?? '');
+        final Map<String, dynamic>? extraMap = extra is Map<String, dynamic>
+            ? extra
+            : null;
+        final String extraServiceId = extra is String
+            ? extra
+            : (extraMap?['serviceId']?.toString() ?? '');
 
         return ChatScreen(
           serviceId: serviceId.isNotEmpty ? serviceId : extraServiceId,

@@ -95,7 +95,7 @@ class ThemeService extends ChangeNotifier {
     try {
       debugPrint('🎨 [ThemeService] Syncing with RemoteThemeService...');
       await RemoteThemeService().initialize();
-      
+
       final theme = RemoteThemeService().getRemoteTheme();
       if (theme != null) {
         _clientConfig = ThemeConfig(
@@ -112,20 +112,26 @@ class ThemeService extends ChangeNotifier {
     } catch (e) {
       debugPrint('⚠️ [ThemeService] Error syncing theme: $e');
     }
-    notifyListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   void setProviderMode(bool isProvider) {
     if (_isProviderMode != isProvider) {
       _isProviderMode = isProvider;
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 
   void setNavBarVisible(bool visible) {
     if (_isNavBarVisible != visible) {
       _isNavBarVisible = visible;
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 
@@ -138,7 +144,7 @@ class ThemeService extends ChangeNotifier {
 
     // Fallback para o tema construído manualmente ou padrão (Stitch Style)
     final config = currentConfig;
-    
+
     final baseTextTheme = GoogleFonts.manropeTextTheme();
 
     return ThemeData(

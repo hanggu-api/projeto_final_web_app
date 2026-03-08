@@ -9,11 +9,11 @@ class HomeQuickActions extends StatelessWidget {
   final VoidCallback onDeliveryTap;
 
   const HomeQuickActions({
-    Key? key,
+    super.key,
     required this.onTripTap,
     required this.onServiceTap,
     required this.onDeliveryTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
