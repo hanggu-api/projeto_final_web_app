@@ -18,10 +18,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     if (_uid == null) {
-        return Scaffold(
-            appBar: AppBar(title: const Text('Notificações')),
-            body: const Center(child: Text('Não conectado')),
-        );
+      return Scaffold(
+        appBar: AppBar(title: const Text('Notificações')),
+        body: const Center(child: Text('Não conectado')),
+      );
     }
 
     return Scaffold(
@@ -41,40 +41,47 @@ class _NotificationScreenState extends State<NotificationScreen> {
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _gateway.watchNotifications(_uid),
         builder: (context, snapshot) {
-            if (snapshot.hasError) {
-                return Center(child: Text('Erro: ${snapshot.error}'));
-            }
+          if (snapshot.hasError) {
+            return Center(child: Text('Erro: ${snapshot.error}'));
+          }
 
-            if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-            }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            final notifications = snapshot.data ?? [];
+          final notifications = snapshot.data ?? [];
 
-            if (notifications.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('Nenhuma notificação encontrada.', style: TextStyle(color: Colors.grey)),
-                    ],
+          if (notifications.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    size: 64,
+                    color: Colors.grey,
                   ),
-                );
-            }
-
-            return ListView.builder(
-              itemCount: notifications.length,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemBuilder: (context, index) {
-                final notification = notifications[index];
-                return NotificationItem(
-                  notification: notification,
-                  onTap: () => _onNotificationTap(notification),
-                );
-              },
+                  SizedBox(height: 16),
+                  Text(
+                    'Nenhuma notificação encontrada.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
             );
+          }
+
+          return ListView.builder(
+            itemCount: notifications.length,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemBuilder: (context, index) {
+              final notification = notifications[index];
+              return NotificationItem(
+                notification: notification,
+                onTap: () => _onNotificationTap(notification),
+              );
+            },
+          );
         },
       ),
     );
@@ -86,26 +93,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final String id = notification['id'];
     // 1. Mark as Read
     if (notification['read'] != true) {
-        _gateway.markNotificationRead(_uid, id);
+      _gateway.markNotificationRead(_uid, id);
     }
 
     // 2. Navigate based on data
     if (notification['data'] != null) {
-        final data = notification['data'];
-        // Handle nested mapValue structure from raw Firestore REST or simplified map
-        // Our DataGateway normalizes it? Let's assume normalized map.
-        // Wait, notifyUser saves: data: { mapValue: { fields: ... } }
-        // Firestore SDK (client side) normalizes this automatically!
-        // So data should be a simple Map<String, dynamic>
-        
-        // Debug
-        debugPrint('Notification Data: $data');
+      final data = notification['data'];
+      // Handle nested mapValue structure from raw Firestore REST or simplified map
+      // Our DataGateway normalizes it? Let's assume normalized map.
+      // Wait, notifyUser saves: data: { mapValue: { fields: ... } }
+      // Firestore SDK (client side) normalizes this automatically!
+      // So data should be a simple Map<String, dynamic>
 
-        if (data['service_id'] != null) {
-             context.push('/service-tracking/${data['service_id']}');
-        } else if (data['id'] != null && (data['type'] == 'service.status' || data['type'] == 'service.updated')) {
-             context.push('/service-tracking/${data['id']}');
-        }
+      // Debug
+      debugPrint('Notification Data: $data');
+
+      if (data['service_id'] != null) {
+        context.push('/service-tracking/${data['service_id']}');
+      } else if (data['id'] != null &&
+          (data['type'] == 'service.status' ||
+              data['type'] == 'service.updated')) {
+        context.push('/service-tracking/${data['id']}');
+      }
     }
   }
 }

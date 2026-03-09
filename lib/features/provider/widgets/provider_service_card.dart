@@ -38,7 +38,8 @@ class ProviderServiceCard extends StatefulWidget {
   State<ProviderServiceCard> createState() => _ProviderServiceCardState();
 }
 
-class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerProviderStateMixin {
+class _ProviderServiceCardState extends State<ProviderServiceCard>
+    with TickerProviderStateMixin {
   bool _isExpanded = false;
   bool _isScheduling = false;
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
@@ -47,7 +48,6 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
   final MapController _mapController = MapController();
   LatLng? _providerLocation;
   List<LatLng> _routePoints = [];
-  bool _isLoadingRoute = false;
 
   @override
   void initState() {
@@ -59,21 +59,23 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
   Future<void> _loadProviderLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
       if (mounted) {
         setState(() {
           _providerLocation = LatLng(position.latitude, position.longitude);
         });
-        
+
         // Fetch Route if destination exists
         final s = widget.service;
         if (s['latitude'] != null && s['longitude'] != null) {
-           final dest = LatLng(
-             double.tryParse(s['latitude'].toString()) ?? 0,
-             double.tryParse(s['longitude'].toString()) ?? 0,
-           );
-           _fetchRoute(_providerLocation!, dest);
+          final dest = LatLng(
+            double.tryParse(s['latitude'].toString()) ?? 0,
+            double.tryParse(s['longitude'].toString()) ?? 0,
+          );
+          _fetchRoute(_providerLocation!, dest);
         }
       }
     } catch (e) {
@@ -83,12 +85,12 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
 
   Future<void> _fetchRoute(LatLng start, LatLng end) async {
     if (!mounted) return;
-    setState(() => _isLoadingRoute = true);
 
     try {
       // OSRM Public API (For demo purposes)
       final url = Uri.parse(
-          'https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson');
+        'https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson',
+      );
 
       final response = await http.get(url);
 
@@ -101,35 +103,32 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
               .map((c) => LatLng(c[1].toDouble(), c[0].toDouble()))
               .toList();
 
-      if (mounted) {
+          if (mounted) {
             setState(() {
               _routePoints = points;
-              _isLoadingRoute = false;
             });
-            
+
             // Try to fit bounds if map is visible
             try {
               _fitBounds();
-            } catch (_) {} 
+            } catch (_) {}
           }
         }
       }
     } catch (e) {
       debugPrint('Error fetching route: $e');
-      if (mounted) setState(() => _isLoadingRoute = false);
     }
   }
 
   void _fitBounds() {
     if (_routePoints.isEmpty || !mounted) return;
-    
+
     // flutter_map 6+ (using fitCamera)
     try {
       final bounds = LatLngBounds.fromPoints(_routePoints);
-      _mapController.fitCamera(CameraFit.bounds(
-        bounds: bounds,
-        padding: const EdgeInsets.all(32),
-      ));
+      _mapController.fitCamera(
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(32)),
+      );
     } catch (e) {
       debugPrint('Error fitting bounds: $e');
     }
@@ -137,15 +136,25 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
 
   void _updateDynamicMessage() {
     final s = widget.service;
-    final title = (s['title'] ?? s['description'] ?? s['profession'] ?? s['category_name'] ?? 'Serviço')
-        .toString().replaceAll('Serviço: ', '').trim();
-    
+    final title =
+        (s['title'] ??
+                s['description'] ??
+                s['profession'] ??
+                s['category_name'] ??
+                'Serviço')
+            .toString()
+            .replaceAll('Serviço: ', '')
+            .trim();
+
     final day = _getDayName(_selectedDate);
-    final dateStr = '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}';
-    final timeStr = '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
 
     setState(() {
-      _messageController.text = 'Olá! Gostaria de agendar o serviço "$title" para $day ($dateStr) às $timeStr. Aguardo sua confirmação.';
+      _messageController.text =
+          'Olá! Gostaria de agendar o serviço "$title" para $day ($dateStr) às $timeStr. Aguardo sua confirmação.';
     });
   }
 
@@ -160,15 +169,8 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
     final s = widget.service;
     final status = s['status'];
     final price = s['provider_amount'] ?? s['price_estimated'] ?? 0;
-    
-    // Determine colors based on status
-    Color statusColor = Colors.grey;
-    if (status == 'accepted' || status == 'confirmed') statusColor = Colors.blue;
-    if (status == 'scheduled') statusColor = Colors.cyan.shade600;
-    if (status == 'in_progress') statusColor = Colors.green;
-    if (status == 'pending') statusColor = Colors.orange;
-    if (status == 'waiting_client_confirmation') statusColor = Colors.orange;
 
+    // Determine colors based on status
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -181,7 +183,9 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: _isExpanded ? AppTheme.primaryPurple : Colors.transparent),
+        border: Border.all(
+          color: _isExpanded ? AppTheme.primaryPurple : Colors.transparent,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -190,7 +194,9 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
           onTap: () {
             // Disable expansion for completed/cancelled services
             final st = status?.toString().toLowerCase();
-            if (st == 'completed' || st == 'cancelled' || st == 'canceled') return;
+            if (st == 'completed' || st == 'cancelled' || st == 'canceled') {
+              return;
+            }
 
             setState(() {
               _isExpanded = !_isExpanded;
@@ -211,7 +217,14 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            (s['title'] ?? s['description'] ?? s['profession'] ?? s['category_name'] ?? 'Serviço').toString().replaceAll('Serviço: ', '').trim(),
+                            (s['title'] ??
+                                    s['description'] ??
+                                    s['profession'] ??
+                                    s['category_name'] ??
+                                    'Serviço')
+                                .toString()
+                                .replaceAll('Serviço: ', '')
+                                .trim(),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -226,7 +239,9 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                               color: Colors.grey[600],
                             ),
                             maxLines: _isExpanded ? null : 1,
-                            overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                            overflow: _isExpanded
+                                ? null
+                                : TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -244,27 +259,36 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                           ),
                         ),
                         if (widget.travelInfo != null)
-                           Text(
+                          Text(
                             '${widget.travelInfo!['distance']} km',
-                             style: const TextStyle(fontSize: 12, color: Colors.grey),
-                           ),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
                         // Rating display for finalized services
-                        if ((status == 'completed' || status == 'cancelled' || status == 'canceled') && s['service_rating'] != null)
-                           Padding(
-                             padding: const EdgeInsets.only(top: 4.0),
-                             child: Row(
-                               mainAxisSize: MainAxisSize.min,
-                               children: List.generate(5, (index) {
-                                 final ratingValue = (s['service_rating'] as num).toDouble();
-                                 return Icon(
-                                   index < ratingValue ? Icons.star : Icons.star_border,
-                                   size: 14,
-                                   color: Colors.amber,
-                                 );
-                               }),
-                             ),
-                           ),
-                    ],
+                        if ((status == 'completed' ||
+                                status == 'cancelled' ||
+                                status == 'canceled') &&
+                            s['service_rating'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(5, (index) {
+                                final ratingValue = (s['service_rating'] as num)
+                                    .toDouble();
+                                return Icon(
+                                  index < ratingValue
+                                      ? Icons.star
+                                      : Icons.star_border,
+                                  size: 14,
+                                  color: Colors.amber,
+                                );
+                              }),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -274,7 +298,10 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Colors.cyan.shade600, Colors.cyan.shade800],
@@ -293,7 +320,11 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(LucideIcons.calendarCheck, color: Colors.white, size: 20),
+                        const Icon(
+                          LucideIcons.calendarCheck,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         const SizedBox(width: 12),
                         Flexible(
                           child: Text(
@@ -312,42 +343,54 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                   ),
                 ],
 
-                if (status == 'schedule_proposed' && s['scheduled_at'] != null) ...[
+                if (status == 'schedule_proposed' &&
+                    s['scheduled_at'] != null) ...[
                   const SizedBox(height: 12),
-                  Builder(builder: (_) {
-                    final proposedBy = s['schedule_proposed_by']?.toString();
-                    final providerId = s['provider_id']?.toString();
-                    final isClientProposal = proposedBy != null && proposedBy != providerId;
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isClientProposal ? Colors.blue[600] : Colors.orange[600],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isClientProposal ? LucideIcons.calendarClock : LucideIcons.clock,
-                            color: Colors.white, size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
+                  Builder(
+                    builder: (_) {
+                      final proposedBy = s['schedule_proposed_by']?.toString();
+                      final providerId = s['provider_id']?.toString();
+                      final isClientProposal =
+                          proposedBy != null && proposedBy != providerId;
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isClientProposal
+                              ? Colors.blue[600]
+                              : Colors.orange[600],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
                               isClientProposal
-                                ? 'Cliente propôs: ${_formatScheduledDate(s['scheduled_at'].toString())}'
-                                : 'Aguardando confirmação do cliente',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
+                                  ? LucideIcons.calendarClock
+                                  : LucideIcons.clock,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                isClientProposal
+                                    ? 'Cliente propôs: ${_formatScheduledDate(s['scheduled_at'].toString())}'
+                                    : 'Aguardando confirmação do cliente',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ],
 
                 // EXPANDED CONTENT
@@ -358,127 +401,178 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                             const SizedBox(height: 16),
-                             const Divider(),
-                             const SizedBox(height: 12),
-                            
-                             // Info Grid
-                             Row(
-                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                               children: [
-                                 _buildInfoItem(LucideIcons.mapPin, 'Distância', '${widget.travelInfo?['distance'] ?? '--'} km'),
-                                 _buildInfoItem(LucideIcons.clock, 'Tempo', '${widget.travelInfo?['duration'] ?? '--'} min'),
-                               ],
-                             ),
-                             
-                             const SizedBox(height: 16),
-                             
-                             // Mini Map (Only shown if coords exist)
-                             if (s['latitude'] != null && s['longitude'] != null)
-                               Container(
-                                 height: 150,
-                                 decoration: BoxDecoration(
-                                   borderRadius: BorderRadius.circular(12),
-                                   border: Border.all(color: Colors.grey[200]!),
-                                 ),
-                                 clipBehavior: Clip.antiAlias,
-                                 child: FlutterMap(
-                                   options: MapOptions(
-                                     onMapReady: () {
-                                        if (_routePoints.isNotEmpty) _fitBounds();
-                                     },
-                                     initialCenter: LatLng(
-                                       double.tryParse(s['latitude'].toString()) ?? 0,
-                                       double.tryParse(s['longitude'].toString()) ?? 0,
-                                     ),
-                                     initialZoom: 14, // Zoom out slightly to see more context
-                                     interactionOptions: const InteractionOptions(flags: InteractiveFlag.all), // Allow interaction
-                                   ),
-                                   children: [
-                                       TileLayer(
-                                         urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env["MAPBOX_TOKEN"] ?? ""}',
-                                         userAgentPackageName: 'com.play101.app',
-                    tileSize: 512,
-                    zoomOffset: -1,
-                    maxZoom: 22,
-                                       ),
-                                      if (_providerLocation != null)
-                                        PolylineLayer(
-                                          polylines: [
-                                            // Route Line (if fetched)
-                                            if (_routePoints.isNotEmpty)
-                                              Polyline(
-                                                points: _routePoints,
-                                                strokeWidth: 5.0,
-                                                color: Colors.blue.shade600,
-                                              ),
-                                            
-                                            // Fallback Straight Line (Dashed, if no route yet)
-                                            if (_routePoints.isEmpty)
-                                              Polyline(
-                                                points: [
-                                                  LatLng(
-                                                    _providerLocation!.latitude,
-                                                    _providerLocation!.longitude,
-                                                  ),
-                                                  LatLng(
-                                                    double.tryParse(s['latitude'].toString()) ?? 0,
-                                                    double.tryParse(s['longitude'].toString()) ?? 0,
-                                                  ),
-                                                ],
-                                                strokeWidth: 3.0,
-                                                color: Colors.grey.withValues(alpha: 0.5),
-                                              ),
-                                          ],
-                                        ),
-                                      MarkerLayer(
-                                        markers: [
-                                          if (_providerLocation != null)
-                                            Marker(
-                                              point: LatLng(
-                                                _providerLocation!.latitude,
-                                                _providerLocation!.longitude,
-                                              ),
-                                              width: 40,
-                                              height: 40,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.green.withValues(alpha: 0.2),
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(color: Colors.white, width: 2),
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 12),
+
+                            // Info Grid
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildInfoItem(
+                                  LucideIcons.mapPin,
+                                  'Distância',
+                                  '${widget.travelInfo?['distance'] ?? '--'} km',
+                                ),
+                                _buildInfoItem(
+                                  LucideIcons.clock,
+                                  'Tempo',
+                                  '${widget.travelInfo?['duration'] ?? '--'} min',
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Mini Map (Only shown if coords exist)
+                            if (s['latitude'] != null && s['longitude'] != null)
+                              Container(
+                                height: 150,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey[200]!),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: FlutterMap(
+                                  options: MapOptions(
+                                    onMapReady: () {
+                                      if (_routePoints.isNotEmpty) _fitBounds();
+                                    },
+                                    initialCenter: LatLng(
+                                      double.tryParse(
+                                            s['latitude'].toString(),
+                                          ) ??
+                                          0,
+                                      double.tryParse(
+                                            s['longitude'].toString(),
+                                          ) ??
+                                          0,
+                                    ),
+                                    initialZoom:
+                                        14, // Zoom out slightly to see more context
+                                    interactionOptions:
+                                        const InteractionOptions(
+                                          flags: InteractiveFlag.all,
+                                        ), // Allow interaction
+                                  ),
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate:
+                                          'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env["MAPBOX_TOKEN"] ?? ""}',
+                                      userAgentPackageName: 'com.play101.app',
+                                      tileDimension: 512,
+                                      zoomOffset: -1,
+                                      maxZoom: 22,
+                                    ),
+                                    if (_providerLocation != null)
+                                      PolylineLayer(
+                                        polylines: [
+                                          // Route Line (if fetched)
+                                          if (_routePoints.isNotEmpty)
+                                            Polyline(
+                                              points: _routePoints,
+                                              strokeWidth: 5.0,
+                                              color: Colors.blue.shade600,
+                                            ),
+
+                                          // Fallback Straight Line (Dashed, if no route yet)
+                                          if (_routePoints.isEmpty)
+                                            Polyline(
+                                              points: [
+                                                LatLng(
+                                                  _providerLocation!.latitude,
+                                                  _providerLocation!.longitude,
                                                 ),
-                                                child: const Icon(Icons.person_pin_circle, color: Colors.green, size: 30),
+                                                LatLng(
+                                                  double.tryParse(
+                                                        s['latitude']
+                                                            .toString(),
+                                                      ) ??
+                                                      0,
+                                                  double.tryParse(
+                                                        s['longitude']
+                                                            .toString(),
+                                                      ) ??
+                                                      0,
+                                                ),
+                                              ],
+                                              strokeWidth: 3.0,
+                                              color: Colors.grey.withValues(
+                                                alpha: 0.5,
                                               ),
                                             ),
+                                        ],
+                                      ),
+                                    MarkerLayer(
+                                      markers: [
+                                        if (_providerLocation != null)
                                           Marker(
                                             point: LatLng(
-                                              double.tryParse(s['latitude'].toString()) ?? 0,
-                                              double.tryParse(s['longitude'].toString()) ?? 0,
-                                           ),
-                                           width: 40,
-                                           height: 40,
-                                           child: Container(
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.primaryPurple.withValues(alpha: 0.2),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(Icons.location_on, color: Colors.blue, size: 30),
+                                              _providerLocation!.latitude,
+                                              _providerLocation!.longitude,
                                             ),
-                                         ),
-                                       ],
-                                     ),
-                                   ],
-                                 ),
-                               ),
+                                            width: 40,
+                                            height: 40,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.withValues(
+                                                  alpha: 0.2,
+                                                ),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: Colors.white,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: const Icon(
+                                                Icons.person_pin_circle,
+                                                color: Colors.green,
+                                                size: 30,
+                                              ),
+                                            ),
+                                          ),
+                                        Marker(
+                                          point: LatLng(
+                                            double.tryParse(
+                                                  s['latitude'].toString(),
+                                                ) ??
+                                                0,
+                                            double.tryParse(
+                                                  s['longitude'].toString(),
+                                                ) ??
+                                                0,
+                                          ),
+                                          width: 40,
+                                          height: 40,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryPurple
+                                                  .withValues(alpha: 0.2),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.location_on,
+                                              color: Colors.blue,
+                                              size: 30,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
 
-                             const SizedBox(height: 16),
+                            const SizedBox(height: 16),
                           ],
                         )
                       : const SizedBox.shrink(),
                 ),
 
                 // Actions (Always visible)
-                if (status == 'accepted' || status == 'in_progress' || status == 'waiting_payment_remaining') ...[
+                if (status == 'accepted' ||
+                    status == 'in_progress' ||
+                    status == 'waiting_payment_remaining') ...[
                   const SizedBox(height: 16),
                   if (status == 'accepted' && s['arrived_at'] == null)
                     SizedBox(
@@ -489,53 +583,81 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                           backgroundColor: Colors.blue[600],
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: const Text('Cheguei no Local'),
                       ),
                     ),
-                  
-                  if (status == 'waiting_payment_remaining' || (status == 'accepted' && (s['arrived_at'] != null || s['client_arrived'] == true || s['client_arrived'] == 'true')))
-                    Builder(builder: (context) {
-                      final bool clientArrived = s['arrived_at'] != null || s['client_arrived'] == true || s['client_arrived'] == 'true';
-                      
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: clientArrived ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: clientArrived ? AppTheme.primaryBlue : Colors.orange),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              clientArrived ? LucideIcons.userCheck : LucideIcons.hourglass, 
-                              color: clientArrived ? AppTheme.primaryBlue : Colors.orange, 
-                              size: 24
+
+                  if (status == 'waiting_payment_remaining' ||
+                      (status == 'accepted' &&
+                          (s['arrived_at'] != null ||
+                              s['client_arrived'] == true ||
+                              s['client_arrived'] == 'true')))
+                    Builder(
+                      builder: (context) {
+                        final bool clientArrived =
+                            s['arrived_at'] != null ||
+                            s['client_arrived'] == true ||
+                            s['client_arrived'] == 'true';
+
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: clientArrived
+                                ? AppTheme.primaryBlue.withValues(alpha: 0.1)
+                                : Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: clientArrived
+                                  ? AppTheme.primaryBlue
+                                  : Colors.orange,
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              clientArrived ? 'CLIENTE NO LOCAL 📍' : 'Aguardando Pagamento Seguro',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: clientArrived ? AppTheme.primaryBlue : Colors.orange[800],
-                                fontSize: 16,
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                clientArrived
+                                    ? LucideIcons.userCheck
+                                    : LucideIcons.hourglass,
+                                color: clientArrived
+                                    ? AppTheme.primaryBlue
+                                    : Colors.orange,
+                                size: 24,
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              clientArrived 
-                                ? 'O cliente informou que já chegou ao seu estabelecimento.'
-                                : 'O cliente foi notificado para realizar o pagamento.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  
+                              const SizedBox(height: 8),
+                              Text(
+                                clientArrived
+                                    ? 'CLIENTE NO LOCAL 📍'
+                                    : 'Aguardando Pagamento Seguro',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: clientArrived
+                                      ? AppTheme.primaryBlue
+                                      : Colors.orange[800],
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                clientArrived
+                                    ? 'O cliente informou que já chegou ao seu estabelecimento.'
+                                    : 'O cliente foi notificado para realizar o pagamento.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
                   if (status == 'in_progress')
                     SizedBox(
                       width: double.infinity,
@@ -550,7 +672,6 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                         ),
                       ),
                     ),
-                  
                 ],
 
                 if (status == 'waiting_client_confirmation') ...[
@@ -571,7 +692,11 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                     ),
                     child: Column(
                       children: [
-                        const Icon(LucideIcons.clock, color: Colors.white, size: 28),
+                        const Icon(
+                          LucideIcons.clock,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                         const SizedBox(height: 12),
                         const Text(
                           'Aguardando Confirmação do Cliente',
@@ -585,7 +710,10 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                         Text(
                           'O cliente foi notificado para confirmar a conclusão do serviço. Se ele não confirmar em até 24h, o serviço será confirmado automaticamente pela plataforma.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.9)),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
                         ),
                       ],
                     ),
@@ -595,103 +723,133 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                 // EXPANDED SCHEDULE BLOCK: depends on who proposed
                 if (status == 'schedule_proposed' && !_isScheduling) ...[
                   const SizedBox(height: 16),
-                  Builder(builder: (_) {
-                    final proposedBy = s['schedule_proposed_by']?.toString();
-                    final providerId = s['provider_id']?.toString();
-                    final isClientProposal = proposedBy != null && proposedBy != providerId;
-                    
-                    if (isClientProposal) {
-                      // CLIENT counter-proposed: show date + ACCEPT button
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[600],
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(LucideIcons.calendarClock, color: Colors.white, size: 28),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'CONTRA-PROPOSTA DO CLIENTE',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1,
-                                color: Colors.white70,
+                  Builder(
+                    builder: (_) {
+                      final proposedBy = s['schedule_proposed_by']?.toString();
+                      final providerId = s['provider_id']?.toString();
+                      final isClientProposal =
+                          proposedBy != null && proposedBy != providerId;
+
+                      if (isClientProposal) {
+                        // CLIENT counter-proposed: show date + ACCEPT button
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[600],
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            if (s['scheduled_at'] != null)
-                              Text(
-                                _formatScheduledDate(s['scheduled_at'].toString()),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              )
-                            else
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                LucideIcons.calendarClock,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                              const SizedBox(height: 8),
                               const Text(
-                                'Data a definir',
-                                style: TextStyle(fontSize: 16, color: Colors.white70),
-                              ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: widget.onConfirmSchedule,
-                                icon: const Icon(LucideIcons.checkCircle, size: 18),
-                                label: const Text('ACEITAR AGENDAMENTO', style: TextStyle(fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.blue[700],
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    } else {
-                      // PROVIDER proposed: waiting for client confirmation
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.clock, color: Colors.orange, size: 20),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text(
-                                'Aguardando o cliente confirmar seu agendamento.',
+                                'CONTRA-PROPOSTA DO CLIENTE',
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1,
+                                  color: Colors.white70,
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                              if (s['scheduled_at'] != null)
+                                Text(
+                                  _formatScheduledDate(
+                                    s['scheduled_at'].toString(),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              else
+                                const Text(
+                                  'Data a definir',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: widget.onConfirmSchedule,
+                                  icon: const Icon(
+                                    LucideIcons.checkCircle,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    'ACEITAR AGENDAMENTO',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.blue[700],
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        // PROVIDER proposed: waiting for client confirmation
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.orange.withValues(alpha: 0.3),
                             ),
-                          ],
-                        ),
-                      );
-                    }
-                  }),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                LucideIcons.clock,
+                                color: Colors.orange,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Aguardando o cliente confirmar seu agendamento.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ],
 
                 // SCHEDULING ACTION (only for open_for_schedule, NOT for schedule_proposed to avoid infinite loop)
@@ -703,12 +861,18 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                       child: ElevatedButton.icon(
                         onPressed: () => setState(() => _isScheduling = true),
                         icon: const Icon(LucideIcons.calendar, size: 18),
-                        label: Text(status == 'schedule_proposed' ? 'ALTERAR AGENDAMENTO' : 'AGENDAR SERVIÇO'),
+                        label: Text(
+                          status == 'schedule_proposed'
+                              ? 'ALTERAR AGENDAMENTO'
+                              : 'AGENDAR SERVIÇO',
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue[600],
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     )
@@ -729,7 +893,11 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
       children: [
         const Text(
           'Selecione o dia:',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -740,10 +908,17 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final date = DateTime.now().add(Duration(days: index));
-              final isSelected = _selectedDate.day == date.day && _selectedDate.month == date.month;
-              
-              final dayName = index == 0 ? 'Hoje' : index == 1 ? 'Amanhã' : _getDayName(date);
-              final dayNum = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+              final isSelected =
+                  _selectedDate.day == date.day &&
+                  _selectedDate.month == date.month;
+
+              final dayName = index == 0
+                  ? 'Hoje'
+                  : index == 1
+                  ? 'Amanhã'
+                  : _getDayName(date);
+              final dayNum =
+                  '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
 
               return InkWell(
                 onTap: () {
@@ -755,7 +930,9 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                   decoration: BoxDecoration(
                     color: isSelected ? Colors.blue[600] : Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isSelected ? Colors.blue[700]! : Colors.grey[300]!),
+                    border: Border.all(
+                      color: isSelected ? Colors.blue[700]! : Colors.grey[300]!,
+                    ),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -764,7 +941,9 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                         dayName,
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           color: isSelected ? Colors.white : Colors.grey[600],
                         ),
                       ),
@@ -787,22 +966,33 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
         const SizedBox(height: 20),
         const Text(
           'Horário:',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
             InkWell(
               onTap: _showTimePickerModal,
-              child: _buildTimeDisplay(_selectedTime.hour.toString().padLeft(2, '0')),
+              child: _buildTimeDisplay(
+                _selectedTime.hour.toString().padLeft(2, '0'),
+              ),
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(':', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              child: Text(
+                ':',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
             ),
             InkWell(
               onTap: _showTimePickerModal,
-              child: _buildTimeDisplay(_selectedTime.minute.toString().padLeft(2, '0')),
+              child: _buildTimeDisplay(
+                _selectedTime.minute.toString().padLeft(2, '0'),
+              ),
             ),
           ],
         ),
@@ -812,7 +1002,10 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
             Expanded(
               child: TextButton(
                 onPressed: () => setState(() => _isScheduling = false),
-                child: const Text('CANCELAR', style: TextStyle(color: Colors.grey)),
+                child: const Text(
+                  'CANCELAR',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -833,9 +1026,14 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                   backgroundColor: Colors.blue[600],
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                child: const Text('ENVIAR PARA CLIENTE', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'ENVIAR PARA CLIENTE',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -889,10 +1087,19 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                     height: 200,
                     child: CupertinoDatePicker(
                       mode: CupertinoDatePickerMode.time,
-                      initialDateTime: DateTime(2024, 1, 1, _selectedTime.hour, _selectedTime.minute),
+                      initialDateTime: DateTime(
+                        2024,
+                        1,
+                        1,
+                        _selectedTime.hour,
+                        _selectedTime.minute,
+                      ),
                       use24hFormat: true,
                       onDateTimeChanged: (DateTime newDate) {
-                        tempTime = TimeOfDay(hour: newDate.hour, minute: newDate.minute);
+                        tempTime = TimeOfDay(
+                          hour: newDate.hour,
+                          minute: newDate.minute,
+                        );
                       },
                     ),
                   ),
@@ -909,9 +1116,14 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
                         backgroundColor: Colors.blue[600],
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'OK',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],
@@ -931,10 +1143,20 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
   String _formatScheduledDate(String isoDate) {
     try {
       final dt = DateTime.parse(isoDate).toLocal();
-      const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+      const days = [
+        'Segunda',
+        'Terça',
+        'Quarta',
+        'Quinta',
+        'Sexta',
+        'Sábado',
+        'Domingo',
+      ];
       final dayName = days[dt.weekday - 1];
-      final date = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-      final time = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      final date =
+          '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      final time =
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
       return '$dayName, $date às $time';
     } catch (_) {
       return isoDate;
@@ -947,9 +1169,11 @@ class _ProviderServiceCardState extends State<ProviderServiceCard> with TickerPr
         Icon(icon, size: 20, color: AppTheme.primaryPurple),
         const SizedBox(height: 4),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
 }
-

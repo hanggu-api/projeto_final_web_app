@@ -8,7 +8,11 @@ import '../../../services/api_service.dart';
 class WithdrawalDialog extends StatefulWidget {
   final ApiService api;
   final double currentBalance;
-  const WithdrawalDialog({super.key, required this.api, required this.currentBalance});
+  const WithdrawalDialog({
+    super.key,
+    required this.api,
+    required this.currentBalance,
+  });
 
   @override
   State<WithdrawalDialog> createState() => _WithdrawalDialogState();
@@ -42,10 +46,7 @@ class _WithdrawalDialogState extends State<WithdrawalDialog> {
               children: [
                 const Text(
                   'Solicitar Saque',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -268,27 +269,28 @@ class _SpecialtiesDialogState extends State<SpecialtiesDialog> {
                       searchController.text = selection;
                       // Keep it simple, just set the value.
                     },
-                    fieldViewBuilder: (
-                      BuildContext context,
-                      TextEditingController fieldTextEditingController,
-                      FocusNode fieldFocusNode,
-                      VoidCallback onFieldSubmitted,
-                    ) {
-                      // Sync external controller if needed, but and use internal for adding
-                      return TextField(
-                        controller: fieldTextEditingController,
-                        focusNode: fieldFocusNode,
-                        enabled: !isAdding,
-                        decoration: const InputDecoration(
-                          hintText: 'Buscar profissão...',
-                          isDense: true,
-                        ),
-                        onChanged: (val) => searchController.text = val,
-                        onSubmitted: (val) {
-                          onFieldSubmitted();
+                    fieldViewBuilder:
+                        (
+                          BuildContext context,
+                          TextEditingController fieldTextEditingController,
+                          FocusNode fieldFocusNode,
+                          VoidCallback onFieldSubmitted,
+                        ) {
+                          // Sync external controller if needed, but and use internal for adding
+                          return TextField(
+                            controller: fieldTextEditingController,
+                            focusNode: fieldFocusNode,
+                            enabled: !isAdding,
+                            decoration: const InputDecoration(
+                              hintText: 'Buscar profissão...',
+                              isDense: true,
+                            ),
+                            onChanged: (val) => searchController.text = val,
+                            onSubmitted: (val) {
+                              onFieldSubmitted();
+                            },
+                          );
                         },
-                      );
-                    },
                   ),
                 ),
                 isAdding
@@ -311,12 +313,14 @@ class _SpecialtiesDialogState extends State<SpecialtiesDialog> {
                             setState(() => isAdding = true);
                             try {
                               await widget.api.addProviderSpecialty(name);
-                              if (context.mounted) Navigator.pop(context); 
+                              if (context.mounted) Navigator.pop(context);
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Erro ao adicionar profissão'),
+                                    content: Text(
+                                      'Erro ao adicionar profissão',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
@@ -356,12 +360,18 @@ class _SpecialtiesDialogState extends State<SpecialtiesDialog> {
                                     setState(() {});
                                   } catch (err) {
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Erro ao remover')),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Erro ao remover'),
+                                        ),
                                       );
                                     }
                                   } finally {
-                                    if (mounted) setState(() => isAdding = false);
+                                    if (mounted) {
+                                      setState(() => isAdding = false);
+                                    }
                                   }
                                 },
                         ),

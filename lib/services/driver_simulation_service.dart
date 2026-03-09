@@ -8,39 +8,61 @@ import 'package:latlong2/latlong.dart';
 class DriverSimulationService {
   Timer? _moveTimer;
   final Random _random = Random();
-  
+
   // Estado da simulação
   bool _isRunning = false;
   LatLng _currentPosition;
   double _currentHeading = 0;
   int _currentWaypointIndex = 0;
   List<LatLng> _waypoints = [];
-  
+
   // Estado da corrida
   SimulationTripState _tripState = SimulationTripState.idle;
   String? _passengerName;
   String? _pickupAddress;
   String? _dropoffAddress;
-  
+
   // Callbacks
   Function(LatLng position, double heading)? onPositionUpdate;
-  Function(SimulationTripState state, Map<String, dynamic> tripInfo)? onTripStateChange;
-  
+  Function(SimulationTripState state, Map<String, dynamic> tripInfo)?
+  onTripStateChange;
+
   // Nomes de passageiros simulados
   static const _names = [
-    'Maria Silva', 'João Santos', 'Ana Costa', 'Pedro Oliveira', 
-    'Carla Souza', 'Lucas Lima', 'Fernanda Rocha', 'Rafael Alves',
-    'Juliana Mendes', 'Bruno Pereira', 'Camila Ferreira', 'Diego Martins',
+    'Maria Silva',
+    'João Santos',
+    'Ana Costa',
+    'Pedro Oliveira',
+    'Carla Souza',
+    'Lucas Lima',
+    'Fernanda Rocha',
+    'Rafael Alves',
+    'Juliana Mendes',
+    'Bruno Pereira',
+    'Camila Ferreira',
+    'Diego Martins',
   ];
-  
+
   // Ruas de Imperatriz-MA
   static const _streets = [
-    'Av. Babaçulândia', 'Rua Antônio Miranda', 'Av. Dorgival Pinheiro',
-    'Rua Ceará', 'Av. Bernardo Sayão', 'Rua Pernambuco',
-    'Av. Getúlio Vargas', 'Rua Goiás', 'Av. Dom Pedro II',
-    'Rua Paraíba', 'Av. JK', 'Rua Sergipe',
-    'Rua Alagoas', 'Av. Marechal Castelo Branco', 'Rua Piauí',
-    'Rua Santo Antônio', 'Av. São Luís Rei de França', 'Rua Maranhão',
+    'Av. Babaçulândia',
+    'Rua Antônio Miranda',
+    'Av. Dorgival Pinheiro',
+    'Rua Ceará',
+    'Av. Bernardo Sayão',
+    'Rua Pernambuco',
+    'Av. Getúlio Vargas',
+    'Rua Goiás',
+    'Av. Dom Pedro II',
+    'Rua Paraíba',
+    'Av. JK',
+    'Rua Sergipe',
+    'Rua Alagoas',
+    'Av. Marechal Castelo Branco',
+    'Rua Piauí',
+    'Rua Santo Antônio',
+    'Av. São Luís Rei de França',
+    'Rua Maranhão',
   ];
 
   DriverSimulationService(this._currentPosition);
@@ -101,7 +123,7 @@ class DriverSimulationService {
       if (_currentWaypointIndex >= _waypoints.length) {
         _generateWaypoints(); // Gerar novos waypoints
       }
-      
+
       // Verificar se deve mudar estado da corrida
       _checkTripProgress();
       return;
@@ -115,7 +137,7 @@ class DriverSimulationService {
     final speed = 0.00012;
     final moveX = (dx / dist) * speed;
     final moveY = (dy / dist) * speed;
-    
+
     _currentPosition = LatLng(
       _currentPosition.latitude + moveY,
       _currentPosition.longitude + moveX,
@@ -128,7 +150,7 @@ class DriverSimulationService {
 
   void _checkTripProgress() {
     _waypointsVisited++;
-    
+
     switch (_tripState) {
       case SimulationTripState.idle:
         // Após 2 waypoints sem corrida, iniciar uma nova
@@ -166,15 +188,17 @@ class DriverSimulationService {
 
   void _startNewTrip() {
     _passengerName = _names[_random.nextInt(_names.length)];
-    _pickupAddress = '${_streets[_random.nextInt(_streets.length)]}, ${100 + _random.nextInt(2000)}';
-    _dropoffAddress = '${_streets[_random.nextInt(_streets.length)]}, ${100 + _random.nextInt(2000)}';
-    
+    _pickupAddress =
+        '${_streets[_random.nextInt(_streets.length)]}, ${100 + _random.nextInt(2000)}';
+    _dropoffAddress =
+        '${_streets[_random.nextInt(_streets.length)]}, ${100 + _random.nextInt(2000)}';
+
     _tripState = SimulationTripState.goingToPickup;
     _waypointsVisited = 0;
-    
+
     final price = 8.0 + _random.nextDouble() * 25.0;
     final distance = 1.5 + _random.nextDouble() * 8.0;
-    
+
     onTripStateChange?.call(_tripState, {
       'passenger': _passengerName,
       'pickup': _pickupAddress,
@@ -192,7 +216,7 @@ class DriverSimulationService {
       'pickup': _pickupAddress,
       'dropoff': _dropoffAddress,
     });
-    
+
     // Passageiro entra após 2 segundos
     Future.delayed(const Duration(seconds: 2), () {
       if (!_isRunning) return;

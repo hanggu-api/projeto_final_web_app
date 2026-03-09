@@ -39,7 +39,9 @@ class AnalyticsService {
     try {
       final apiId = ApiService().userId;
       userId = apiId;
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('⚠️ [AnalyticsService] Failed to read userId: $e');
+    }
 
     if (userId == null && actionType != 'APP_OPENED') return;
 

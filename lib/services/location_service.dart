@@ -40,7 +40,9 @@ class LocationService {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        debugPrint('[Location] Permissão de localização negada permanentemente');
+        debugPrint(
+          '[Location] Permissão de localização negada permanentemente',
+        );
         throw Exception('Location permission denied forever');
       }
 
@@ -57,17 +59,18 @@ class LocationService {
       );
 
       // 3. Iniciar listening
-      _positionStream = Geolocator.getPositionStream(
-        locationSettings: locationSettings,
-      ).listen(
-        (Position position) {
-          _addToBuffer(position, serviceId);
-        },
-        onError: (error) {
-          debugPrint('[Location] Stream error: $error');
-          _stopStream();
-        },
-      );
+      _positionStream =
+          Geolocator.getPositionStream(
+            locationSettings: locationSettings,
+          ).listen(
+            (Position position) {
+              _addToBuffer(position, serviceId);
+            },
+            onError: (error) {
+              debugPrint('[Location] Stream error: $error');
+              _stopStream();
+            },
+          );
 
       _isTracking = true;
       debugPrint('[Location] Rastreamento iniciado para serviço $serviceId');

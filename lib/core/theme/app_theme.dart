@@ -27,7 +27,8 @@ class AppTheme {
   static Color get lightGray => const Color(0xFFF3F4F6);
 
   // Status Colors
-  static Color get successGreen => const Color(0xFF10B981); // Emerald-600 inspired
+  static Color get successGreen =>
+      const Color(0xFF10B981); // Emerald-600 inspired
   static Color get primaryGreen => const Color(0xFF22C55E);
   static Color get errorRed => const Color(0xFFEF4444);
   static Color get warningOrange => const Color(0xFFF59E0B);
@@ -37,10 +38,14 @@ class AppTheme {
   static Color get secondaryOrange => accentOrange;
   static Color get textBrown => const Color(0xFF8B4513);
   static Color get primaryBlue => RemoteThemeService().getColor('primaryBlue');
-  static Color get categoryTripBg => RemoteThemeService().getColor('categoryTripBg');
-  static Color get categoryServiceBg => RemoteThemeService().getColor('categoryServiceBg');
-  static Color get categoryPackageBg => RemoteThemeService().getColor('categoryPackageBg');
-  static Color get categoryReserveBg => RemoteThemeService().getColor('categoryReserveBg');
+  static Color get categoryTripBg =>
+      RemoteThemeService().getColor('categoryTripBg');
+  static Color get categoryServiceBg =>
+      RemoteThemeService().getColor('categoryServiceBg');
+  static Color get categoryPackageBg =>
+      RemoteThemeService().getColor('categoryPackageBg');
+  static Color get categoryReserveBg =>
+      RemoteThemeService().getColor('categoryReserveBg');
   static Color get darkGray => const Color(0xFF4B5563);
 
   // ══════════════════════════════════════════════════════════
@@ -100,7 +105,8 @@ class AppTheme {
   static const double borderRadius = 12.0; // DEFAULT 0.75rem
   static const double borderRadiusLarge = 16.0; // LG 1rem
   static const double borderRadiusXL = 24.0; // XL 1.5rem
-  static const double borderRadiusXXL = 32.0; // Manual adjustment for specific cards
+  static const double borderRadiusXXL =
+      32.0; // Manual adjustment for specific cards
 
   static BoxDecoration get cardDecoration => BoxDecoration(
     color: surfaceWhite,
@@ -131,10 +137,7 @@ class AppTheme {
   static InputDecoration inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(
-        color: darkGray,
-        fontFamily: fontFamily,
-      ),
+      labelStyle: TextStyle(color: darkGray, fontFamily: fontFamily),
       prefixIcon: Icon(icon, color: darkGray),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(borderRadius),

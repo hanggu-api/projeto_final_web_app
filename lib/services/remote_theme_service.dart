@@ -48,7 +48,9 @@ class RemoteThemeService {
   Future<void> loadStrings(String language) async {
     try {
       debugPrint('🌐 [RemoteTheme] Loading strings for $language...');
-      final response = await _api.invokeEdgeFunction('strings', null, {'lang': language});
+      final response = await _api.invokeEdgeFunction('strings', null, {
+        'lang': language,
+      });
 
       if (response['success'] == true && response['strings'] != null) {
         _strings = Map<String, String>.from(response['strings']);
@@ -81,15 +83,11 @@ class RemoteThemeService {
 
   /// Inicializa tema completo
   Future<void> initialize() async {
-    await Future.wait([
-      loadTheme(),
-      loadStrings('pt-BR'),
-      loadConfig(),
-    ]);
+    await Future.wait([loadTheme(), loadStrings('pt-BR'), loadConfig()]);
   }
 
   // ==================== GETTERS ====================
-  
+
   /// Indica se o tema foi carregado com sucesso
   bool get hasTheme => _currentTheme != null;
 
@@ -178,7 +176,9 @@ class RemoteThemeService {
     final s = _currentTheme!.borders;
     return [
       BoxShadow(
-        color: _hexToColor(s.shadowColor).withValues(alpha: customOpacity ?? s.shadowOpacity),
+        color: _hexToColor(
+          s.shadowColor,
+        ).withValues(alpha: customOpacity ?? s.shadowOpacity),
         blurRadius: customBlur ?? s.shadowBlur,
         offset: Offset(s.shadowOffsetX, s.shadowOffsetY),
       ),
@@ -504,28 +504,28 @@ class ThemeColors {
   }
 
   Map<String, dynamic> toJson() => {
-        'primary': primary,
-        'primaryBlue': primaryBlue,
-        'secondary': secondary,
-        'background': background,
-        'surface': surface,
-        'error': error,
-        'success': success,
-        'warning': warning,
-        'textPrimary': textPrimary,
-        'textSecondary': textSecondary,
-        'textDisabled': textDisabled,
-        'textHint': textHint,
-        'buttonPrimaryBg': buttonPrimaryBg,
-        'buttonPrimaryText': buttonPrimaryText,
-        'buttonSecondaryBg': buttonSecondaryBg,
-        'buttonSecondaryText': buttonSecondaryText,
-        'buttonOutlineColor': buttonOutlineColor,
-        'categoryTripBg': categoryTripBg,
-        'categoryServiceBg': categoryServiceBg,
-        'categoryPackageBg': categoryPackageBg,
-        'categoryReserveBg': categoryReserveBg,
-      };
+    'primary': primary,
+    'primaryBlue': primaryBlue,
+    'secondary': secondary,
+    'background': background,
+    'surface': surface,
+    'error': error,
+    'success': success,
+    'warning': warning,
+    'textPrimary': textPrimary,
+    'textSecondary': textSecondary,
+    'textDisabled': textDisabled,
+    'textHint': textHint,
+    'buttonPrimaryBg': buttonPrimaryBg,
+    'buttonPrimaryText': buttonPrimaryText,
+    'buttonSecondaryBg': buttonSecondaryBg,
+    'buttonSecondaryText': buttonSecondaryText,
+    'buttonOutlineColor': buttonOutlineColor,
+    'categoryTripBg': categoryTripBg,
+    'categoryServiceBg': categoryServiceBg,
+    'categoryPackageBg': categoryPackageBg,
+    'categoryReserveBg': categoryReserveBg,
+  };
 
   factory ThemeColors.defaultColors() {
     return ThemeColors.fromJson({});
@@ -577,18 +577,18 @@ class ThemeBorders {
   }
 
   Map<String, dynamic> toJson() => {
-        'radiusSmall': radiusSmall,
-        'radiusMedium': radiusMedium,
-        'radiusLarge': radiusLarge,
-        'radiusXLarge': radiusXLarge,
-        'width': width,
-        'color': color,
-        'shadowColor': shadowColor,
-        'shadowOpacity': shadowOpacity,
-        'shadowBlur': shadowBlur,
-        'shadowOffsetX': shadowOffsetX,
-        'shadowOffsetY': shadowOffsetY,
-      };
+    'radiusSmall': radiusSmall,
+    'radiusMedium': radiusMedium,
+    'radiusLarge': radiusLarge,
+    'radiusXLarge': radiusXLarge,
+    'width': width,
+    'color': color,
+    'shadowColor': shadowColor,
+    'shadowOpacity': shadowOpacity,
+    'shadowBlur': shadowBlur,
+    'shadowOffsetX': shadowOffsetX,
+    'shadowOffsetY': shadowOffsetY,
+  };
 
   factory ThemeBorders.defaultBorders() {
     return ThemeBorders.fromJson({});
@@ -627,14 +627,14 @@ class ThemeTypography {
   }
 
   Map<String, dynamic> toJson() => {
-        'fontFamily': fontFamily,
-        'sizeTiny': sizeTiny,
-        'sizeSmall': sizeSmall,
-        'sizeMedium': sizeMedium,
-        'sizeLarge': sizeLarge,
-        'sizeXLarge': sizeXLarge,
-        'sizeTitle': sizeTitle,
-      };
+    'fontFamily': fontFamily,
+    'sizeTiny': sizeTiny,
+    'sizeSmall': sizeSmall,
+    'sizeMedium': sizeMedium,
+    'sizeLarge': sizeLarge,
+    'sizeXLarge': sizeXLarge,
+    'sizeTitle': sizeTitle,
+  };
 
   factory ThemeTypography.defaultTypography() {
     return ThemeTypography.fromJson({});
@@ -667,12 +667,12 @@ class ThemeSpacing {
   }
 
   Map<String, dynamic> toJson() => {
-        'tiny': tiny,
-        'small': small,
-        'medium': medium,
-        'large': large,
-        'xlarge': xlarge,
-      };
+    'tiny': tiny,
+    'small': small,
+    'medium': medium,
+    'large': large,
+    'xlarge': xlarge,
+  };
 
   factory ThemeSpacing.defaultSpacing() {
     return ThemeSpacing.fromJson({});

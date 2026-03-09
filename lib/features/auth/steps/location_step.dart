@@ -231,7 +231,7 @@ class _LocationStepState extends State<LocationStep> {
                           urlTemplate:
                               'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
                           userAgentPackageName: 'com.play101.app',
-                          tileSize: 512,
+                          tileDimension: 512,
                           zoomOffset: -1,
                           maxZoom: 22,
                         ),

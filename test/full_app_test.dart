@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:service_101/main.dart'; 
+import 'package:service_101/main.dart';
 import 'package:service_101/features/provider/provider_home_screen.dart';
 
 void main() {
@@ -15,9 +15,11 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    await tester.pumpWidget(const MaterialApp(
-      home: ProviderHomeScreen(loadOnInit: false, connectRealtime: false),
-    ));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ProviderHomeScreen(loadOnInit: false, connectRealtime: false),
+      ),
+    );
     await tester.pump();
 
     expect(find.text('Painel de Serviços'), findsOneWidget);

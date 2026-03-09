@@ -24,9 +24,149 @@ import '../features/provider/widgets/scheduled_notification_modal.dart';
 import '../features/provider/widgets/service_offer_modal.dart';
 import '../firebase_options.dart';
 import 'api_service.dart';
+import 'awesome_notification_service.dart';
 import 'data_gateway.dart';
 import 'realtime_service.dart';
 import '../core/utils/logger.dart';
+
+const String _urgentChannelIdBg = 'high_importance_channel_v3';
+const String _uberOffersChannelIdBg = 'uber_trip_offers_channel';
+const String _uberUpdatesChannelIdBg = 'uber_trip_updates_channel';
+const String _chatChannelIdBg = 'chat_messages_channel';
+
+bool _isUberTripType(String? type) => type?.startsWith('uber_trip_') == true;
+
+int _tripReminderNotificationId(String tripId) => tripId.hashCode ^ 0x2F2F;
+
+String _defaultUberTitle(String? type) {
+  switch (type) {
+    case 'uber_trip_offer':
+      return 'Nova corrida Uber disponivel';
+    case 'uber_trip_accepted':
+      return 'Motorista a caminho';
+    case 'uber_trip_arrived':
+      return 'Motorista chegou';
+    case 'uber_trip_started':
+      return 'Corrida iniciada';
+    case 'uber_trip_completed':
+      return 'Corrida concluida';
+    case 'uber_trip_cancelled':
+      return 'Corrida cancelada';
+    case 'uber_trip_wait_2m':
+      return 'Tempo de espera iniciado';
+    default:
+      return 'Atualizacao da corrida';
+  }
+}
+
+String _defaultUberBody(String? type) {
+  switch (type) {
+    case 'uber_trip_offer':
+      return 'Toque para revisar a oferta e decidir agora.';
+    case 'uber_trip_accepted':
+      return 'Seu motorista aceitou a corrida e esta indo ate voce.';
+    case 'uber_trip_arrived':
+      return 'Seu motorista ja esta no local de embarque.';
+    case 'uber_trip_started':
+      return 'Sua viagem comecou.';
+    case 'uber_trip_completed':
+      return 'Sua viagem foi finalizada.';
+    case 'uber_trip_cancelled':
+      return 'A corrida foi cancelada.';
+    case 'uber_trip_wait_2m':
+      return 'Ja se passaram 2 minutos de espera. Se precisar, responda ao motorista pelo chat.';
+    default:
+      return 'Voce recebeu uma atualizacao importante da sua corrida.';
+  }
+}
+
+AndroidNotificationDetails _buildBackgroundUberArrivedDetails() {
+  return const AndroidNotificationDetails(
+    _uberUpdatesChannelIdBg,
+    'Uber: Atualizacoes de Corrida',
+    channelDescription: 'Atualizacoes de status das corridas do modulo Uber.',
+    importance: Importance.max,
+    priority: Priority.max,
+    playSound: true,
+    icon: 'ic_notification_101',
+    largeIcon: DrawableResourceAndroidBitmap('ic_logo_colored'),
+    color: Color(0xFFFDE500),
+    colorized: true,
+    category: AndroidNotificationCategory.message,
+    sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+    visibility: NotificationVisibility.public,
+    actions: [
+      AndroidNotificationAction('open_trip', 'Abrir corrida'),
+      AndroidNotificationAction(
+        'trip_reply',
+        'Responder',
+        inputs: [AndroidNotificationActionInput(label: 'Digite uma resposta')],
+      ),
+    ],
+  );
+}
+
+AndroidNotificationDetails _buildBackgroundUberStatusDetails({
+  required String type,
+  required String title,
+  required String body,
+}) {
+  return AndroidNotificationDetails(
+    type == 'uber_trip_offer'
+        ? _uberOffersChannelIdBg
+        : _uberUpdatesChannelIdBg,
+    type == 'uber_trip_offer'
+        ? 'Uber: Ofertas de Corrida'
+        : 'Uber: Atualizacoes de Corrida',
+    channelDescription: 'Notificacoes premium do modulo Uber.',
+    importance: type == 'uber_trip_offer' ? Importance.max : Importance.high,
+    priority: type == 'uber_trip_offer' ? Priority.max : Priority.high,
+    playSound: true,
+    icon: 'ic_notification_101',
+    largeIcon: const DrawableResourceAndroidBitmap('ic_logo_colored'),
+    color: const Color(0xFFFDE500),
+    colorized: true,
+    category: type == 'uber_trip_offer'
+        ? AndroidNotificationCategory.call
+        : AndroidNotificationCategory.status,
+    styleInformation: BigTextStyleInformation(
+      body,
+      contentTitle: title,
+      summaryText: '101 Service',
+    ),
+    sound: const RawResourceAndroidNotificationSound('iphone_notificacao'),
+    visibility: NotificationVisibility.public,
+    fullScreenIntent: type == 'uber_trip_offer',
+    timeoutAfter: type == 'uber_trip_offer' ? 30000 : null,
+  );
+}
+
+Future<void> _scheduleTripWaitReminderBackground(
+  FlutterLocalNotificationsPlugin localNotifications,
+  String tripId,
+) async {
+  tz.initializeTimeZones();
+  final scheduledAt = tz.TZDateTime.now(
+    tz.local,
+  ).add(const Duration(minutes: 2));
+
+  await localNotifications.zonedSchedule(
+    id: _tripReminderNotificationId(tripId),
+    title: 'Tempo de espera iniciado',
+    body:
+        'Ja se passaram 2 minutos de espera. Se precisar, responda ao motorista pelo chat.',
+    scheduledDate: scheduledAt,
+    notificationDetails: NotificationDetails(
+      android: _buildBackgroundUberArrivedDetails(),
+    ),
+    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    payload: jsonEncode({
+      'type': 'uber_trip_wait_2m',
+      'trip_id': tripId,
+      'id': tripId,
+    }),
+  );
+}
 
 /// Handler for background messages
 @pragma('vm:entry-point')
@@ -38,7 +178,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   final type = message.data['type'];
   final serviceId =
-      message.data['id']?.toString() ?? message.data['service_id']?.toString();
+      message.data['id']?.toString() ??
+      message.data['service_id']?.toString() ??
+      message.data['trip_id']?.toString();
 
   // ✅ SALVAR PAYLOAD PARA PROCESSAMENTO NA ISOLATE PRINCIPAL (Foreground)
   if (serviceId != null) {
@@ -67,7 +209,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (type == 'new_service' ||
       type == 'offer' ||
       type == 'service_offered' ||
-      type == 'service.offered') {
+      type == 'service.offered' ||
+      _isUberTripType(type)) {
     debugPrint(
       '🚀 [BACKGROUND DEBUG] Oferta Urgente Detectada. Disparando canais de alta prioridade.',
     );
@@ -79,34 +222,113 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     const initSettings = InitializationSettings(android: androidInit);
     await localNotifications.initialize(settings: initSettings);
 
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'high_importance_channel_v3',
-      'Alertas Urgentes',
-      description: 'Canal para alertas urgentes de novos serviços.',
-      importance: Importance.max,
-      playSound: true,
-      sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
-    );
+    const channels = [
+      AndroidNotificationChannel(
+        _urgentChannelIdBg,
+        'Alertas Urgentes',
+        description: 'Canal para alertas urgentes de novos serviços.',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+      ),
+      AndroidNotificationChannel(
+        _uberOffersChannelIdBg,
+        'Uber: Ofertas de Corrida',
+        description: 'Ofertas urgentes para motoristas do modulo Uber.',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+      ),
+      AndroidNotificationChannel(
+        _uberUpdatesChannelIdBg,
+        'Uber: Atualizacoes de Corrida',
+        description: 'Atualizacoes de status das corridas do modulo Uber.',
+        importance: Importance.high,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+      ),
+      AndroidNotificationChannel(
+        _chatChannelIdBg,
+        'Mensagens de Chat',
+        description: 'Mensagens de chat em tempo real.',
+        importance: Importance.high,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+      ),
+    ];
 
-    await localNotifications
+    final androidPlugin = localNotifications
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
-
-    final NotificationDetails details = NotificationDetails(
-      android: NotificationService.getUrgentAndroidDetails(),
-    );
+        >();
+    for (final channel in channels) {
+      await androidPlugin?.createNotificationChannel(channel);
+    }
 
     final String title =
         message.notification?.title ??
         message.data['title']?.toString() ??
-        '🔔 Novo Serviço Disponível';
+        (_isUberTripType(type)
+            ? _defaultUberTitle(type?.toString())
+            : 'Novo Servico Disponivel');
 
     final String body =
         message.notification?.body ??
         message.data['body']?.toString() ??
-        'Você tem uma nova oportunidade de serviço próxima!';
+        (_isUberTripType(type)
+            ? _defaultUberBody(type?.toString())
+            : 'Voce tem uma nova oportunidade de servico proxima!');
+
+    if (type == 'uber_trip_arrived' && serviceId != null) {
+      await localNotifications.show(
+        id: serviceId.hashCode,
+        title: title,
+        body: body,
+        notificationDetails: NotificationDetails(
+          android: _buildBackgroundUberArrivedDetails(),
+        ),
+        payload: jsonEncode({
+          ...message.data,
+          'trip_id': serviceId,
+          'id': serviceId,
+        }),
+      );
+      await _scheduleTripWaitReminderBackground(localNotifications, serviceId);
+      return;
+    }
+
+    if (_isUberTripType(type) && serviceId != null) {
+      if (type == 'uber_trip_started' ||
+          type == 'uber_trip_completed' ||
+          type == 'uber_trip_cancelled') {
+        await localNotifications.cancel(
+          id: _tripReminderNotificationId(serviceId),
+        );
+      }
+
+      await localNotifications.show(
+        id: serviceId.hashCode,
+        title: title,
+        body: body,
+        notificationDetails: NotificationDetails(
+          android: _buildBackgroundUberStatusDetails(
+            type: type.toString(),
+            title: title,
+            body: body,
+          ),
+        ),
+        payload: jsonEncode({
+          ...message.data,
+          'trip_id': serviceId,
+          'id': serviceId,
+        }),
+      );
+      return;
+    }
+
+    final NotificationDetails details = NotificationDetails(
+      android: NotificationService.getUrgentAndroidDetails(),
+    );
 
     await localNotifications.show(
       id: 0,
@@ -119,7 +341,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 @pragma('vm:entry-point')
-void _onDidReceiveBackgroundNotificationResponse(NotificationResponse response) {
+void _onDidReceiveBackgroundNotificationResponse(
+  NotificationResponse response,
+) {
   NotificationService().handleNotificationResponse(response);
 }
 
@@ -127,6 +351,11 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  static const String _urgentChannelId = 'high_importance_channel_v3';
+  static const String _uberOffersChannelId = 'uber_trip_offers_channel';
+  static const String _uberUpdatesChannelId = 'uber_trip_updates_channel';
+  static const String _chatChannelId = 'chat_messages_channel';
 
   static const String _vapidKey =
       'BDAlbsqCz9yQNX88yXTKmxPVCxWixZ1Zl9naFpB1Js_RP1t7jYbyO7VLGYN_cGw_d4apRlyhP253pACFJgixUEQ';
@@ -271,21 +500,51 @@ class NotificationService {
         );
 
         if (initialized == true) {
-          const AndroidNotificationChannel channel = AndroidNotificationChannel(
-            'high_importance_channel_v3',
-            'Notificações Importantes',
-            description:
-                'Este canal é usado para notificações urgentes do serviço.',
-            importance: Importance.max,
-            playSound: true,
-            sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
-          );
-
-          await _localNotifications
+          final androidPlugin = _localNotifications
               .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin
-              >()
-              ?.createNotificationChannel(channel);
+              >();
+
+          const channels = [
+            AndroidNotificationChannel(
+              _urgentChannelId,
+              'Notificações Importantes',
+              description:
+                  'Este canal é usado para notificações urgentes do serviço.',
+              importance: Importance.max,
+              playSound: true,
+              sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+            ),
+            AndroidNotificationChannel(
+              _uberOffersChannelId,
+              'Uber: Ofertas de Corrida',
+              description: 'Ofertas urgentes para motoristas do modulo Uber.',
+              importance: Importance.max,
+              playSound: true,
+              sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+            ),
+            AndroidNotificationChannel(
+              _uberUpdatesChannelId,
+              'Uber: Atualizações de Corrida',
+              description:
+                  'Atualizações de status das corridas do modulo Uber.',
+              importance: Importance.high,
+              playSound: true,
+              sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+            ),
+            AndroidNotificationChannel(
+              _chatChannelId,
+              'Mensagens de Chat',
+              description: 'Mensagens de chat em tempo real.',
+              importance: Importance.high,
+              playSound: true,
+              sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
+            ),
+          ];
+
+          for (final channel in channels) {
+            await androidPlugin?.createNotificationChannel(channel);
+          }
         } else {
           AppLogger.erro(
             'Falha ao inicializar LocalNotifications (retornou false)',
@@ -303,7 +562,7 @@ class NotificationService {
       );
 
       _subscriptions.add(
-        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
           AppLogger.notificacao('Notificação recebida em FOREGROUND');
 
           final type = message.data['type'];
@@ -328,13 +587,14 @@ class NotificationService {
               type == 'offer' ||
               type == 'service_offered' ||
               type == 'service.offered') {
-            final role = ApiService().role;
+            final prefs = await SharedPreferences.getInstance();
+            final role = ApiService().role ?? prefs.getString('user_role');
             debugPrint(
               '🔔🔔🔔 [FOREGROUND] new_service recebido! role=$role, serviceId=$serviceId, _isDialogOpen=$_isDialogOpen',
             );
-            if (role != 'provider') {
+            if (!_isProviderLikeRole(role)) {
               debugPrint(
-                '⏩ [FOREGROUND] Ignorando new_service — role não é provider ($role)',
+                '⏩ [FOREGROUND] Ignorando new_service — role não é provider/driver ($role)',
               );
               return;
             }
@@ -352,9 +612,14 @@ class NotificationService {
               _startPersistentNotification(serviceId, message);
             }
 
-            // 3. Forçar abertura do modal (resetar bloqueio se necessário)
+            // 3. Direcionar o motorista para a home de corridas.
+            // Provider legado continua abrindo o modal diretamente.
             _isDialogOpen = false;
-            handleNotificationTap(message.data);
+            if (_isDriverRole(role)) {
+              unawaited(_openDriverHomeForTripOffer(message.data));
+            } else {
+              handleNotificationTap(message.data);
+            }
             return;
           }
 
@@ -426,6 +691,23 @@ class NotificationService {
       return;
     }
 
+    if (actionId == 'trip_reply') {
+      final tripId =
+          data['trip_id']?.toString() ??
+          data['service_id']?.toString() ??
+          data['id']?.toString();
+      final text = response.input?.trim() ?? '';
+      if (tripId != null && text.isNotEmpty) {
+        DataGateway().sendChatMessage(tripId, text, 'text');
+      }
+      return;
+    }
+
+    if (actionId == 'open_trip') {
+      handleNotificationTap(data);
+      return;
+    }
+
     handleNotificationTap(data);
   }
 
@@ -443,7 +725,7 @@ class NotificationService {
       body: message,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
-          'chat_messages_channel',
+          _chatChannelId,
           'Mensagens de Chat',
           channelDescription: 'Mensagens de chat em tempo real',
           importance: Importance.max,
@@ -456,7 +738,9 @@ class NotificationService {
             AndroidNotificationAction(
               'chat_reply',
               'Responder rapido',
-              inputs: [AndroidNotificationActionInput(label: 'Digite sua resposta')],
+              inputs: [
+                AndroidNotificationActionInput(label: 'Digite sua resposta'),
+              ],
             ),
           ],
         ),
@@ -585,7 +869,7 @@ class NotificationService {
         } catch (_) {}
       }
 
-      if (role != null && role != 'provider') return;
+      if (role == null) return;
 
       double? lat;
       double? lon;
@@ -637,6 +921,21 @@ class NotificationService {
     return navigatorKey?.currentContext;
   }
 
+  bool _isDriverRole(String? role) => role == 'driver';
+  bool _isProviderLikeRole(String? role) =>
+      role == 'provider' || role == 'driver';
+
+  Future<void> _openDriverHomeForTripOffer(Map<String, dynamic> data) async {
+    if (navigatorKey?.currentContext == null) {
+      await _getValidContext();
+    }
+    if (navigatorKey?.currentContext == null) return;
+
+    GoRouter.of(
+      navigatorKey!.currentContext!,
+    ).go('/uber-driver', extra: {'initialTripOffer': data});
+  }
+
   void handleNotificationTap(Map<String, dynamic> data) {
     debugPrint('🔔 [NOTIFICATION DEBUG] Handling tap with data: $data');
 
@@ -646,13 +945,15 @@ class NotificationService {
       }
 
       if (navigatorKey?.currentContext != null) {
-        _processNotificationData(data);
+        await _processNotificationData(data);
       }
     });
   }
 
-  void _processNotificationData(Map<String, dynamic> data) {
+  Future<void> _processNotificationData(Map<String, dynamic> data) async {
     final String? type = data['type']?.toString();
+    final prefs = await SharedPreferences.getInstance();
+    final role = ApiService().role ?? prefs.getString('user_role');
     debugPrint('🔀 [NOTIFICATION TAP] Type detected: $type');
 
     if (type == 'chat_message' || type == 'chat') {
@@ -662,6 +963,41 @@ class NotificationService {
         GoRouter.of(navigatorKey!.currentContext!).push('/chat/$serviceId');
         return;
       }
+    }
+
+    if (type == 'uber_trip_offer') {
+      if (_isDriverRole(role)) {
+        await _openDriverHomeForTripOffer(data);
+      }
+      return;
+    }
+
+    if (type == 'uber_trip_accepted' ||
+        type == 'uber_trip_arrived' ||
+        type == 'uber_trip_started') {
+      final String? tripId =
+          data['trip_id']?.toString() ?? data['id']?.toString();
+      if (tripId != null && navigatorKey?.currentContext != null) {
+        GoRouter.of(navigatorKey!.currentContext!).go('/uber-tracking/$tripId');
+      }
+      return;
+    }
+
+    if (type == 'uber_trip_completed' || type == 'uber_trip_cancelled') {
+      final String? tripId =
+          data['trip_id']?.toString() ?? data['id']?.toString();
+
+      if (tripId != null &&
+          role == 'driver' &&
+          navigatorKey?.currentContext != null) {
+        GoRouter.of(navigatorKey!.currentContext!).go('/uber-driver');
+        return;
+      }
+
+      if (navigatorKey?.currentContext != null) {
+        GoRouter.of(navigatorKey!.currentContext!).go('/home');
+      }
+      return;
     }
 
     if (type == 'schedule_proposal') {
@@ -691,8 +1027,12 @@ class NotificationService {
         type == 'offer' ||
         type == 'service_offered' ||
         type == 'service.offered') {
-      final role = ApiService().role;
-      if (role != 'provider') return;
+      if (!_isProviderLikeRole(role)) return;
+
+      if (_isDriverRole(role)) {
+        unawaited(_openDriverHomeForTripOffer(data));
+        return;
+      }
 
       final String? serviceId =
           data['id']?.toString() ?? data['service_id']?.toString();
@@ -833,26 +1173,143 @@ class NotificationService {
       id: DateTime.now().millisecond,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'high_importance_channel_v3',
-          'High Importance Notifications',
+      notificationDetails: NotificationDetails(
+        android: _buildPremiumAndroidDetails(
+          channelId: _urgentChannelId,
+          channelName: 'High Importance Notifications',
+          title: title,
+          body: body,
+          category: AndroidNotificationCategory.alarm,
           importance: Importance.max,
           priority: Priority.max,
-          icon: 'ic_notification_101',
-          playSound: true,
-          largeIcon: DrawableResourceAndroidBitmap('ic_logo_colored'),
-          color: Colors.black,
-          sound: RawResourceAndroidNotificationSound('iphone_notificacao'),
           fullScreenIntent: true,
-          category: AndroidNotificationCategory.alarm,
+        ),
+        iOS: _buildPremiumDarwinDetails(
+          subtitle: '101 Service',
+          threadIdentifier: 'urgent-alerts',
         ),
       ),
     );
   }
 
+  Future<void> showUberTripOfferNotification(Map<String, dynamic> trip) async {
+    if (kIsWeb) return;
+
+    final tripId = trip['id']?.toString() ?? '';
+    final pickup = trip['pickup_address']?.toString() ?? 'Origem';
+    final dropoff = trip['dropoff_address']?.toString() ?? 'Destino';
+    final fare = trip['fare_estimated']?.toString() ?? '0,00';
+    final body =
+        '$pickup -> $dropoff\nGanhos estimados: R\$ $fare\nToque para revisar e aceitar a corrida.';
+
+    await _localNotifications.show(
+      id: tripId.hashCode,
+      title: 'Nova corrida Uber disponível',
+      body: body,
+      notificationDetails: NotificationDetails(
+        android: _buildPremiumAndroidDetails(
+          channelId: _uberOffersChannelId,
+          channelName: 'Uber: Ofertas de Corrida',
+          title: 'Nova corrida Uber disponível',
+          body: body,
+          category: AndroidNotificationCategory.call,
+          importance: Importance.max,
+          priority: Priority.max,
+          fullScreenIntent: true,
+          timeoutAfter: 30000,
+          subText: 'Oferta premium',
+          summaryText: 'Corrida pronta para analise',
+        ),
+        iOS: _buildPremiumDarwinDetails(
+          subtitle: 'Nova oferta de corrida',
+          threadIdentifier: 'uber-trip-offers',
+        ),
+      ),
+      payload: jsonEncode({
+        'type': 'uber_trip_offer',
+        'trip_id': tripId,
+        'id': tripId,
+        ...trip,
+      }),
+    );
+  }
+
+  Future<void> showUberTripStatusNotification({
+    required String tripId,
+    required String title,
+    required String body,
+    required String type,
+  }) async {
+    if (kIsWeb) return;
+
+    if (type == 'uber_trip_arrived') {
+      await AwesomeNotificationService.instance.showPremiumDriverArrived(
+        tripId: tripId,
+        title: title,
+        body: body,
+      );
+      await _scheduleTripWaitReminder(tripId);
+      return;
+    }
+
+    if (type == 'uber_trip_started' ||
+        type == 'uber_trip_completed' ||
+        type == 'uber_trip_cancelled') {
+      await _cancelTripWaitReminder(tripId);
+    }
+
+    await _localNotifications.show(
+      id: tripId.hashCode,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
+        android: _buildPremiumAndroidDetails(
+          channelId: _uberUpdatesChannelId,
+          channelName: 'Uber: Atualizações de Corrida',
+          title: title,
+          body: body,
+          category: AndroidNotificationCategory.status,
+          importance: Importance.high,
+          priority: Priority.high,
+          subText: 'Sua corrida',
+          summaryText: _resolveStatusSummary(type),
+        ),
+        iOS: _buildPremiumDarwinDetails(
+          subtitle: _resolveStatusSummary(type),
+          threadIdentifier: 'uber-trip-updates',
+        ),
+      ),
+      payload: jsonEncode({'type': type, 'trip_id': tripId, 'id': tripId}),
+    );
+  }
+
   Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
+    final type = message.data['type']?.toString();
+
+    if (_isUberTripType(type)) {
+      final tripId =
+          message.data['trip_id']?.toString() ?? message.data['id']?.toString();
+      if (tripId == null || tripId.isEmpty) return;
+
+      final title =
+          notification?.title ??
+          message.data['title']?.toString() ??
+          _defaultUberTitle(type);
+      final body =
+          notification?.body ??
+          message.data['body']?.toString() ??
+          _defaultUberBody(type);
+
+      await showUberTripStatusNotification(
+        tripId: tripId,
+        title: title,
+        body: body,
+        type: type ?? 'uber_trip_accepted',
+      );
+      return;
+    }
+
     final android = message.notification?.android;
 
     if (notification != null && android != null) {
@@ -883,21 +1340,35 @@ class NotificationService {
         title: notification.title,
         body: notification.body,
         notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            'high_importance_channel_v3',
-            'High Importance Notifications',
-            importance: Importance.max,
-            priority: Priority.max,
-            playSound: true,
-            icon: '@mipmap/launcher_icon',
-            color: Colors.black,
-            largeIcon: largeIcon,
-            sound: const RawResourceAndroidNotificationSound(
-              'iphone_notificacao',
+          android: _buildPremiumAndroidDetails(
+            channelId: _resolveAndroidChannelId(
+              message.data['type']?.toString(),
             ),
-            fullScreenIntent: true,
-            category: AndroidNotificationCategory.call,
-            timeoutAfter: 30000,
+            channelName: _resolveAndroidChannelName(
+              message.data['type']?.toString(),
+            ),
+            title: notification.title ?? '',
+            body: notification.body ?? '',
+            category: _resolveAndroidCategory(message.data['type']?.toString()),
+            importance: _resolveAndroidImportance(
+              message.data['type']?.toString(),
+            ),
+            priority: _resolveAndroidPriority(message.data['type']?.toString()),
+            fullScreenIntent: _shouldUseFullScreenIntent(
+              message.data['type']?.toString(),
+            ),
+            timeoutAfter: _resolveTimeout(message.data['type']?.toString()),
+            largeIcon: largeIcon,
+            subText: _resolveSubText(message.data['type']?.toString()),
+            summaryText: _resolveStatusSummary(
+              message.data['type']?.toString(),
+            ),
+          ),
+          iOS: _buildPremiumDarwinDetails(
+            subtitle: _resolveSubText(message.data['type']?.toString()),
+            threadIdentifier: _resolveIosThreadId(
+              message.data['type']?.toString(),
+            ),
           ),
         ),
         payload: jsonEncode(message.data),
@@ -1064,7 +1535,7 @@ class NotificationService {
 
   static AndroidNotificationDetails getUrgentAndroidDetails() {
     return const AndroidNotificationDetails(
-      'high_importance_channel_v3',
+      _urgentChannelId,
       'Urgent Alerts',
       channelDescription: 'Canal para novos serviços.',
       importance: Importance.max,
@@ -1076,6 +1547,242 @@ class NotificationService {
       visibility: NotificationVisibility.public,
       timeoutAfter: 30000,
     );
+  }
+
+  AndroidNotificationDetails _buildPremiumAndroidDetails({
+    required String channelId,
+    required String channelName,
+    required String title,
+    required String body,
+    required AndroidNotificationCategory category,
+    required Importance importance,
+    required Priority priority,
+    bool fullScreenIntent = false,
+    int? timeoutAfter,
+    String? subText,
+    String? summaryText,
+    AndroidBitmap<Object>? largeIcon,
+    List<AndroidNotificationAction>? actions,
+  }) {
+    return AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: '$channelName com apresentacao premium.',
+      importance: importance,
+      priority: priority,
+      playSound: true,
+      icon: 'ic_notification_101',
+      largeIcon:
+          largeIcon ?? const DrawableResourceAndroidBitmap('ic_logo_colored'),
+      color: const Color(0xFFFDE500),
+      colorized: true,
+      category: category,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: summaryText,
+      ),
+      subText: subText,
+      ticker: title,
+      sound: const RawResourceAndroidNotificationSound('iphone_notificacao'),
+      visibility: NotificationVisibility.public,
+      fullScreenIntent: fullScreenIntent,
+      timeoutAfter: timeoutAfter,
+      actions: actions,
+    );
+  }
+
+  DarwinNotificationDetails _buildPremiumDarwinDetails({
+    String? subtitle,
+    String? threadIdentifier,
+  }) {
+    return DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: subtitle,
+      threadIdentifier: threadIdentifier,
+    );
+  }
+
+  String _resolveAndroidChannelId(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return _uberOffersChannelId;
+      case 'uber_trip_accepted':
+      case 'uber_trip_arrived':
+      case 'uber_trip_started':
+      case 'uber_trip_completed':
+      case 'uber_trip_cancelled':
+        return _uberUpdatesChannelId;
+      case 'chat_message':
+        return _chatChannelId;
+      default:
+        return _urgentChannelId;
+    }
+  }
+
+  String _resolveAndroidChannelName(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return 'Uber: Ofertas de Corrida';
+      case 'uber_trip_accepted':
+      case 'uber_trip_arrived':
+      case 'uber_trip_started':
+      case 'uber_trip_completed':
+      case 'uber_trip_cancelled':
+        return 'Uber: Atualizações de Corrida';
+      case 'chat_message':
+        return 'Mensagens de Chat';
+      default:
+        return 'High Importance Notifications';
+    }
+  }
+
+  AndroidNotificationCategory _resolveAndroidCategory(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return AndroidNotificationCategory.call;
+      case 'chat_message':
+        return AndroidNotificationCategory.message;
+      default:
+        return AndroidNotificationCategory.status;
+    }
+  }
+
+  Importance _resolveAndroidImportance(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return Importance.max;
+      default:
+        return Importance.high;
+    }
+  }
+
+  Priority _resolveAndroidPriority(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return Priority.max;
+      default:
+        return Priority.high;
+    }
+  }
+
+  bool _shouldUseFullScreenIntent(String? type) {
+    return type == 'uber_trip_offer';
+  }
+
+  int? _resolveTimeout(String? type) {
+    return type == 'uber_trip_offer' ? 30000 : null;
+  }
+
+  String? _resolveSubText(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return 'Oferta premium';
+      case 'uber_trip_accepted':
+      case 'uber_trip_arrived':
+      case 'uber_trip_started':
+      case 'uber_trip_completed':
+      case 'uber_trip_cancelled':
+        return 'Sua corrida';
+      case 'chat_message':
+        return 'Chat em tempo real';
+      default:
+        return '101 Service';
+    }
+  }
+
+  String? _resolveIosThreadId(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return 'uber-trip-offers';
+      case 'uber_trip_accepted':
+      case 'uber_trip_arrived':
+      case 'uber_trip_started':
+      case 'uber_trip_completed':
+      case 'uber_trip_cancelled':
+        return 'uber-trip-updates';
+      case 'chat_message':
+        return 'chat-messages';
+      default:
+        return 'service-101';
+    }
+  }
+
+  String? _resolveStatusSummary(String? type) {
+    switch (type) {
+      case 'uber_trip_offer':
+        return 'Oferta disponivel agora';
+      case 'uber_trip_accepted':
+        return 'Motorista a caminho';
+      case 'uber_trip_arrived':
+        return 'Motorista chegou';
+      case 'uber_trip_started':
+        return 'Corrida em andamento';
+      case 'uber_trip_completed':
+        return 'Corrida finalizada';
+      case 'uber_trip_cancelled':
+        return 'Corrida cancelada';
+      case 'uber_trip_wait_2m':
+        return '2 minutos de espera';
+      case 'chat_message':
+        return 'Nova mensagem';
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _scheduleTripWaitReminder(String tripId) async {
+    final scheduledAt = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(minutes: 2));
+
+    await _localNotifications.zonedSchedule(
+      id: _tripReminderNotificationId(tripId),
+      title: 'Tempo de espera iniciado',
+      body:
+          'Ja se passaram 2 minutos de espera. Se precisar, responda ao motorista pelo chat.',
+      scheduledDate: scheduledAt,
+      notificationDetails: NotificationDetails(
+        android: _buildPremiumAndroidDetails(
+          channelId: _uberUpdatesChannelId,
+          channelName: 'Uber: Atualizações de Corrida',
+          title: 'Tempo de espera iniciado',
+          body:
+              'Ja se passaram 2 minutos de espera. Se precisar, responda ao motorista pelo chat.',
+          category: AndroidNotificationCategory.message,
+          importance: Importance.high,
+          priority: Priority.high,
+          subText: 'Atencao',
+          summaryText: '2 minutos de espera',
+          actions: const [
+            AndroidNotificationAction('open_trip', 'Abrir corrida'),
+            AndroidNotificationAction(
+              'trip_reply',
+              'Responder',
+              inputs: [
+                AndroidNotificationActionInput(label: 'Digite uma resposta'),
+              ],
+            ),
+          ],
+        ),
+        iOS: _buildPremiumDarwinDetails(
+          subtitle: '2 minutos de espera',
+          threadIdentifier: 'uber-trip-updates',
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: jsonEncode({
+        'type': 'uber_trip_wait_2m',
+        'trip_id': tripId,
+        'id': tripId,
+      }),
+    );
+  }
+
+  Future<void> _cancelTripWaitReminder(String tripId) async {
+    await _localNotifications.cancel(id: _tripReminderNotificationId(tripId));
   }
 
   /// Agendamento legado (mantido como fallback para background)

@@ -48,7 +48,8 @@ class ServiceCard extends StatelessWidget {
     // 'provider' ou 'at_provider' -> FixedServiceCard
     // 'client', 'on_site', 'delivery' -> MobileServiceCard
     final locationType = (details?['location_type'] ?? '').toString();
-    final bool isFixed = locationType == 'provider' || locationType == 'at_provider';
+    final bool isFixed =
+        locationType == 'provider' || locationType == 'at_provider';
 
     if (isFixed) {
       return FixedServiceCard(

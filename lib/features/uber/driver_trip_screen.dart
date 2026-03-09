@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' show pi;
 import 'dart:ui';
 import 'package:flutter/material.dart' hide Size;
 import 'package:flutter/material.dart' as material show Size;
@@ -22,11 +21,13 @@ import '../../services/notification_service.dart';
 import '../../services/map_service.dart';
 import '../../services/provider_location_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/navigation_apps_helper.dart';
 import 'widgets/snap_pin_marker.dart';
 import 'widgets/car_marker_widget.dart';
+import 'utils/navigation_math.dart';
+import 'utils/navigation_tuning.dart';
 import '../../utils/pix_generator.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../shared/chat/widgets/chat_quick_alert_modal.dart';
 
 class DriverTripScreen extends StatefulWidget {
   final String tripId;
@@ -47,6 +48,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
   ll.LatLng? _currentLocation;
   bool _isLoading = false;
   bool _isChatOpen = false;
+  int _chatMessageCount = 0;
   bool _isDisposed = false;
   Map<String, dynamic>? _tripData;
 
@@ -57,6 +59,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
   bool _hasFetchedDestinationRoute = false;
   StreamSubscription<geo.Position>? _positionStream;
   bool _isMapReady = false;
+  bool _missingTripHandled = false;
 
   // Variáveis de Rendering Mapbox
   bool _isMoto = false;
@@ -67,8 +70,10 @@ class _DriverTripScreenState extends State<DriverTripScreen>
 
   // Variáveis de Simulação
   bool _isSimulating = false;
-  int _simulationIndex = 0;
   bool _isHeadingUp = true;
+  final bool _autoNavigationProfile = true;
+  NavigationProfile _navigationProfile = NavigationProfile.urban;
+  NavigationTuning _tuning = NavigationTuning.urban;
   StreamSubscription<int>? _simulationSubscription;
 
   // Variáveis do Cronômetro de Espera
@@ -85,8 +90,10 @@ class _DriverTripScreenState extends State<DriverTripScreen>
   StreamSubscription<List<dynamic>>? _chatSub;
   int? _myUserId;
   int? _lastHandledIncomingMessageId;
-  bool _isChatAlertVisible = false;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
+
+  final GlobalKey _panelContentKey = GlobalKey();
+  double _panelMeasuredHeight = 0;
 
   // Helper para parsing seguro
   double _toDouble(dynamic v) {
@@ -109,6 +116,40 @@ class _DriverTripScreenState extends State<DriverTripScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
+
+    // Se o app voltar a ficar visível após ficar em segundo plano, garantimos que
+    // o stream de chat esteja ativo (Supabase pode ter fechado a conexão).
+    if (state == AppLifecycleState.resumed && mounted) {
+      _restartChatMonitoring();
+    }
+  }
+
+  void _restartChatMonitoring() {
+    // Cancela a subscription anterior (para evitar múltiplos listeners)
+    _chatSub?.cancel();
+    _chatSub = null;
+    _lastHandledIncomingMessageId = null;
+    _initChatMonitoring();
+  }
+
+  void _handleMissingTrip() {
+    if (!mounted || _missingTripHandled) return;
+    _missingTripHandled = true;
+    _stopWaitTimer();
+    _locationTimer?.cancel();
+    _simulationSubscription?.cancel();
+    _positionStream?.cancel();
+    _chatSub?.cancel();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A corrida foi removida do banco. Voltando ao painel.'),
+        ),
+      );
+      context.go('/uber-driver');
+    });
   }
 
   @override
@@ -125,45 +166,181 @@ class _DriverTripScreenState extends State<DriverTripScreen>
 
   void _initChatMonitoring() {
     _chatSub = DataGateway().watchChat(widget.tripId).listen((rows) {
-      if (!mounted || rows.isEmpty) return;
-      final latest = rows.first;
-      final latestId = latest['id'];
-      final latestIdInt = latestId is int ? latestId : int.tryParse('$latestId');
-      if (latestIdInt == null) return;
-      if (_lastHandledIncomingMessageId == latestIdInt) return;
-
-      final senderId = latest['sender_id'];
-      if (_myUserId != null && senderId != null && '$senderId' == '$_myUserId') {
-        _lastHandledIncomingMessageId = latestIdInt;
-        return;
-      }
-
-      _lastHandledIncomingMessageId = latestIdInt;
-      final preview = _buildIncomingMessagePreview(latest);
-      if (preview.isEmpty) return;
-      final wasChatClosed = !_isChatOpen;
-
-      if (mounted && wasChatClosed) {
-        setState(() => _isChatOpen = true);
-      }
-
-      if (_appLifecycleState == AppLifecycleState.resumed) {
-        if (wasChatClosed) {
-          _showIncomingChatAlert(latestIdInt, preview);
-        }
-      } else {
-        NotificationService().showChatMessageNotification(
-          serviceId: widget.tripId,
-          messageId: latestIdInt,
-          senderName: _passengerName ?? 'Nova mensagem',
-          message: preview.length > 120 ? '${preview.substring(0, 120)}...' : preview,
-        );
-      }
+      unawaited(_processChatRows(rows));
     });
   }
 
+  Future<void> _processChatRows(List<dynamic> rows) async {
+    if (!mounted || rows.isEmpty) return;
+
+    if (_chatMessageCount != rows.length) {
+      if (mounted) setState(() => _chatMessageCount = rows.length);
+    }
+
+    final unreadRows = rows.where(_isIncomingUnread).toList();
+    if (unreadRows.isNotEmpty) {
+      if (!_isChatOpen && mounted) {
+        setState(() => _isChatOpen = true);
+      }
+      await _markChatMessagesRead(unreadRows);
+      final latestUnread = unreadRows.first;
+      final latestId = _extractMessageId(_rowToMap(latestUnread)['id']);
+      final preview = _buildIncomingMessagePreview(latestUnread);
+      if (_appLifecycleState != AppLifecycleState.resumed &&
+          latestId != null &&
+          preview.isNotEmpty) {
+        NotificationService().showChatMessageNotification(
+          serviceId: widget.tripId,
+          messageId: latestId,
+          senderName: _passengerName ?? 'Nova mensagem',
+          message: preview.length > 120
+              ? '${preview.substring(0, 120)}...'
+              : preview,
+        );
+      }
+      if (latestId != null) {
+        _lastHandledIncomingMessageId = latestId;
+      }
+      return;
+    }
+
+    final latest = rows.first;
+    final latestId = _extractMessageId(_rowToMap(latest)['id']);
+    if (latestId == null || _lastHandledIncomingMessageId == latestId) return;
+
+    final latestMap = _rowToMap(latest);
+    final readAt = latestMap['read_at'] ?? latestMap['readAt'];
+    final senderId = latestMap['sender_id'];
+    final isOwn =
+        _myUserId != null && senderId != null && '$senderId' == '$_myUserId';
+    if (readAt != null || isOwn) {
+      _lastHandledIncomingMessageId = latestId;
+      return;
+    }
+
+    if (!_isChatOpen && mounted) {
+      setState(() => _isChatOpen = true);
+    }
+
+    final preview = _buildIncomingMessagePreview(latest);
+    if (_appLifecycleState != AppLifecycleState.resumed && preview.isNotEmpty) {
+      NotificationService().showChatMessageNotification(
+        serviceId: widget.tripId,
+        messageId: latestId,
+        senderName: _passengerName ?? 'Nova mensagem',
+        message: preview.length > 120
+            ? '${preview.substring(0, 120)}...'
+            : preview,
+      );
+    }
+
+    unawaited(DataGateway().markChatMessageRead(latestId));
+    _lastHandledIncomingMessageId = latestId;
+  }
+
+  Map<String, dynamic> _rowToMap(dynamic row) {
+    if (row is Map) {
+      return Map<String, dynamic>.from(row);
+    }
+    return <String, dynamic>{};
+  }
+
+  bool _isIncomingUnread(dynamic row) {
+    final map = _rowToMap(row);
+    final readAt = map['read_at'] ?? map['readAt'];
+    if (readAt != null) return false;
+    final senderId = map['sender_id'];
+    if (_myUserId != null && senderId != null && '$senderId' == '$_myUserId') {
+      return false;
+    }
+    return true;
+  }
+
+  int? _extractMessageId(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  Future<void> _markChatMessagesRead(List<dynamic> rows) async {
+    for (final row in rows) {
+      final rowMap = _rowToMap(row);
+      final messageId = _extractMessageId(rowMap['id']);
+      if (messageId != null) {
+        await DataGateway().markChatMessageRead(messageId);
+      }
+    }
+  }
+
+  double _chatPanelHeight(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    final deviceHeight =
+        media.size.height - media.padding.top - media.padding.bottom - keyboard;
+    final maxHeight = (deviceHeight - 28).clamp(320.0, deviceHeight * 0.96);
+    final minHeight = (deviceHeight * 0.62).clamp(320.0, maxHeight);
+    final boundedCount = _chatMessageCount.clamp(0, 28);
+    final growth = (boundedCount * 20.0).clamp(0.0, maxHeight - minHeight);
+    final fallback = (minHeight + growth).clamp(minHeight, maxHeight);
+    double baseHeight;
+    if (_panelMeasuredHeight > 0) {
+      baseHeight = _panelMeasuredHeight.clamp(minHeight, maxHeight);
+    } else {
+      baseHeight = fallback;
+    }
+
+    if (_isChatOpen) {
+      final inlineHeight = _inlineChatHeight(context);
+      // Add extra space for spacing/margins between the inline chat and rest of panel
+      const extraSpacing = 32.0;
+      baseHeight = (baseHeight + inlineHeight + extraSpacing).clamp(
+        minHeight,
+        maxHeight,
+      );
+    }
+    return baseHeight;
+  }
+
+  double _collapsedPanelHeight(BuildContext context) {
+    final deviceHeight =
+        MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top;
+    return (deviceHeight * 0.42).clamp(320.0, 520.0).toDouble();
+  }
+
+  double _inlineChatHeight(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    final deviceHeight = media.size.height - media.padding.top - keyboard;
+    final maxHeight = (deviceHeight - 80).clamp(
+      280.0,
+      (deviceHeight * 0.85).clamp(300.0, 620.0),
+    );
+    final base = (deviceHeight * 0.34).clamp(240.0, maxHeight);
+    final boundedCount = _chatMessageCount.clamp(0, 26);
+    final growth = (boundedCount * 18.0).clamp(0.0, maxHeight - base);
+    return (base + growth).clamp(base, maxHeight);
+  }
+
+  void _schedulePanelMeasurement() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measurePanelHeight());
+  }
+
+  void _measurePanelHeight() {
+    if (!mounted) return;
+    final context = _panelContentKey.currentContext;
+    if (context == null) return;
+    final size = context.size?.height ?? 0;
+    if (size <= 0) return;
+    final total = size;
+    if ((_panelMeasuredHeight - total).abs() > 4) {
+      setState(() => _panelMeasuredHeight = total);
+    }
+  }
+
   String _buildIncomingMessagePreview(dynamic row) {
-    final map = row is Map ? Map<String, dynamic>.from(row) : <String, dynamic>{};
+    final map = row is Map
+        ? Map<String, dynamic>.from(row)
+        : <String, dynamic>{};
     final type = (map['type'] ?? 'text').toString();
     final content = (map['content'] ?? '').toString().trim();
     if (content.isEmpty) return '';
@@ -182,33 +359,6 @@ class _DriverTripScreenState extends State<DriverTripScreen>
       } catch (_) {}
     }
     return content;
-  }
-
-  Future<void> _showIncomingChatAlert(int messageId, String message) async {
-    if (_isChatAlertVisible || !mounted) return;
-    _isChatAlertVisible = true;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => ChatQuickAlertModal(
-        senderName: _passengerName ?? 'Nova mensagem',
-        message: message,
-        onMarkRead: () async {
-          await DataGateway().markChatMessageRead(messageId);
-        },
-        onReply: (text) async {
-          await DataGateway().sendChatMessage(widget.tripId, text, 'text');
-          await DataGateway().markChatMessageRead(messageId);
-          if (mounted) setState(() => _isChatOpen = true);
-        },
-        onOpenChat: () {
-          if (mounted) setState(() => _isChatOpen = true);
-        },
-      ),
-    );
-
-    _isChatAlertVisible = false;
   }
 
   Future<void> _initDriver() async {
@@ -250,14 +400,23 @@ class _DriverTripScreenState extends State<DriverTripScreen>
   }
 
   void _startTracking() {
-    _locationTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    _locationTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_isSimulating) return;
 
       final loc = await ProviderLocationService.getCurrentLocation();
       if (loc != null && mounted && !_isDisposed) {
+        final rawLocation = ll.LatLng(loc.latitude, loc.longitude);
+        final nextLocation = _snapLocationToRoute(rawLocation);
+        final nextHeading = _resolveHeading(
+          previousLocation: _currentLocation,
+          newLocation: nextLocation,
+          gpsHeading: loc.heading,
+          speedMps: loc.speed,
+        );
+
         setState(() {
-          _currentLocation = ll.LatLng(loc.latitude, loc.longitude);
-          _currentHeading = loc.heading;
+          _currentLocation = nextLocation;
+          _currentHeading = nextHeading;
           _isLoading = false;
         });
 
@@ -273,8 +432,8 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                   ),
                 ),
                 zoom: 17.0,
-                bearing: (_isHeadingUp && loc.heading.isFinite)
-                    ? loc.heading
+                bearing: (_isHeadingUp && _currentHeading.isFinite)
+                    ? _currentHeading
                     : 0.0,
               ),
             );
@@ -287,6 +446,136 @@ class _DriverTripScreenState extends State<DriverTripScreen>
         }
       }
     });
+  }
+
+  double _driverMarkerHeading() {
+    // Quando o mapa já está em heading-up, a frente do carro deve ficar fixa para cima.
+    if (_isHeadingUp) return 0.0;
+    return _currentHeading;
+  }
+
+  List<ll.LatLng> _activeRouteForSnap() {
+    final status = (_tripData?['status'] ?? '').toString();
+    if (status == 'in_progress' && _destinationRoutePoints.isNotEmpty) {
+      return _destinationRoutePoints;
+    }
+    if (_routePoints.isNotEmpty) return _routePoints;
+    return _destinationRoutePoints;
+  }
+
+  double _snapMaxDistanceMeters() {
+    return _navigationProfile == NavigationProfile.highway ? 55.0 : 35.0;
+  }
+
+  ll.LatLng _snapLocationToRoute(ll.LatLng rawLocation) {
+    final route = _activeRouteForSnap();
+    if (route.length < 2) return rawLocation;
+
+    ll.LatLng? bestPoint;
+    double bestDistance = double.infinity;
+
+    for (int i = 0; i < route.length - 1; i++) {
+      final a = route[i];
+      final b = route[i + 1];
+      final projected = _projectPointToSegment(rawLocation, a, b);
+      final distance = geo.Geolocator.distanceBetween(
+        rawLocation.latitude,
+        rawLocation.longitude,
+        projected.latitude,
+        projected.longitude,
+      );
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestPoint = projected;
+      }
+    }
+
+    if (bestPoint == null || bestDistance > _snapMaxDistanceMeters()) {
+      return rawLocation;
+    }
+    return bestPoint;
+  }
+
+  ll.LatLng _projectPointToSegment(ll.LatLng p, ll.LatLng a, ll.LatLng b) {
+    final ax = a.longitude;
+    final ay = a.latitude;
+    final bx = b.longitude;
+    final by = b.latitude;
+    final px = p.longitude;
+    final py = p.latitude;
+
+    final abx = bx - ax;
+    final aby = by - ay;
+    final ab2 = abx * abx + aby * aby;
+    if (ab2 == 0) return a;
+
+    final apx = px - ax;
+    final apy = py - ay;
+    final t = ((apx * abx + apy * aby) / ab2).clamp(0.0, 1.0);
+
+    return ll.LatLng(ay + aby * t, ax + abx * t);
+  }
+
+  double _resolveHeading({
+    required ll.LatLng? previousLocation,
+    required ll.LatLng newLocation,
+    required double? gpsHeading,
+    required double speedMps,
+  }) {
+    _maybeSwitchNavigationProfile(speedMps.isFinite ? speedMps : 0.0);
+    final course = previousLocation == null
+        ? null
+        : NavigationMath.courseBetween(
+            from: previousLocation,
+            to: newLocation,
+            minDistanceMeters: _tuning.courseMinDistanceMeters,
+          );
+    final normalizedGps = _normalizedHeadingOrNull(gpsHeading);
+    final validSpeed = speedMps.isFinite ? speedMps : 0.0;
+    final preferCourse =
+        validSpeed >= _tuning.courseSpeedThresholdMps || course != null;
+    final target = preferCourse
+        ? (course ?? normalizedGps)
+        : (normalizedGps ?? course);
+
+    if (target == null) return _currentHeading;
+
+    final base = _currentHeading.isFinite
+        ? _currentHeading
+        : NavigationMath.normalizeDegrees(target);
+    final alpha = validSpeed >= 8.0
+        ? _tuning.headingSmoothingFast
+        : (validSpeed >= 3.0
+              ? _tuning.headingSmoothingCruise
+              : _tuning.headingSmoothingLowSpeed);
+    return NavigationMath.lerpAngleDegrees(base, target, alpha);
+  }
+
+  double? _normalizedHeadingOrNull(double? heading) {
+    if (heading == null || !heading.isFinite || heading < 0) return null;
+    return NavigationMath.normalizeDegrees(heading);
+  }
+
+  void _maybeSwitchNavigationProfile(double speedMps) {
+    if (!_autoNavigationProfile) return;
+
+    if (_navigationProfile == NavigationProfile.urban &&
+        speedMps >= _tuning.highwayEnterSpeedMps) {
+      _setNavigationProfile(NavigationProfile.highway);
+      return;
+    }
+    if (_navigationProfile == NavigationProfile.highway &&
+        speedMps <= _tuning.highwayExitSpeedMps) {
+      _setNavigationProfile(NavigationProfile.urban);
+    }
+  }
+
+  void _setNavigationProfile(NavigationProfile profile) {
+    if (_navigationProfile == profile) return;
+    _navigationProfile = profile;
+    _tuning = profile == NavigationProfile.urban
+        ? NavigationTuning.urban
+        : NavigationTuning.highway;
   }
 
   Future<void> _updatePixelPositions() async {
@@ -389,8 +678,8 @@ class _DriverTripScreenState extends State<DriverTripScreen>
 
         final dynamic status = _tripData?['status'];
         final routeColor = (status == 'in_progress')
-            ? Colors.blueAccent.value
-            : Colors.green.value;
+            ? Colors.blueAccent.toARGB32()
+            : Colors.green.toARGB32();
 
         await _polylineAnnotationManager!.create(
           PolylineAnnotationOptions(
@@ -507,7 +796,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                 border: Border.all(color: Colors.grey.shade200),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                   ),
                 ],
@@ -611,7 +900,6 @@ class _DriverTripScreenState extends State<DriverTripScreen>
         UberService().stopRouteSimulation();
         _simulationSubscription?.cancel();
         _isSimulating = false;
-        _simulationIndex = 0;
       }
     });
 
@@ -638,7 +926,6 @@ class _DriverTripScreenState extends State<DriverTripScreen>
       _simulationSubscription?.cancel();
       setState(() {
         _isSimulating = false;
-        _simulationIndex = 0;
       });
       ScaffoldMessenger.of(
         context,
@@ -676,9 +963,16 @@ class _DriverTripScreenState extends State<DriverTripScreen>
         index,
       ) {
         if (mounted) {
+          final nextLocation = pointsToSimulate[index];
+          final nextHeading = _resolveHeading(
+            previousLocation: _currentLocation,
+            newLocation: nextLocation,
+            gpsHeading: null,
+            speedMps: 8.0,
+          );
           setState(() {
-            _simulationIndex = index;
-            _currentLocation = pointsToSimulate[index];
+            _currentLocation = nextLocation;
+            _currentHeading = nextHeading;
           });
           // Opcional: mover mapa para a nova posição do simulador
           if (_mapboxMap != null) {
@@ -691,6 +985,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                   ),
                 ),
                 zoom: 17.0, // Fixed zoom or retrieve current
+                bearing: _isHeadingUp ? _currentHeading : 0.0,
               ),
             );
           }
@@ -705,12 +1000,20 @@ class _DriverTripScreenState extends State<DriverTripScreen>
 
   @override
   Widget build(BuildContext context) {
+    _schedulePanelMeasurement();
     return Scaffold(
-      body: StreamBuilder<Map<String, dynamic>>(
+      body: StreamBuilder<Map<String, dynamic>?>(
         stream: _uberService.watchTrip(widget.tripId),
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data == null) {
+            _handleMissingTrip();
+            return const SizedBox.shrink();
+          }
 
           if (_tripData != snapshot.data) {
             _tripData = snapshot.data;
@@ -746,6 +1049,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
 
           // Se a viagem foi cancelada pelo passageiro
           if (status == 'cancelled') {
+            final router = GoRouter.of(context);
             Future.microtask(() {
               if (mounted) {
                 final hadArrived = _tripData?['arrived_at'] != null;
@@ -753,8 +1057,8 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                     ? AppConfigService().cancellationFee
                     : 0.0;
 
-                context.go(
-                  '/uber-driver-home',
+                router.go(
+                  '/uber-driver',
                   extra: {
                     'cancellationMessage': 'O passageiro cancelou a corrida.',
                     'cancellationFee': fee,
@@ -975,7 +1279,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                         left: _carPixelPosition!.dx - 30, // Centro
                         top: _carPixelPosition!.dy - 30, // Centro
                         child: PremiumDriverMarker(
-                          heading: _currentHeading,
+                          heading: _driverMarkerHeading(),
                           isMoto: _isMoto,
                           size: 44,
                         ),
@@ -999,10 +1303,10 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                         16,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         border: Border(
                           bottom: BorderSide(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                           ),
                         ),
                       ),
@@ -1035,23 +1339,11 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                       }
                     }),
                     const SizedBox(height: 16),
-                    _buildMapControl(LucideIcons.navigation2, () {
-                      if (_isMapReady &&
-                          _currentLocation != null &&
-                          _mapboxMap != null) {
-                        _mapboxMap!.setCamera(
-                          CameraOptions(
-                            center: Point(
-                              coordinates: Position(
-                                _currentLocation!.longitude,
-                                _currentLocation!.latitude,
-                              ),
-                            ),
-                            zoom: 17.0,
-                          ),
-                        );
-                      }
-                    }, color: AppTheme.primaryYellow),
+                    _buildMapControl(
+                      LucideIcons.navigation2,
+                      () => _openExternalNavigation(),
+                      color: AppTheme.primaryYellow,
+                    ),
                     const SizedBox(height: 8),
                     // BOTÃO DE BÚSSOLA (HEADING UP)
                     _buildMapControl(
@@ -1087,83 +1379,106 @@ class _DriverTripScreenState extends State<DriverTripScreen>
               // PANEL: PASSENGER & ACTIONS (BOTTOM SHEET STITCH)
               Align(
                 alignment: Alignment.bottomCenter,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
-                  width: double.infinity,
-                  height: _isChatOpen
-                      ? (MediaQuery.of(context).size.height -
-                            MediaQuery.of(context).padding.top -
-                            12)
-                      : null,
-                  padding: EdgeInsets.fromLTRB(
-                    _isChatOpen ? 4 : 24,
-                    12,
-                    _isChatOpen ? 4 : 24,
-                    _isChatOpen ? 8 : 40,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(32),
-                    ),
-                    boxShadow: kIsWeb
-                        ? []
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                    border: Border.all(color: Colors.black.withOpacity(0.05)),
-                  ),
-                  child: Column(
-                    mainAxisSize: _isChatOpen ? MainAxisSize.max : MainAxisSize.min,
-                    children: [
-                      // Handle
-                      Container(
-                        width: 40,
-                        height: 5,
-                        margin: const EdgeInsets.only(bottom: 24),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2.5),
+                child: SafeArea(
+                  top: false,
+                  left: false,
+                  right: false,
+                  bottom: true,
+                  child: Transform.translate(
+                    offset: Offset(0, _isChatOpen ? -14 : -6),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      width: double.infinity,
+                      height: _isChatOpen
+                          ? _chatPanelHeight(context)
+                          : _collapsedPanelHeight(context),
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        12,
+                        24,
+                        16 + MediaQuery.of(context).padding.bottom,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(32),
+                        ),
+                        boxShadow: kIsWeb
+                            ? []
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                        border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.05),
                         ),
                       ),
-
-                      if (_isChatOpen)
-                        Expanded(
-                          child: ChatScreen(
-                            serviceId: widget.tripId,
-                            otherName: _passengerName ?? 'Passageiro',
-                            otherAvatar: _tripData?['client_avatar'],
-                            isInline: true,
-                            onClose: () {
-                              debugPrint('[DriverTripScreen] Chat onClose called');
-                              setState(() => _isChatOpen = false);
-                            },
+                      child: Column(
+                        key: _panelContentKey,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Handle
+                          Container(
+                            width: 40,
+                            height: 5,
+                            margin: const EdgeInsets.only(bottom: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(2.5),
+                            ),
                           ),
-                        )
-                      else ...[
-                        // Passenger Info Section
-                        _buildPassengerInfoStitch(),
-
-                        const SizedBox(height: 24),
-
-                        // Address Card Detail
-                        _buildAddressDetailCard(
-                          status,
-                          pickupAddress,
-                          dropoffAddress,
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Action Button
-                        _buildActionPanelStitch(status),
-                      ],
-                    ],
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.only(
+                                bottom:
+                                    12 + MediaQuery.of(context).padding.bottom,
+                              ),
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Passenger Info Section
+                                  _buildPassengerInfoStitch(),
+                                  const SizedBox(height: 24),
+                                  // Address Card Detail
+                                  _buildAddressDetailCard(
+                                    status,
+                                    pickupAddress,
+                                    dropoffAddress,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  // Action Button
+                                  _buildActionPanelStitch(status),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_isChatOpen) ...[
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: _inlineChatHeight(context),
+                              child: ChatScreen(
+                                serviceId: widget.tripId,
+                                otherName: _passengerName ?? 'Passageiro',
+                                otherAvatar: _tripData?['client_avatar'],
+                                isInline: true,
+                                onClose: () {
+                                  debugPrint(
+                                    '[DriverTripScreen] Chat onClose called',
+                                  );
+                                  setState(() => _isChatOpen = false);
+                                },
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1204,6 +1519,33 @@ class _DriverTripScreenState extends State<DriverTripScreen>
     });
   }
 
+  Future<void> _openExternalNavigation({bool forceChooser = false}) async {
+    final status = (_tripData?['status'] ?? '').toString();
+    final isGoingToPickup = status == 'accepted' || status == 'arrived';
+    final targetLat = isGoingToPickup
+        ? _toDouble(_tripData?['pickup_lat'])
+        : _toDouble(_tripData?['dropoff_lat']);
+    final targetLon = isGoingToPickup
+        ? _toDouble(_tripData?['pickup_lon'])
+        : _toDouble(_tripData?['dropoff_lon']);
+
+    if (targetLat == 0 || targetLon == 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Destino da navegação indisponível')),
+        );
+      }
+      return;
+    }
+
+    await NavigationAppsHelper.openNavigation(
+      context,
+      lat: targetLat,
+      lon: targetLon,
+      forceChooser: forceChooser,
+    );
+  }
+
   Future<void> _makePhoneCall() async {
     // Para efeito de demonstração, mostra um alerta, já que não temos a dep de url_launcher instalada ou garantida
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1227,11 +1569,12 @@ class _DriverTripScreenState extends State<DriverTripScreen>
     }
 
     try {
-      final camera = await _mapboxMap!.cameraForCoordinates(
+      final camera = await _mapboxMap!.cameraForCoordinatesPadding(
         [
           Point(coordinates: Position(minLng, minLat)),
           Point(coordinates: Position(maxLng, maxLat)),
         ],
+        CameraOptions(),
         MbxEdgeInsets(top: 100.0, left: 50.0, bottom: 350.0, right: 50.0),
         null,
         null,
@@ -1248,7 +1591,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
         await _polylineAnnotationManager!.create(
           PolylineAnnotationOptions(
             geometry: LineString(coordinates: positions),
-            lineColor: Colors.blueAccent.value,
+            lineColor: Colors.blueAccent.toARGB32(),
             lineWidth: 5.0,
           ),
         );
@@ -1292,7 +1635,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -1314,7 +1657,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                   width: 1,
                   height: 10,
                   margin: const EdgeInsets.symmetric(horizontal: 6),
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
                 Text(
                   info,
@@ -1333,265 +1676,6 @@ class _DriverTripScreenState extends State<DriverTripScreen>
           color: markerColor,
           size: 40,
           type: isPickup ? SnapMarkerType.pickup : SnapMarkerType.destination,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPassengerInfo() {
-    return Row(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: AppTheme.backgroundLight,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Icon(
-            LucideIcons.user,
-            color: AppTheme.textDark,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _passengerName ?? 'Carregando...',
-                style: GoogleFonts.manrope(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textDark,
-                ),
-              ),
-              Text(
-                'Nota: 5.0 • Pagamento via App',
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (!_isChatOpen)
-          GestureDetector(
-            onTap: _openChat,
-            child: _buildCircleButton(LucideIcons.messageSquare, Colors.blue),
-          ),
-        if (!_isChatOpen) const SizedBox(width: 8),
-        GestureDetector(
-          onTap: _makePhoneCall,
-          child: _buildCircleButton(LucideIcons.phone, Colors.green),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCircleButton(IconData icon, Color color) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        shape: BoxShape.circle,
-      ),
-      child: Center(child: Icon(icon, color: color, size: 20)),
-    );
-  }
-
-  Widget _buildActionPanel(String status) {
-    if (status == 'arrived') {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'AGUARDANDO PASSAGEIRO',
-            style: GoogleFonts.manrope(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.textDark,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 58,
-            child: ElevatedButton(
-              onPressed: () => _updateStatus('in_progress'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.textDark,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(
-                'PASSAGEIRO EMBARCOU',
-                style: GoogleFonts.manrope(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () => _updateStatus('cancelled'),
-            child: Text(
-              'CANCELAR VIAGEM',
-              style: GoogleFonts.manrope(
-                color: AppTheme.textDark.withOpacity(0.6),
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    String buttonText = '';
-    String nextStatus = '';
-    Color buttonColor = AppTheme.textDark;
-    Color textColor = Colors.white;
-
-    if (status == 'accepted') {
-      buttonText = 'CHEGUEI AO LOCAL';
-      nextStatus = 'arrived';
-      buttonColor = Colors.blue.shade700;
-    } else if (status == 'in_progress') {
-      buttonText = 'FINALIZAR VIAGEM';
-      nextStatus = 'completed';
-      buttonColor = AppTheme.primaryYellow;
-      textColor = AppTheme.textDark;
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      height: 58,
-      child: ElevatedButton(
-        onPressed: () => _updateStatus(nextStatus),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
-          foregroundColor: textColor,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: Text(
-          buttonText,
-          style: GoogleFonts.manrope(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDriverMarker(String status) {
-    double rotationDegrees = _isHeadingUp ? 0 : 0;
-    final String distanceStr = _getFormattedDistance();
-    final String timeStr = _getFormattedTime();
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Bubble de Informação em Tempo Real
-        if (status == 'accepted' ||
-            status == 'arrived' ||
-            status == 'in_progress')
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryYellow,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: kIsWeb
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-              border: Border.all(color: Colors.white, width: 1.5),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  status == 'in_progress' ? 'Destino' : 'Passageiro',
-                  style: GoogleFonts.manrope(
-                    color: AppTheme.textDark,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      timeStr,
-                      style: GoogleFonts.manrope(
-                        color: AppTheme.textDark,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Container(
-                      width: 1,
-                      height: 8,
-                      color: AppTheme.textDark.withOpacity(0.2),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      distanceStr,
-                      style: GoogleFonts.manrope(
-                        color: AppTheme.textDark,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 4),
-        Transform.rotate(
-          angle: rotationDegrees * pi / 180,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryYellow,
-              shape: BoxShape.circle,
-              boxShadow: kIsWeb
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-              border: Border.all(color: Colors.white, width: 2.5),
-            ),
-            child: const Center(
-              child: Icon(LucideIcons.car, color: AppTheme.textDark, size: 22),
-            ),
-          ),
         ),
       ],
     );
@@ -1676,7 +1760,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
               ? []
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -1705,7 +1789,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                       )
                     : null,
                 border: Border.all(
-                  color: AppTheme.primaryYellow.withOpacity(0.3),
+                  color: AppTheme.primaryYellow.withValues(alpha: 0.3),
                   width: 3,
                 ),
               ),
@@ -1797,7 +1881,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: AppTheme.primaryYellow.withOpacity(0.1),
+          color: AppTheme.primaryYellow.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: AppTheme.textDark, size: 22),
@@ -1813,7 +1897,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundLight.withOpacity(0.5),
+        color: AppTheme.backgroundLight.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -1829,7 +1913,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryYellow.withOpacity(0.3),
+                      color: AppTheme.primaryYellow.withValues(alpha: 0.3),
                       blurRadius: 8,
                     ),
                   ],
@@ -1842,7 +1926,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                   gradient: LinearGradient(
                     colors: [
                       AppTheme.primaryYellow,
-                      AppTheme.primaryYellow.withOpacity(0),
+                      AppTheme.primaryYellow.withValues(alpha: 0),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1995,7 +2079,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryYellow.withOpacity(0.3),
+            color: AppTheme.primaryYellow.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -2039,7 +2123,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
           end: Alignment.bottomCenter,
           colors: [
             AppTheme.backgroundDark,
-            AppTheme.backgroundDark.withOpacity(0.95),
+            AppTheme.backgroundDark.withValues(alpha: 0.95),
             Colors.black,
           ],
         ),
@@ -2080,7 +2164,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white10),
               ),
@@ -2257,9 +2341,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
 
     if (mounted) setState(() => _isLoadingPix = true);
     try {
-      if (_driverPixKey == null) {
-        _driverPixKey = await _uberService.getDriverPixKey(driverId);
-      }
+      _driverPixKey ??= await _uberService.getDriverPixKey(driverId);
 
       final driverProfile = await _uberService.getUserProfile(driverId);
       final driverName = driverProfile?['full_name'] as String? ?? 'Motorista';
@@ -2372,7 +2454,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
                       color: Colors.white30,
                     ),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
+                    fillColor: Colors.white.withValues(alpha: 0.05),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -2462,8 +2544,8 @@ class _DriverTripScreenState extends State<DriverTripScreen>
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.primaryYellow.withOpacity(0.2)
-              : Colors.white.withOpacity(0.05),
+              ? AppTheme.primaryYellow.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? AppTheme.primaryYellow : Colors.white10,
@@ -2535,7 +2617,7 @@ class _DriverTripScreenState extends State<DriverTripScreen>
               ? []
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

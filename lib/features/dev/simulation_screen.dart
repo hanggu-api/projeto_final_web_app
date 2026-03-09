@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../services/api_service.dart';
+import '../../services/awesome_notification_service.dart';
 
 class SimulationScreen extends StatefulWidget {
   const SimulationScreen({super.key});
@@ -956,6 +958,35 @@ class _SimulationScreenState extends State<SimulationScreen> {
                 ElevatedButton(
                   onPressed: _testNotification,
                   child: const Text('🔔 Testar Notificação (Local)'),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    await AwesomeNotificationService.instance
+                        .requestPermissions();
+                    await AwesomeNotificationService.instance
+                        .showLocalSmokeTest();
+                  },
+                  child: const Text('✨ Testar Awesome (Local)'),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    await AwesomeNotificationService.instance
+                        .requestPermissions();
+                    await AwesomeNotificationService.instance
+                        .showPremiumDriverArrivedPreview();
+                  },
+                  child: const Text('🚕 Testar Motorista Chegou (Premium)'),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/face-validation-test'),
+                    icon: const Icon(Icons.face),
+                    label: const Text('Abrir teste de reconhecimento facial'),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 const Text(

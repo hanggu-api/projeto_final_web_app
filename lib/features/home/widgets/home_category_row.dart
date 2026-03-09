@@ -6,10 +6,7 @@ import '../../../core/theme/app_theme.dart';
 class HomeCategoryRow extends StatelessWidget {
   final Function(int) onCategoryTap;
 
-  const HomeCategoryRow({
-    super.key,
-    required this.onCategoryTap,
-  });
+  const HomeCategoryRow({super.key, required this.onCategoryTap});
 
   @override
   Widget build(BuildContext context) {
@@ -74,17 +71,15 @@ class HomeCategoryRow extends StatelessWidget {
               border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
               boxShadow: [
                 BoxShadow(
-                  color: (color ?? AppTheme.primaryYellow).withValues(alpha: 0.3),
+                  color: (color ?? AppTheme.primaryYellow).withValues(
+                    alpha: 0.3,
+                  ),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
               ],
             ),
-            child: Icon(
-              icon,
-              color: iconColor ?? AppTheme.textDark,
-              size: 24,
-            ),
+            child: Icon(icon, color: iconColor ?? AppTheme.textDark, size: 24),
           ),
           const SizedBox(height: 8),
           Text(

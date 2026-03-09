@@ -18,17 +18,20 @@ import '../../services/compass_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/app_config_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/navigation_apps_helper.dart';
 import './widgets/snap_pin_marker.dart';
 import './widgets/car_marker_widget.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   final String? cancellationMessage;
   final double? cancellationFee;
+  final Map<String, dynamic>? initialTripOffer;
 
   const DriverHomeScreen({
     super.key,
     this.cancellationMessage,
     this.cancellationFee,
+    this.initialTripOffer,
   });
 
   @override
@@ -78,6 +81,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     if (widget.cancellationMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showCancellationFeeNotice();
+      });
+    }
+
+    if (widget.initialTripOffer != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showNewTripRequest(widget.initialTripOffer!);
       });
     }
   }
@@ -473,12 +483,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       });
 
       // 🔔 DISPARAR NOTIFICAÇÃO LOCAL DE ALTA PRIORIDADE (SOM + BANNER)
-      unawaited(
-        NotificationService().showNotification(
-          '🔔 Nova Solicitação de Corrida!',
-          'Você tem uma nova oferta de R\$ ${trip['fare_estimated']?.toStringAsFixed(2) ?? '0.00'} aguardando.',
-        ),
-      );
+      unawaited(NotificationService().showUberTripOfferNotification(trip));
 
       _fetchProposalMetrics(trip);
 
@@ -613,9 +618,24 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     setState(() => _isLoading = true);
 
     try {
+      final pickupLat = double.tryParse(
+        _newTripRequest!['pickup_lat']?.toString() ?? '',
+      );
+      final pickupLon = double.tryParse(
+        _newTripRequest!['pickup_lon']?.toString() ?? '',
+      );
+
       await _uberService.acceptTrip(tripId, userId);
 
       ThemeService().setNavBarVisible(true);
+
+      if (pickupLat != null && pickupLon != null && mounted) {
+        await NavigationAppsHelper.openNavigation(
+          context,
+          lat: pickupLat,
+          lon: pickupLon,
+        );
+      }
 
       if (mounted) {
         context.go('/uber-driver-trip/$tripId');
@@ -669,7 +689,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                       urlTemplate:
                           'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${SupabaseConfig.mapboxToken}',
                       userAgentPackageName: 'com.play101.app',
-                      tileSize: 512,
+                      tileDimension: 512,
                       zoomOffset: -1,
                       maxZoom: 22,
                     ),
@@ -739,7 +759,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                                     borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         blurRadius: 8,
                                       ),
                                     ],
@@ -785,8 +807,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withOpacity(0.9),
-                    Colors.white.withOpacity(0.0),
+                    Colors.white.withValues(alpha: 0.9),
+                    Colors.white.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -802,7 +824,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -826,12 +848,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
                         ),
                       ],
-                      border: Border.all(color: Colors.black.withOpacity(0.05)),
+                      border: Border.all(
+                        color: Colors.black.withValues(alpha: 0.05),
+                      ),
                     ),
                     child: Text(
                       '101 Service',
@@ -853,7 +877,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -883,8 +907,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                 ),
                 decoration: BoxDecoration(
                   color: _isActive
-                      ? Colors.green.withOpacity(0.9)
-                      : Colors.grey.withOpacity(0.9),
+                      ? Colors.green.withValues(alpha: 0.9)
+                      : Colors.grey.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -940,6 +964,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                   }
                 }, isPrimary: true),
                 const SizedBox(height: 8),
+                _buildMapActionButton(LucideIcons.navigation, () {
+                  NavigationAppsHelper.choosePreferredNavigationApp(context);
+                }),
+                const SizedBox(height: 8),
                 // BOTÃO DE BÚSSOLA (HEADING UP)
                 _buildMapActionButton(LucideIcons.compass, () {
                   setState(() {
@@ -983,7 +1011,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                     boxShadow: [
                       BoxShadow(
                         color: (_isActive ? Colors.red : AppTheme.primaryYellow)
-                            .withOpacity(0.4),
+                            .withValues(alpha: 0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -1051,7 +1079,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 25,
               offset: const Offset(0, -10),
             ),
@@ -1089,7 +1117,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryYellow.withOpacity(0.1),
+                    color: AppTheme.primaryYellow.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Stack(
@@ -1321,7 +1349,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -1329,44 +1357,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         ),
         child: Icon(icon, color: AppTheme.textDark, size: 24),
       ),
-    );
-  }
-
-  Widget _buildMetric(
-    IconData icon,
-    String label,
-    String dist,
-    String time,
-    Color color,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(width: 6),
-            Text(
-              label.toUpperCase(),
-              style: GoogleFonts.manrope(
-                color: Colors.white54,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '$dist • $time',
-          style: GoogleFonts.manrope(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
     );
   }
 
@@ -1385,7 +1375,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             color: AppTheme.primaryYellow,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+              ),
             ],
           ),
           child: Text(

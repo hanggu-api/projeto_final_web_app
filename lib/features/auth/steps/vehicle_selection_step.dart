@@ -28,7 +28,7 @@ class VehicleSelectionStep extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
-        
+
         _buildOption(
           context,
           id: 1, // UberX / Carro Econômico
@@ -63,7 +63,9 @@ class VehicleSelectionStep extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryYellow.withValues(alpha: 0.15) : Colors.white,
+          color: isSelected
+              ? AppTheme.primaryYellow.withValues(alpha: 0.15)
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? AppTheme.primaryYellow : Colors.grey.shade200,
@@ -94,11 +96,7 @@ class VehicleSelectionStep extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                icon,
-                color: Colors.black87,
-                size: 30,
-              ),
+              child: Icon(icon, color: Colors.black87, size: 30),
             ),
             const SizedBox(width: 20),
             Expanded(
@@ -116,10 +114,7 @@ class VehicleSelectionStep extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black87,
-                    ),
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
                   ),
                 ],
               ),
@@ -131,11 +126,7 @@ class VehicleSelectionStep extends StatelessWidget {
                   color: AppTheme.primaryYellow,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.check,
-                  color: Colors.black87,
-                  size: 20,
-                ),
+                child: const Icon(Icons.check, color: Colors.black87, size: 20),
               ),
           ],
         ),

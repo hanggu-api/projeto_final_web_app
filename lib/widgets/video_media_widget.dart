@@ -107,7 +107,9 @@ class _VideoMediaWidgetState extends State<VideoMediaWidget> {
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
               child: const CameraModal(),
             ),
           ),

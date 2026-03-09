@@ -11,6 +11,7 @@ import 'package:service_101/services/api_service.dart';
 import 'package:service_101/services/payment_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:service_101/services/realtime_service.dart';
+import 'test_supabase_setup.dart';
 
 class RealHttpOverrides extends HttpOverrides {
   @override
@@ -35,8 +36,9 @@ void main() {
     // Configurar URL da API Local (Localhost)
     const String apiUrl = 'http://127.0.0.1:4011/api';
 
-    // Mocar SharedPreferences com a URL local
-    SharedPreferences.setMockInitialValues({'api_base_url': apiUrl});
+    await initializeSupabaseForTests(
+      initialPrefs: {'api_base_url': apiUrl},
+    );
 
     // Configurar usuário de teste
     final timestamp = DateTime.now().millisecondsSinceEpoch;

@@ -6,10 +6,9 @@ class CupertinoLoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Login iOS'),
-      ),
-      child: SafeArea( // Using SafeArea to avoid notch
+      navigationBar: const CupertinoNavigationBar(middle: Text('Login iOS')),
+      child: SafeArea(
+        // Using SafeArea to avoid notch
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
@@ -39,7 +38,10 @@ class CupertinoLoginScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 prefix: const Padding(
                   padding: EdgeInsets.only(left: 8),
-                  child: Icon(CupertinoIcons.mail, color: CupertinoColors.systemGrey),
+                  child: Icon(
+                    CupertinoIcons.mail,
+                    color: CupertinoColors.systemGrey,
+                  ),
                 ),
                 decoration: BoxDecoration(
                   color: CupertinoColors.extraLightBackgroundGray,
@@ -53,7 +55,10 @@ class CupertinoLoginScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 prefix: const Padding(
                   padding: EdgeInsets.only(left: 8),
-                  child: Icon(CupertinoIcons.lock, color: CupertinoColors.systemGrey),
+                  child: Icon(
+                    CupertinoIcons.lock,
+                    color: CupertinoColors.systemGrey,
+                  ),
                 ),
                 decoration: BoxDecoration(
                   color: CupertinoColors.extraLightBackgroundGray,

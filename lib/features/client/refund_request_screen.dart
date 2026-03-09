@@ -26,7 +26,7 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
   final _commentController = TextEditingController();
   final List<XFile> _attachments = [];
   final ImagePicker _picker = ImagePicker();
-  
+
   // Audio
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -74,8 +74,12 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
 
   Future<void> _showAudioRecorderDialog() async {
     if (_recordedAudioPath != null) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Você já gravou um áudio. Remova o anterior para gravar novo.')),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Você já gravou um áudio. Remova o anterior para gravar novo.',
+          ),
+        ),
       );
       return;
     }
@@ -86,14 +90,14 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
       builder: (ctx) => _AudioRecorderSheet(
         recorder: _audioRecorder,
         onCustomRecordingComplete: (path) {
-           setState(() {
-             _recordedAudioPath = path;
-             _attachments.add(XFile(path));
-           });
-           Navigator.pop(ctx);
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Áudio anexado com sucesso!')),
-           );
+          setState(() {
+            _recordedAudioPath = path;
+            _attachments.add(XFile(path));
+          });
+          Navigator.pop(ctx);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Áudio anexado com sucesso!')),
+          );
         },
       ),
     );
@@ -140,7 +144,9 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
               maxLines: 5,
               decoration: InputDecoration(
                 hintText: 'Descreva detalhadamente o motivo...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -165,13 +171,13 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
                   () => _pickImage(ImageSource.gallery),
                 ),
                 _buildMediaButton(
-                  LucideIcons.mic, 
-                  'Áudio', 
+                  LucideIcons.mic,
+                  'Áudio',
                   _showAudioRecorderDialog,
                 ),
               ],
             ),
-            
+
             if (_attachments.isNotEmpty) ...[
               const SizedBox(height: 24),
               const Text(
@@ -184,11 +190,14 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _attachments.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 12),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final file = _attachments[index];
-                    final isAudio = file.path.endsWith('.m4a') || file.path.endsWith('.aac'); // Simple check
-                    
+                    final isAudio =
+                        file.path.endsWith('.m4a') ||
+                        file.path.endsWith('.aac'); // Simple check
+
                     return Stack(
                       children: [
                         Container(
@@ -198,21 +207,32 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
                             borderRadius: BorderRadius.circular(12),
                             color: Colors.grey[100],
                             border: Border.all(color: Colors.grey[300]!),
-                            image: !isAudio ? DecorationImage(
-                              image: FileImage(File(file.path)),
-                              fit: BoxFit.cover,
-                            ) : null,
+                            image: !isAudio
+                                ? DecorationImage(
+                                    image: FileImage(File(file.path)),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                           ),
-                          child: isAudio ? const Center(
-                             child: Column(
-                               mainAxisSize: MainAxisSize.min,
-                               children: [
-                                 Icon(LucideIcons.mic, color: Colors.blue, size: 32),
-                                 SizedBox(height: 4),
-                                 Text('Áudio', style: TextStyle(fontSize: 10)),
-                               ],
-                             ),
-                           ) : null,
+                          child: isAudio
+                              ? const Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        LucideIcons.mic,
+                                        color: Colors.blue,
+                                        size: 32,
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Áudio',
+                                        style: TextStyle(fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : null,
                         ),
                         Positioned(
                           top: 4,
@@ -251,7 +271,9 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
                   if (_commentController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Por favor, descreva o motivo da solicitação.'),
+                        content: Text(
+                          'Por favor, descreva o motivo da solicitação.',
+                        ),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -277,7 +299,7 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
                   ),
                 ),
                 child: const Text(
-                  'ENVIAR SOLICITAÇÃO', 
+                  'ENVIAR SOLICITAÇÃO',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
@@ -304,7 +326,10 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
             child: Icon(icon, color: AppTheme.primaryPurple, size: 28),
           ),
           const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );
@@ -315,7 +340,10 @@ class _AudioRecorderSheet extends StatefulWidget {
   final AudioRecorder recorder;
   final Function(String path) onCustomRecordingComplete;
 
-  const _AudioRecorderSheet({required this.recorder, required this.onCustomRecordingComplete});
+  const _AudioRecorderSheet({
+    required this.recorder,
+    required this.onCustomRecordingComplete,
+  });
 
   @override
   State<_AudioRecorderSheet> createState() => _AudioRecorderSheetState();
@@ -329,25 +357,26 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
     super.initState();
     _start();
   }
-  
+
   Future<void> _start() async {
     if (await widget.recorder.hasPermission()) {
       final dir = await getTemporaryDirectory();
-      _tempPath = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      
+      _tempPath =
+          '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
       await widget.recorder.start(const RecordConfig(), path: _tempPath!);
       setState(() {});
     } else {
-       if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
     }
   }
 
   Future<void> _stop() async {
-     final path = await widget.recorder.stop();
-     setState(() {});
-     if (path != null) {
-       widget.onCustomRecordingComplete(path);
-     }
+    final path = await widget.recorder.stop();
+    setState(() {});
+    if (path != null) {
+      widget.onCustomRecordingComplete(path);
+    }
   }
 
   @override
@@ -367,21 +396,23 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
           ),
           const SizedBox(height: 32),
           Container(
-             width: 80,
-             height: 80,
-             decoration: BoxDecoration(
-               color: Colors.red.withValues(alpha: 0.1),
-               shape: BoxShape.circle,
-             ),
-             child: const Icon(LucideIcons.mic, color: Colors.red, size: 40),
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(LucideIcons.mic, color: Colors.red, size: 40),
           ),
           const SizedBox(height: 32),
           ElevatedButton(
-            onPressed: _stop, 
+            onPressed: _stop,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             ),
             child: const Text('PARAR E SALVAR'),

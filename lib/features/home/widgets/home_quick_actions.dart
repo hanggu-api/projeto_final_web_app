@@ -27,7 +27,10 @@ class HomeQuickActions extends StatelessWidget {
             color: AppTheme.primaryYellow,
             onTap: onTripTap,
             isBig: true,
-            customIcons: const ['assets/icons/036-car.png', 'assets/icons/034-motorbike.png'],
+            customIcons: const [
+              'assets/icons/036-car.png',
+              'assets/icons/034-motorbike.png',
+            ],
           ),
           HomeSuggestionCard(
             label: 'Serviço',

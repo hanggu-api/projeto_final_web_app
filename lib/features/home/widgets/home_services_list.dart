@@ -40,14 +40,16 @@ class HomeServicesList extends StatelessWidget {
         return ServiceCard(
           key: ValueKey(service['id']?.toString() ?? index.toString()),
           status: service['status'] ?? 'pending',
-          providerName: service['provider_name'] ?? 
-                        service['providers']?['users']?['full_name'] ?? 
-                        'Aguardando...',
+          providerName:
+              service['provider_name'] ??
+              service['providers']?['users']?['full_name'] ??
+              'Aguardando...',
           distance: '---',
-          category: service['profession'] ?? 
-                    service['category_name'] ?? 
-                    service['description'] ?? 
-                    'Serviço',
+          category:
+              service['profession'] ??
+              service['category_name'] ??
+              service['description'] ??
+              'Serviço',
           details: service,
           onRefreshNeeded: onRefreshNeeded,
           onTrack: () {

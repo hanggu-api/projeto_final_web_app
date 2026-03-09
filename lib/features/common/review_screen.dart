@@ -21,14 +21,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _serviceDetails;
   final List<String> _selectedTags = [];
-  
+
   final List<String> _availableTags = [
     'Carro limpo',
     'Ótima conversa',
     'Direção segura',
     'Educado',
     'Excelente serviço',
-    'No horário'
+    'No horário',
   ];
 
   @override
@@ -84,7 +84,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
         final errorStr = e.toString();
         if (errorStr.contains('409')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Avaliação já enviada anteriormente!')),
+            const SnackBar(
+              content: Text('Avaliação já enviada anteriormente!'),
+            ),
           );
           context.go('/');
         } else {
@@ -102,9 +104,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final driverName = _serviceDetails?['provider_name'] ?? 
-                      _serviceDetails?['providers']?['users']?['full_name'] ?? 
-                      'o motorista';
+    final driverName =
+        _serviceDetails?['provider_name'] ??
+        _serviceDetails?['providers']?['users']?['full_name'] ??
+        'o motorista';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -148,7 +151,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -165,7 +168,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       color: AppTheme.primaryYellow,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(LucideIcons.user, size: 30, color: AppTheme.textDark),
+                    child: const Icon(
+                      LucideIcons.user,
+                      size: 30,
+                      color: AppTheme.textDark,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -193,9 +200,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 40),
-            
+
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
@@ -205,7 +212,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Icon(
-                      isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                      isSelected
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
                       color: isSelected ? Colors.amber : Colors.grey.shade300,
                       size: 50,
                     ),
@@ -213,9 +222,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 );
               }),
             ),
-            
+
             const SizedBox(height: 40),
-            
+
             if (_rating > 0) ...[
               Text(
                 'O que mais você gostou?',
@@ -243,12 +252,17 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       });
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected ? AppTheme.primaryBlue : Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade300,
+                          color: isSelected
+                              ? AppTheme.primaryBlue
+                              : Colors.grey.shade300,
                         ),
                       ),
                       child: Text(
@@ -265,7 +279,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               ),
               const SizedBox(height: 32),
             ],
-            
+
             TextField(
               controller: _commentController,
               maxLines: 4,
@@ -281,9 +295,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 contentPadding: const EdgeInsets.all(16),
               ),
             ),
-            
+
             const SizedBox(height: 40),
-            
+
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -292,7 +306,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryBlue,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   elevation: 0,
                 ),
                 child: _isLoading

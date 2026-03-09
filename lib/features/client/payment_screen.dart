@@ -27,10 +27,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   late double _amount;
   late String _paymentType; // 'deposit' or 'remaining'
   double _totalAmount = 0.0;
-  String? _userPhone;
-  String? _serviceType;
   double _depositAmount = 0.0;
-  
+
   // Card Brand Logic
   String _cardBrand = 'credit_card';
   String? _userEmail;
@@ -52,14 +50,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (profile['success'] == true && profile['user'] != null) {
         setState(() {
           _userEmail = profile['user']['email'];
-          _userPhone = profile['user']['phone'];
           // Pre-fill CPF if available in profile
           if (profile['user']['document_value'] != null) {
-            _docNumberController.text = _cpfMaskFormatter.maskText(profile['user']['document_value']);
+            _docNumberController.text = _cpfMaskFormatter.maskText(
+              profile['user']['document_value'],
+            );
           }
         });
       }
-      
+
       final dId = await _paymentService.getDeviceId();
       setState(() => _deviceId = dId);
     } catch (e) {
@@ -92,18 +91,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
         final method = data['initialMethod'].toString();
         if (method == 'pix' || method == 'credit') {
           _selectedMethod = method;
-        }
-      }
-      _serviceType = data['serviceType']?.toString();
-      final String? prof = data['professionName']?.toString().toLowerCase();
-      if (prof != null) {
-        if (prof.contains('barbeiro') ||
-            prof.contains('cabeleireiro') ||
-            prof.contains('manicure') ||
-            prof.contains('dentista') ||
-            prof.contains('médic') ||
-            prof.contains('esteticista')) {
-          _serviceType = 'at_provider';
         }
       }
       _providerName = data['providerName']?.toString();
@@ -296,9 +283,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               'email': _userEmail ?? 'usuario@exemplo.com',
               'identification': {
                 'type': 'CPF',
-                'number': _docNumberController.text.replaceAll(RegExp(r'\D'), ''),
-              }
-            }
+                'number': _docNumberController.text.replaceAll(
+                  RegExp(r'\D'),
+                  '',
+                ),
+              },
+            },
           );
 
           // After successful payment, we might need to tell the service logic "Hey, remaining paid".
@@ -323,9 +313,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               'email': _userEmail ?? 'usuario@exemplo.com',
               'identification': {
                 'type': 'CPF',
-                'number': _docNumberController.text.replaceAll(RegExp(r'\D'), ''),
-              }
-            }
+                'number': _docNumberController.text.replaceAll(
+                  RegExp(r'\D'),
+                  '',
+                ),
+              },
+            },
           );
         }
 
@@ -334,7 +327,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           if (_paymentType == 'remaining') {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Pagamento restante realizado! Redirecionando...'),
+                content: Text(
+                  'Pagamento restante realizado! Redirecionando...',
+                ),
                 backgroundColor: Colors.green,
                 duration: Duration(seconds: 3),
               ),
@@ -342,7 +337,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             // Wait 3 seconds before redirecting
             await Future.delayed(const Duration(seconds: 3));
             if (mounted) {
-               context.go('/home'); // Force go to home to clear stack
+              context.go('/home'); // Force go to home to clear stack
             }
           } else {
             context.go('/confirmation');
@@ -377,8 +372,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             'identification': {
               'type': 'CPF',
               'number': _docNumberController.text.replaceAll(RegExp(r'\D'), ''),
-            }
-          }
+            },
+          },
         );
 
         // Se tiver dados do Pix (QR Code), poderíamos passar para a próxima tela
@@ -389,7 +384,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         if (paymentData != null) {
           final poi = paymentData['point_of_interaction'];
           final txData = poi?['transaction_data'];
-          
+
           final qrCode = txData?['qr_code'];
           final qrCodeBase64 = txData?['qr_code_base64'];
 
@@ -409,9 +404,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
               if (_paymentType == 'remaining') {
                 await ApiService().payRemainingService(_serviceId);
                 if (mounted) {
-                   ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Pagamento Pix confirmado! Redirecionando...'),
+                      content: Text(
+                        'Pagamento Pix confirmado! Redirecionando...',
+                      ),
                       backgroundColor: Colors.green,
                       duration: Duration(seconds: 3),
                     ),
@@ -469,7 +466,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Pagamento', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Pagamento',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Theme.of(context).primaryColor,
         elevation: 0,
         leading: IconButton(
@@ -503,7 +503,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   const SizedBox(height: 24),
                   const Text(
                     'Escolha o método',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _buildMethodCard(
@@ -551,7 +555,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             Text(
               _providerName ?? 'Busca Automática (plataforma)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black,
+              ),
             ),
           ],
         ),
@@ -740,7 +748,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(LucideIcons.checkCircle, color: Colors.black, size: 20),
+              const Icon(
+                LucideIcons.checkCircle,
+                color: Colors.black,
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -766,7 +778,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         children: [
           const Text(
             'Valor da Entrada',
-            style: TextStyle(color: Colors.black54, fontSize: 14, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Colors.black54,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -847,7 +863,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
               children: [
                 const Text(
                   'Valor Restante',
-                  style: TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 Text(
                   'R\$ ${remaining.toStringAsFixed(2).replaceAll('.', ',')}',

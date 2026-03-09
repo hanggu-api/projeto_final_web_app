@@ -28,14 +28,15 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
   Uint8List? _avatarBytes;
   String? _userName;
   int? _currentUserId;
-  final int _unreadCount = 0;
-  
+
   // Schedule State
   List<Map<String, dynamic>> _slots = [];
   Timer? _slotRefreshTimer;
   StreamSubscription? _realtimeSub;
   bool _loadingSlots = true;
-  DateTime _selectedDate = DateTime.now().toUtc().subtract(const Duration(hours: 3));
+  DateTime _selectedDate = DateTime.now().toUtc().subtract(
+    const Duration(hours: 3),
+  );
 
   // Notification State
   final ValueNotifier<List<Map<String, dynamic>>> _notificationsVN =
@@ -44,7 +45,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
   @override
   void initState() {
     super.initState();
-    _checkLocationPermission(); 
+    _checkLocationPermission();
     _loadData();
     _setupRealtimeListener();
   }
@@ -54,7 +55,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
     _slotRefreshTimer?.cancel();
     _realtimeSub?.cancel();
     _notificationsVN.dispose();
-    RealtimeService().stopLocationUpdates(); 
+    RealtimeService().stopLocationUpdates();
     super.dispose();
   }
 
@@ -62,15 +63,15 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
     _realtimeSub = RealtimeService().eventsStream.listen((event) {
       final type = event['type'];
       // Listen for various events that should refresh the schedule
-      if (type == 'payment_confirmed' || 
-          type == 'service_accepted' || 
-          type == 'schedule_update' || 
+      if (type == 'payment_confirmed' ||
+          type == 'service_accepted' ||
+          type == 'schedule_update' ||
           type == 'service.status' ||
           type == 'client.arrived' ||
           type == 'client.departing' ||
           type == 'client.departed') {
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Agenda atualizada! 📅'),
               backgroundColor: Colors.green,
@@ -87,7 +88,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
-      
+
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -128,7 +129,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
             _currentUserId = userId;
             // Authenticate socket for chat/events
             RealtimeService().authenticate(userId);
-            
+
             // Fixed provider: Ensure tracking is OFF
             RealtimeService().stopLocationUpdates();
 
@@ -148,8 +149,9 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
     if (_currentUserId == null) return;
     try {
       if (_slots.isEmpty) setState(() => _loadingSlots = true);
-      final dateStr = "${displayDate.year}-${displayDate.month.toString().padLeft(2, '0')}-${displayDate.day.toString().padLeft(2, '0')}";
-      
+      final dateStr =
+          "${displayDate.year}-${displayDate.month.toString().padLeft(2, '0')}-${displayDate.day.toString().padLeft(2, '0')}";
+
       final slots = await _api.getProviderSlots(_currentUserId!, date: dateStr);
       if (mounted) {
         setState(() {
@@ -184,9 +186,9 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar status: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao atualizar status: $e')));
     }
   }
 
@@ -196,9 +198,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
       backgroundColor: Colors.grey[50],
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverToBoxAdapter(
-            child: _buildHeader(context),
-          ),
+          SliverToBoxAdapter(child: _buildHeader(context)),
         ],
         body: Column(
           children: [
@@ -206,23 +206,24 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () => _loadSchedule(_selectedDate),
-                child: _loadingSlots 
-                  ? Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 1.4,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
+                child: _loadingSlots
+                    ? Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 1.4,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                          itemCount: 12,
+                          itemBuilder: (context, index) => const BaseSkeleton(),
                         ),
-                        itemCount: 12,
-                        itemBuilder: (context, index) => const BaseSkeleton(),
-                      ),
-                    )
-                  : _buildScheduleGrid(),
+                      )
+                    : _buildScheduleGrid(),
               ),
             ),
           ],
@@ -233,12 +234,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(
-        top: 60,
-        left: 24,
-        right: 24,
-        bottom: 32,
-      ),
+      padding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 32),
       decoration: BoxDecoration(
         color: AppTheme.primaryYellow,
         borderRadius: const BorderRadius.only(
@@ -312,49 +308,65 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: Supabase.instance.client.auth.currentUser?.id != null
-                        ? DataGateway().watchNotifications(Supabase.instance.client.auth.currentUser!.id)
+                    stream:
+                        Supabase.instance.client.auth.currentUser?.id != null
+                        ? DataGateway().watchNotifications(
+                            Supabase.instance.client.auth.currentUser!.id,
+                          )
                         : const Stream.empty(),
                     builder: (context, snapshot) {
-                        final notifications = snapshot.data ?? [];
-                        final unreadCount = notifications.where((n) => n['read'] != true && n['is_read'] != true).length;
+                      final notifications = snapshot.data ?? [];
+                      final unreadCount = notifications
+                          .where(
+                            (n) => n['read'] != true && n['is_read'] != true,
+                          )
+                          .length;
 
-                        return Stack(
-                          alignment: Alignment.topRight,
-                          children: [
-                            IconButton(
-                              icon: const Icon(LucideIcons.bell, color: Colors.black87),
-                              onPressed: () async {
-                                  await context.push('/notifications');
-                                  // Refresh manual data if needed, but stream updates automatically
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
+                      return Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              LucideIcons.bell,
+                              color: Colors.black87,
                             ),
-                            if (unreadCount > 0)
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
+                            onPressed: () async {
+                              await context.push('/notifications');
+                              // Refresh manual data if needed, but stream updates automatically
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          if (unreadCount > 0)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  unreadCount > 9
+                                      ? '9+'
+                                      : unreadCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 16,
-                                    minHeight: 16,
-                                  ),
-                                  child: Text(
-                                    unreadCount > 9 ? '9+' : unreadCount.toString(),
-                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.center,
-                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
-                          ],
-                        );
-                    }
+                            ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(width: 12),
                   const Text(
@@ -367,11 +379,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
               const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    LucideIcons.wallet,
-                    color: Colors.black87,
-                    size: 20,
-                  ),
+                  Icon(LucideIcons.wallet, color: Colors.black87, size: 20),
                   SizedBox(width: 8),
                   Text(
                     'R\$ 0,00',
@@ -422,9 +430,10 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
 
   Widget _buildTodayTabButton() {
     final nowBr = DateTime.now().toUtc().subtract(const Duration(hours: 3));
-    final isSelected = _selectedDate.day == nowBr.day && 
-                      _selectedDate.month == nowBr.month && 
-                      _selectedDate.year == nowBr.year;
+    final isSelected =
+        _selectedDate.day == nowBr.day &&
+        _selectedDate.month == nowBr.month &&
+        _selectedDate.year == nowBr.year;
 
     return Container(
       width: 120,
@@ -452,12 +461,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
               ),
             ),
           ),
-          if (isSelected)
-            Container(
-              height: 2,
-              width: 50,
-              color: Colors.black,
-            ),
+          if (isSelected) Container(height: 2, width: 50, color: Colors.black),
         ],
       ),
     );
@@ -472,14 +476,17 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
         itemCount: 14,
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final nowBr = DateTime.now().toUtc().subtract(const Duration(hours: 3));
+          final nowBr = DateTime.now().toUtc().subtract(
+            const Duration(hours: 3),
+          );
           final date = nowBr.add(Duration(days: index + 1));
-          final isSelected = date.day == _selectedDate.day && 
-                            date.month == _selectedDate.month &&
-                            date.year == _selectedDate.year;
-          
+          final isSelected =
+              date.day == _selectedDate.day &&
+              date.month == _selectedDate.month &&
+              date.year == _selectedDate.year;
+
           final dayName = index == 0 ? "Amanhã" : _getDayName(date.weekday);
-          
+
           return Center(
             child: InkWell(
               onTap: () {
@@ -492,10 +499,14 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                 width: 75,
                 height: 75,
                 decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey[50],
+                  color: isSelected
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey[50],
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey[200]!,
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey[200]!,
                     width: 1,
                   ),
                 ),
@@ -551,8 +562,8 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
             const Icon(LucideIcons.calendarX, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              _slots.isEmpty 
-                  ? "Nenhum horário configurado." 
+              _slots.isEmpty
+                  ? "Nenhum horário configurado."
                   : "Não há mais horários para hoje.",
               style: const TextStyle(color: Colors.grey, fontSize: 16),
             ),
@@ -578,8 +589,10 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
     // Sort slots by time
     final sortedSlots = List<Map<String, dynamic>>.from(filteredSlots);
     sortedSlots.sort((a, b) {
-      final t1 = DateTime.tryParse(a['start_time'].toString()) ?? DateTime.now();
-      final t2 = DateTime.tryParse(b['start_time'].toString()) ?? DateTime.now();
+      final t1 =
+          DateTime.tryParse(a['start_time'].toString()) ?? DateTime.now();
+      final t2 =
+          DateTime.tryParse(b['start_time'].toString()) ?? DateTime.now();
       return t1.compareTo(t2);
     });
 
@@ -598,17 +611,19 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
 
         final start = DateTime.parse(slot['start_time']).toUtc();
         final end = DateTime.parse(slot['end_time']).toUtc();
-        final isCurrent = nowUtc.isAfter(start.subtract(const Duration(minutes: 1))) && 
-                          nowUtc.isBefore(end);
-        
+        final isCurrent =
+            nowUtc.isAfter(start.subtract(const Duration(minutes: 1))) &&
+            nowUtc.isBefore(end);
+
         final nowBr = nowUtc.subtract(const Duration(hours: 3));
-        final isFixedDayToday = _selectedDate.day == nowBr.day && 
-                               _selectedDate.month == nowBr.month && 
-                               _selectedDate.year == nowBr.year;
+        final isFixedDayToday =
+            _selectedDate.day == nowBr.day &&
+            _selectedDate.month == nowBr.month &&
+            _selectedDate.year == nowBr.year;
         final isActuallyNow = isCurrent && isFixedDayToday;
 
         // Default Style (Free/Available) - Now Light Gray with No Border
-        Color borderColor = Colors.transparent; 
+        Color borderColor = Colors.transparent;
         Color textColor = Colors.black87; // Darker text for contrast on gray
         Color bgColor = Colors.grey[100]!; // Light Gray Background
         Color timeColor = Colors.black;
@@ -623,7 +638,7 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
             timeColor = Colors.white;
             statusLabel = 'Chegou';
           } else {
-            borderColor = const Color(0xFFE65100); 
+            borderColor = const Color(0xFFE65100);
             textColor = Colors.white;
             bgColor = const Color(0xFFEF6C00);
             timeColor = Colors.white;
@@ -632,11 +647,12 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
         } else if (status == 'busy') {
           // Busy/Blocked
           borderColor = Colors.transparent;
-          textColor = Colors.blue[700]!; // Keep blue text to distinguish? Or Gray?
-          // User asked to remove blue border. 
+          textColor =
+              Colors.blue[700]!; // Keep blue text to distinguish? Or Gray?
+          // User asked to remove blue border.
           // Let's keep a distinct background or text for Blocked?
           // For now, let's make it similar to free but maybe darker gray or keep blue text.
-          bgColor = Colors.blue[50]!; 
+          bgColor = Colors.blue[50]!;
           statusLabel = 'Bloqueado';
         } else if (status == 'lunch') {
           borderColor = const Color(0xFFFF9800);
@@ -664,7 +680,9 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: borderColor,
-                width: isActuallyNow ? 2.5 : (borderColor == Colors.transparent ? 0 : 1.5),
+                width: isActuallyNow
+                    ? 2.5
+                    : (borderColor == Colors.transparent ? 0 : 1.5),
               ),
               boxShadow: [
                 ...RemoteThemeService().getShadow(),
@@ -680,9 +698,12 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  slot['start_time'].toString().contains('T') 
-                    ? slot['start_time'].toString().split('T')[1].substring(0, 5)
-                    : "${DateTime.parse(slot['start_time']).hour.toString().padLeft(2, '0')}:${DateTime.parse(slot['start_time']).minute.toString().padLeft(2, '0')}",
+                  slot['start_time'].toString().contains('T')
+                      ? slot['start_time']
+                            .toString()
+                            .split('T')[1]
+                            .substring(0, 5)
+                      : "${DateTime.parse(slot['start_time']).hour.toString().padLeft(2, '0')}:${DateTime.parse(slot['start_time']).minute.toString().padLeft(2, '0')}",
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
@@ -712,14 +733,18 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: Colors.transparent, // Transparent to let Container handle styling
+        backgroundColor:
+            Colors.transparent, // Transparent to let Container handle styling
         insetPadding: const EdgeInsets.all(20),
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.black, width: 0.5), // Thin black border
+            border: Border.all(
+              color: Colors.black,
+              width: 0.5,
+            ), // Thin black border
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.2),
@@ -765,54 +790,83 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
               Center(
                 child: Text(
                   slot['client_name'] ?? 'Cliente',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
-              _buildDetailRow(LucideIcons.briefcase, 'Serviço', slot['service_profession'] ?? 'Serviço'),
+              _buildDetailRow(
+                LucideIcons.briefcase,
+                'Serviço',
+                slot['service_profession'] ?? 'Serviço',
+              ),
               if (slot['service_description'] != null)
-                 Padding(
-                    padding: const EdgeInsets.only(left: 32, bottom: 12),
-                    child: Text(slot['service_description'], style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                 ),
-              
+                Padding(
+                  padding: const EdgeInsets.only(left: 32, bottom: 12),
+                  child: Text(
+                    slot['service_description'],
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                ),
+
               // Preço Detalhado
               if (slot['price_total'] != null) ...[
-                _buildDetailRow(LucideIcons.banknote, 'Valor Total (100%)', "R\$ ${double.tryParse(slot['price_total'].toString())?.toStringAsFixed(2).replaceAll('.', ',') ?? '0,00'}"),
-                if (slot['price_paid'] != null && double.parse(slot['price_paid'].toString()) > 0)
-                  _buildDetailRow(LucideIcons.checkCircle2, 'Pago (Entrada 30%)', "R\$ ${double.tryParse(slot['price_paid'].toString())?.toStringAsFixed(2).replaceAll('.', ',') ?? '0,00'}", color: Colors.green[600]),
-                
                 _buildDetailRow(
-                  LucideIcons.alertCircle, 
-                  'A Pagar (Restante 70%)', 
-                  "R\$ ${( (double.tryParse(slot['price_total'].toString()) ?? 0) - (double.tryParse(slot['price_paid']?.toString() ?? '0') ?? 0) ).toStringAsFixed(2).replaceAll('.', ',')}",
-                  color: Colors.orange[800]
+                  LucideIcons.banknote,
+                  'Valor Total (100%)',
+                  "R\$ ${double.tryParse(slot['price_total'].toString())?.toStringAsFixed(2).replaceAll('.', ',') ?? '0,00'}",
+                ),
+                if (slot['price_paid'] != null &&
+                    double.parse(slot['price_paid'].toString()) > 0)
+                  _buildDetailRow(
+                    LucideIcons.checkCircle2,
+                    'Pago (Entrada 30%)',
+                    "R\$ ${double.tryParse(slot['price_paid'].toString())?.toStringAsFixed(2).replaceAll('.', ',') ?? '0,00'}",
+                    color: Colors.green[600],
+                  ),
+
+                _buildDetailRow(
+                  LucideIcons.alertCircle,
+                  'A Pagar (Restante 70%)',
+                  "R\$ ${((double.tryParse(slot['price_total'].toString()) ?? 0) - (double.tryParse(slot['price_paid']?.toString() ?? '0') ?? 0)).toStringAsFixed(2).replaceAll('.', ',')}",
+                  color: Colors.orange[800],
                 ),
               ],
 
-              _buildDetailRow(LucideIcons.clock, 'Horário', "${slot['start_time'].toString().substring(11, 16)} - ${slot['end_time'].toString().substring(11, 16)}"),
+              _buildDetailRow(
+                LucideIcons.clock,
+                'Horário',
+                "${slot['start_time'].toString().substring(11, 16)} - ${slot['end_time'].toString().substring(11, 16)}",
+              ),
               const SizedBox(height: 24),
               Column(
                 children: [
-                   SizedBox(
+                  SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                         Navigator.pop(context);
-                         if (slot['service_id'] != null) {
-                           context.push(
-                             '/chat/${slot['service_id']}', 
-                             extra: {
-                               'otherName': slot['client_name'],
-                               'otherAvatar': slot['client_avatar'],
-                               'serviceId': slot['service_id'].toString(), // Ensure string
-                             }
-                           );
-                         } else {
-                           ScaffoldMessenger.of(context).showSnackBar(
-                             const SnackBar(content: Text("Erro: ID do serviço não encontrado."))
-                           );
-                         }
+                        Navigator.pop(context);
+                        if (slot['service_id'] != null) {
+                          context.push(
+                            '/chat/${slot['service_id']}',
+                            extra: {
+                              'otherName': slot['client_name'],
+                              'otherAvatar': slot['client_avatar'],
+                              'serviceId': slot['service_id']
+                                  .toString(), // Ensure string
+                            },
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "Erro: ID do serviço não encontrado.",
+                              ),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF007AFF), // Blue color
@@ -827,15 +881,18 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                       label: const Text(
                         'Enviar mensagem para o cliente',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                  
+
                   // Botão Confirmar Pagamento Manual (Rosa/Magenta)
                   // Mostra o botão se o serviço existe e não está finalizado nem cancelado
-                  if (slot['service_id'] != null && 
-                      slot['service_status'] != 'completed' && 
+                  if (slot['service_id'] != null &&
+                      slot['service_status'] != 'completed' &&
                       slot['service_status'] != 'cancelled')
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -847,12 +904,22 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                               context: context,
                               builder: (ctx) => AlertDialog(
                                 title: const Text('Finalizar Serviço?'),
-                                content: const Text('Isso marcará o serviço como finalizado com sucesso e o pagamento total como recebido (incluindo o restante de 70%).'),
+                                content: const Text(
+                                  'Isso marcará o serviço como finalizado com sucesso e o pagamento total como recebido (incluindo o restante de 70%).',
+                                ),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
                                   TextButton(
-                                    onPressed: () => Navigator.pop(ctx, true), 
-                                    child: const Text('Confirmar', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text(
+                                      'Confirmar',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -860,23 +927,31 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
 
                             if (confirm == true && mounted) {
                               try {
-                                await ApiService().confirmPaymentManual(slot['service_id'].toString());
+                                await ApiService().confirmPaymentManual(
+                                  slot['service_id'].toString(),
+                                );
                                 if (!context.mounted) return;
-                                
-                                Navigator.pop(context); // Fecha o modal de detalhes
-                                _loadSchedule(_selectedDate); // Recarrega a agenda
+
+                                Navigator.pop(
+                                  context,
+                                ); // Fecha o modal de detalhes
+                                _loadSchedule(
+                                  _selectedDate,
+                                ); // Recarrega a agenda
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Serviço finalizado com sucesso! ✅'), 
-                                    backgroundColor: Colors.green
+                                    content: Text(
+                                      'Serviço finalizado com sucesso! ✅',
+                                    ),
+                                    backgroundColor: Colors.green,
                                   ),
                                 );
                               } catch (e) {
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Erro ao finalizar: $e'), 
-                                    backgroundColor: Colors.red
+                                    content: Text('Erro ao finalizar: $e'),
+                                    backgroundColor: Colors.red,
                                   ),
                                 );
                               }
@@ -894,12 +969,15 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                           icon: const Icon(LucideIcons.checkCircle2, size: 20),
                           label: const Text(
                             'Finalizar e Confirmar Recebimento',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  
+
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
@@ -911,9 +989,12 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(color: Colors.grey[300]!),
-                        )
+                        ),
                       ),
-                      child: const Text('Fechar', style: TextStyle(fontSize: 16)),
+                      child: const Text(
+                        'Fechar',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ),
                   ),
                 ],
@@ -925,7 +1006,12 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value, {Color? color}) {
+  Widget _buildDetailRow(
+    IconData icon,
+    String label,
+    String value, {
+    Color? color,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -937,12 +1023,18 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(value, style: TextStyle(
-                  fontSize: 15, 
-                  fontWeight: FontWeight.w500,
-                  color: color ?? Colors.black87,
-                )),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: color ?? Colors.black87,
+                  ),
+                ),
               ],
             ),
           ),
@@ -953,14 +1045,22 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed> {
 
   String _getDayName(int weekday) {
     switch (weekday) {
-      case 1: return "Seg";
-      case 2: return "Ter";
-      case 3: return "Qua";
-      case 4: return "Qui";
-      case 5: return "Sex";
-      case 6: return "Sáb";
-      case 7: return "Dom";
-      default: return "";
+      case 1:
+        return "Seg";
+      case 2:
+        return "Ter";
+      case 3:
+        return "Qua";
+      case 4:
+        return "Qui";
+      case 5:
+        return "Sex";
+      case 6:
+        return "Sáb";
+      case 7:
+        return "Dom";
+      default:
+        return "";
     }
   }
 }

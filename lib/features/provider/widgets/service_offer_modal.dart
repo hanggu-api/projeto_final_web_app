@@ -37,7 +37,8 @@ class ServiceOfferModal extends StatefulWidget {
   State<ServiceOfferModal> createState() => _ServiceOfferModalState();
 }
 
-class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindingObserver {
+class _ServiceOfferModalState extends State<ServiceOfferModal>
+    with WidgetsBindingObserver {
   final _api = ApiService();
   final MapController _mapController = MapController();
 
@@ -59,13 +60,11 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
   String? _loadingAudioKey;
   Duration _audioDuration = Duration.zero;
   Duration _audioPosition = Duration.zero;
-  
+
   // Timer for auto-close (30 seconds)
   Timer? _autoCloseTimer;
   int _secondsRemaining = 30;
   bool _hasResponded = false;
-
-
 
   // Notification Sound Player
   final AudioPlayer _notificationPlayer = AudioPlayer();
@@ -96,9 +95,9 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
 
     // ✅ REGISTRAR DELIVERED IMEDIATAMENTE AO ABRIR O MODAL (FOREGROUND)
     _api.logServiceEvent(
-      widget.serviceId, 
-      'DELIVERED', 
-      'Offer Modal Opened (Foreground)'
+      widget.serviceId,
+      'DELIVERED',
+      'Offer Modal Opened (Foreground)',
     );
 
     _serviceData = widget.initialData;
@@ -111,18 +110,21 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
     }
     _setupAudioPlayer();
     _startAutoCloseTimer();
-    
+
     // Keep screen on
     WakelockPlus.enable();
-    
+
     // Monitor backgrounding
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      debugPrint('🚨 [ServiceOfferModal] App minimized during offer. Triggering auto-skip.');
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      debugPrint(
+        '🚨 [ServiceOfferModal] App minimized during offer. Triggering auto-skip.',
+      );
       _handleBackgroundSkip();
     }
   }
@@ -130,10 +132,10 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
   Future<void> _handleBackgroundSkip() async {
     if (_hasResponded) return;
     _hasResponded = true;
-    
+
     // Notify backend and close modal
     await _api.rejectService(widget.serviceId);
-    
+
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();
       widget.onRejected?.call();
@@ -159,21 +161,25 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
     if (_hasResponded) return;
     _hasResponded = true;
 
-    debugPrint('⏱️ [ServiceOfferModal] Offer timed out. Closing modal locally.');
-    
+    debugPrint(
+      '⏱️ [ServiceOfferModal] Offer timed out. Closing modal locally.',
+    );
+
     // REMOVED: await _api.post('/services/${widget.serviceId}/skip', {});
-    // Reason: Backend Alarm handles the timeout. Sending skip here cancels the alarm 
+    // Reason: Backend Alarm handles the timeout. Sending skip here cancels the alarm
     // and causes immediate re-dispatch (spam).
-    
+
     // --- Log REJECTED Event (Audit v11) ---
     try {
       await _api.logServiceEvent(
-        widget.serviceId, 
-        'REJECTED', 
-        'Offer Modal - Timeout (Auto-Close)'
+        widget.serviceId,
+        'REJECTED',
+        'Offer Modal - Timeout (Auto-Close)',
       );
     } catch (e) {
-      debugPrint('⚠️ [ServiceOfferModal] Erro ao registrar REJECTED no timeout: $e');
+      debugPrint(
+        '⚠️ [ServiceOfferModal] Erro ao registrar REJECTED no timeout: $e',
+      );
     }
 
     if (mounted) {
@@ -187,7 +193,10 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
       await _notificationPlayer.setReleaseMode(ReleaseMode.loop);
       // Ensure source is set before playing for stability
       await _notificationPlayer.setSource(AssetSource('sounds/chamado.mp3'));
-      await _notificationPlayer.play(AssetSource('sounds/chamado.mp3'), volume: 1.0);
+      await _notificationPlayer.play(
+        AssetSource('sounds/chamado.mp3'),
+        volume: 1.0,
+      );
     } catch (e) {
       debugPrint('🚨 [ServiceOfferModal] Error playing notification sound: $e');
     }
@@ -197,17 +206,17 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
   void dispose() {
     _notificationPlayer.stop(); // Ensure sound stops when modal closes
     _notificationPlayer.dispose();
-    
+
     _autoCloseTimer?.cancel();
     _videoController?.dispose();
     _audioPlayer.dispose();
-    
+
     // Release screen lock
     WakelockPlus.disable();
-    
+
     // Remove background observer
     WidgetsBinding.instance.removeObserver(this);
-    
+
     super.dispose();
   }
 
@@ -251,18 +260,23 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
       if (provLat == 0 || provLon == 0) {
         // Fallback: Get current location if not in payload
         try {
-          debugPrint('📍 [ServiceOfferModal] Finding precise location for route...');
+          debugPrint(
+            '📍 [ServiceOfferModal] Finding precise location for route...',
+          );
           // ✅ Usar apenas lastKnownPosition com timeout curto para não travar o modal
           Position? pos = await Geolocator.getLastKnownPosition(
-            forceAndroidLocationManager: true, // Garante mais rapidez no Android
+            forceAndroidLocationManager:
+                true, // Garante mais rapidez no Android
           );
-          
+
           if (pos != null) {
             provLat = pos.latitude;
             provLon = pos.longitude;
           }
         } catch (e) {
-          debugPrint('⚠️ [ServiceOfferModal] Could not get GPS for route: $e. Using destination only.');
+          debugPrint(
+            '⚠️ [ServiceOfferModal] Could not get GPS for route: $e. Using destination only.',
+          );
         }
       }
 
@@ -415,7 +429,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
 
   Future<void> _acceptService() async {
     if (_hasResponded) return;
-    
+
     // ✅ PARAR SOM IMEDIATAMENTE
     _notificationPlayer.stop();
 
@@ -429,20 +443,24 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
 
     try {
       debugPrint('ServiceOfferModal: Calling API acceptService...');
-      
+
       // ✅ REGISTRAR ACCEPTED ANTES DA CHAMADA DA API (Feedback imediato para o Maestro parar o ciclo)
-      await _api.logServiceEvent(serviceId, 'ACCEPTED', 'Offer Modal - User Tapped Accept');
-      
-      await _api.acceptService(serviceId); 
-      
+      await _api.logServiceEvent(
+        serviceId,
+        'ACCEPTED',
+        'Offer Modal - User Tapped Accept',
+      );
+
+      await _api.acceptService(serviceId);
+
       debugPrint('ServiceOfferModal: API acceptService success!');
       _hasResponded = true;
-      
+
       // Stop persistent notifications & clear status bar
       final ns = NotificationService();
       ns.stopPersistentNotification(serviceId);
       await ns.cancelAll();
-      
+
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop(); // Close modal
         ScaffoldMessenger.of(context).showSnackBar(
@@ -484,19 +502,23 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
 
     if (confirm == true) {
       _hasResponded = true;
-      
+
       // ✅ PARAR SOM IMEDIATAMENTE
       _notificationPlayer.stop();
 
       try {
-        await _api.rejectService(serviceId); 
-        
+        await _api.rejectService(serviceId);
+
         // --- Log REJECTED Event (Audit v11) ---
-         _api.logServiceEvent(serviceId, 'REJECTED', 'Offer Modal - User Tapped Reject');
+        _api.logServiceEvent(
+          serviceId,
+          'REJECTED',
+          'Offer Modal - User Tapped Reject',
+        );
 
         // Stop persistent notifications
         NotificationService().stopPersistentNotification(serviceId);
-        
+
         if (mounted) {
           Navigator.of(context, rootNavigator: true).pop();
           widget.onRejected?.call();
@@ -609,12 +631,15 @@ class _ServiceOfferModalState extends State<ServiceOfferModal> with WidgetsBindi
                           ),
                           Text(
                             'Responda rápido!',
-                            style: TextStyle(color: Colors.black87, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
                     ),
-const SizedBox.shrink(),
+                    const SizedBox.shrink(),
                   ],
                 ),
               ),
@@ -653,9 +678,9 @@ const SizedBox.shrink(),
                                       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
                                   subdomains: const ['a', 'b', 'c', 'd'],
                                   userAgentPackageName: 'com.play101.app',
-                    tileSize: 512,
-                    zoomOffset: -1,
-                    maxZoom: 22,
+                                  tileDimension: 512,
+                                  zoomOffset: -1,
+                                  maxZoom: 22,
                                 ),
                                 PolylineLayer(
                                   polylines: [
@@ -704,9 +729,19 @@ const SizedBox.shrink(),
                         children: [
                           Expanded(
                             child: () {
-                              final double upfront = double.tryParse(s['price_upfront']?.toString() ?? '0') ?? 0;
-                              final double net = double.tryParse(s['provider_amount']?.toString() ?? s['price']?.toString() ?? '0') ?? 0;
-                              
+                              final double upfront =
+                                  double.tryParse(
+                                    s['price_upfront']?.toString() ?? '0',
+                                  ) ??
+                                  0;
+                              final double net =
+                                  double.tryParse(
+                                    s['provider_amount']?.toString() ??
+                                        s['price']?.toString() ??
+                                        '0',
+                                  ) ??
+                                  0;
+
                               return _buildStatItem(
                                 LucideIcons.wallet,
                                 'Seu Ganho Líquido',
@@ -715,8 +750,8 @@ const SizedBox.shrink(),
                                 textColor: Colors.black,
                                 backgroundColor: const Color(0xFFFFD700),
                                 valueFontSize: 28,
-                                subtitle: upfront > 0 
-                                    ? 'Entrada: R\$ ${upfront.toStringAsFixed(2)}' 
+                                subtitle: upfront > 0
+                                    ? 'Entrada: R\$ ${upfront.toStringAsFixed(2)}'
                                     : 'Aguardando Início',
                                 subtitleIcon: LucideIcons.checkCircle,
                               );
@@ -732,8 +767,10 @@ const SizedBox.shrink(),
                               textColor: Colors.black, // Black text
                               backgroundColor: Colors.white,
                               valueFontSize: 16,
-                              subtitle: _routeDuration.isNotEmpty && _routeDuration != '--' 
-                                  ? 'Tempo: $_routeDuration' 
+                              subtitle:
+                                  _routeDuration.isNotEmpty &&
+                                      _routeDuration != '--'
+                                  ? 'Tempo: $_routeDuration'
                                   : null,
                               subtitleIcon: LucideIcons.clock,
                             ),
@@ -785,8 +822,10 @@ const SizedBox.shrink(),
                                 fit: BoxFit.cover,
                                 memCacheWidth: 200,
                                 maxWidthDiskCache: 400,
-                                placeholder: (context, url) => BaseSkeleton(width: 80, height: 80),
-                                errorWidget: (context, url, error) => const Icon(Icons.error),
+                                placeholder: (context, url) =>
+                                    BaseSkeleton(width: 80, height: 80),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(Icons.error),
                               ),
                             ),
                           ),
@@ -824,7 +863,10 @@ const SizedBox.shrink(),
                               onPressed: _rejectService,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.black,
-                                side: const BorderSide(color: Colors.black, width: 2),
+                                side: const BorderSide(
+                                  color: Colors.black,
+                                  width: 2,
+                                ),
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),
@@ -842,7 +884,8 @@ const SizedBox.shrink(),
                                 _acceptService();
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue[600], // Premium Blue
+                                backgroundColor:
+                                    Colors.blue[600], // Premium Blue
                                 foregroundColor: Colors.white, // White text
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
@@ -852,7 +895,9 @@ const SizedBox.shrink(),
                               ),
                               child: Container(
                                 height: 56,
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 child: Stack(
                                   alignment: Alignment.center,
                                   children: [
@@ -920,7 +965,7 @@ const SizedBox.shrink(),
   }) {
     final effectiveTextColor = textColor ?? color;
     final effectiveBgColor = backgroundColor ?? color.withValues(alpha: 0.1);
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -935,7 +980,10 @@ const SizedBox.shrink(),
             children: [
               Icon(icon, size: 14, color: effectiveTextColor),
               const SizedBox(width: 4),
-              Text(label, style: TextStyle(color: effectiveTextColor, fontSize: 12)),
+              Text(
+                label,
+                style: TextStyle(color: effectiveTextColor, fontSize: 12),
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -951,21 +999,25 @@ const SizedBox.shrink(),
             const SizedBox(height: 4),
             Row(
               children: [
-                 if (subtitleIcon != null) ...[
-                   Icon(subtitleIcon, size: 12, color: effectiveTextColor.withValues(alpha: 0.8)),
-                   const SizedBox(width: 4),
-                 ],
-                 Text(
-                   subtitle,
-                   style: TextStyle(
-                     color: effectiveTextColor.withValues(alpha: 0.8),
-                     fontSize: 12,
-                     fontWeight: FontWeight.w500
-                   ),
-                 ),
+                if (subtitleIcon != null) ...[
+                  Icon(
+                    subtitleIcon,
+                    size: 12,
+                    color: effectiveTextColor.withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: effectiveTextColor.withValues(alpha: 0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
-            )
-          ]
+            ),
+          ],
         ],
       ),
     );
@@ -1009,4 +1061,3 @@ const SizedBox.shrink(),
     );
   }
 }
-

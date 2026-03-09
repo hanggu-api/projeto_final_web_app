@@ -49,7 +49,9 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+        ),
       ),
       child: Column(
         children: [
@@ -69,11 +71,15 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
                           color: AppTheme.primaryYellow.withValues(alpha: 0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
-                        )
+                        ),
                       ],
                     ),
                     transform: Matrix4.rotationZ(-0.05),
-                    child: const Icon(LucideIcons.wrench, color: AppTheme.textDark, size: 22),
+                    child: const Icon(
+                      LucideIcons.wrench,
+                      color: AppTheme.textDark,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -108,7 +114,11 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
                   color: AppTheme.backgroundLight,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(LucideIcons.user, color: AppTheme.textMuted, size: 20),
+                child: const Icon(
+                  LucideIcons.user,
+                  color: AppTheme.textMuted,
+                  size: 20,
+                ),
               ),
             ],
           ),
@@ -117,8 +127,15 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Qual serviço você procura?',
-              hintStyle: GoogleFonts.manrope(color: Colors.grey.shade400, fontWeight: FontWeight.w600),
-              prefixIcon: const Icon(LucideIcons.search, color: Colors.grey, size: 20),
+              hintStyle: GoogleFonts.manrope(
+                color: Colors.grey.shade400,
+                fontWeight: FontWeight.w600,
+              ),
+              prefixIcon: const Icon(
+                LucideIcons.search,
+                color: Colors.grey,
+                size: 20,
+              ),
               filled: true,
               fillColor: AppTheme.backgroundLight.withValues(alpha: 0.5),
               border: OutlineInputBorder(
@@ -143,11 +160,19 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             children: [
               Text(
                 'Serviços Fixos',
-                style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textDark,
+                ),
               ),
               Text(
                 'Ver todos',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.primaryYellow),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryYellow,
+                ),
               ),
             ],
           ),
@@ -184,7 +209,7 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -199,8 +224,23 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             child: Icon(icon, color: AppTheme.textDark, size: 24),
           ),
           const SizedBox(height: 12),
-          Text(label, style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.textDark)),
-          Text('FIXA', style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w800, color: AppTheme.primaryYellow, letterSpacing: 1)),
+          Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textDark,
+            ),
+          ),
+          Text(
+            'FIXA',
+            style: GoogleFonts.manrope(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.primaryYellow,
+              letterSpacing: 1,
+            ),
+          ),
         ],
       ),
     );
@@ -217,11 +257,19 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             children: [
               Text(
                 'Serviços Móveis',
-                style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textDark,
+                ),
               ),
               Text(
                 'Ver todos',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.primaryYellow),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryYellow,
+                ),
               ),
             ],
           ),
@@ -243,12 +291,20 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
     );
   }
 
-  Widget _buildMobileCard(String label, IconData icon, {bool hasHighlight = false}) {
+  Widget _buildMobileCard(
+    String label,
+    IconData icon, {
+    bool hasHighlight = false,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF101622),
         borderRadius: BorderRadius.circular(20),
-        border: hasHighlight ? Border(bottom: BorderSide(color: AppTheme.primaryYellow, width: 2)) : null,
+        border: hasHighlight
+            ? Border(
+                bottom: BorderSide(color: AppTheme.primaryYellow, width: 2),
+              )
+            : null,
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -266,7 +322,12 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
           Text(
             label.toUpperCase(),
             textAlign: TextAlign.center,
-            style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1),
+            style: GoogleFonts.manrope(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: 1,
+            ),
           ),
         ],
       ),
@@ -281,7 +342,11 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
         children: [
           Text(
             'Profissionais Próximos',
-            style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+            style: GoogleFonts.manrope(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textDark,
+            ),
           ),
           const SizedBox(height: 16),
           _buildProviderCard(
@@ -304,7 +369,13 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
     );
   }
 
-  Widget _buildProviderCard(String title, String rating, String location, String status, String avatar) {
+  Widget _buildProviderCard(
+    String title,
+    String rating,
+    String location,
+    String status,
+    String avatar,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -316,7 +387,7 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 15,
             offset: const Offset(0, 5),
-          )
+          ),
         ],
       ),
       child: Row(
@@ -326,7 +397,10 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             height: 80,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              image: DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover),
+              image: DecorationImage(
+                image: NetworkImage(avatar),
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -337,18 +411,39 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(title, style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textDark)),
+                    Text(
+                      title,
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textDark,
+                      ),
+                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryYellow,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.star, color: AppTheme.textDark, size: 10),
+                          const Icon(
+                            Icons.star,
+                            color: AppTheme.textDark,
+                            size: 10,
+                          ),
                           const SizedBox(width: 2),
-                          Text(rating, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.textDark)),
+                          Text(
+                            rating,
+                            style: GoogleFonts.manrope(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.textDark,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -357,9 +452,21 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(LucideIcons.mapPin, color: AppTheme.primaryYellow, size: 12),
+                    Icon(
+                      LucideIcons.mapPin,
+                      color: AppTheme.primaryYellow,
+                      size: 12,
+                    ),
                     const SizedBox(width: 4),
-                    Text(location.toUpperCase(), style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w800, color: AppTheme.textMuted, letterSpacing: 0.5)),
+                    Text(
+                      location.toUpperCase(),
+                      style: GoogleFonts.manrope(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textMuted,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -367,17 +474,29 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         status.toUpperCase(),
-                        style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF10B981), letterSpacing: 0.5),
+                        style: GoogleFonts.manrope(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF10B981),
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
-                    Icon(LucideIcons.chevronRight, color: AppTheme.primaryYellow, size: 18),
+                    Icon(
+                      LucideIcons.chevronRight,
+                      color: AppTheme.primaryYellow,
+                      size: 18,
+                    ),
                   ],
                 ),
               ],

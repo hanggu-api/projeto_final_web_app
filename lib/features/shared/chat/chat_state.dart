@@ -13,9 +13,10 @@ mixin ChatStateMixin<T extends StatefulWidget> on State<T> {
 
   List<dynamic> messages = [];
   final List<Map<String, dynamic>> pendingMessages = [];
-  
+
   StreamSubscription? chatSubscription;
-  StreamSubscription? driverLocationSubscription; // Relevant for trip-related chats
+  StreamSubscription?
+  driverLocationSubscription; // Relevant for trip-related chats
   Timer? pollingTimer;
   Timer? recordTicker;
 

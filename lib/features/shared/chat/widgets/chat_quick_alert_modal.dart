@@ -113,7 +113,9 @@ class _ChatQuickAlertModalState extends State<ChatQuickAlertModal> {
                   fillColor: const Color(0xFFF2F2F2),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.25)),
+                    borderSide: BorderSide(
+                      color: Colors.black.withValues(alpha: 0.25),
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -152,7 +154,9 @@ class _ChatQuickAlertModalState extends State<ChatQuickAlertModal> {
                     backgroundColor: const Color(0xFFFFD400),
                     foregroundColor: Colors.black,
                   ),
-                  child: Text(_showReplyInput ? 'Enviar resposta' : 'Responder'),
+                  child: Text(
+                    _showReplyInput ? 'Enviar resposta' : 'Responder',
+                  ),
                 ),
                 TextButton(
                   onPressed: _loading

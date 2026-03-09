@@ -9,6 +9,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'chat/chat_state.dart';
 import 'chat/mixins/chat_actions_mixin.dart';
@@ -50,6 +52,15 @@ class _ChatScreenState extends State<ChatScreen>
         ChatStateMixin<ChatScreen>,
         ChatActionsMixin<ChatScreen>,
         ChatMediaMixin<ChatScreen> {
+  static const String _navigationPreferenceKey =
+      'chat_preferred_navigation_app';
+
+  int _initVersion = 0;
+  int? _lastMarkedReadMessageId;
+  String? _preferredNavigationAppId;
+  List<_NavigationAppOption> _availableNavigationApps = [];
+  bool _isAttachmentMenuOpen = false;
+
   double _inlineHeight() {
     final totalMessages = messages.length + pendingMessages.length;
     const baseHeight = 260.0;
@@ -69,17 +80,25 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Future<void> _initChat() async {
+    final initRun = ++_initVersion;
     debugPrint(
       '[ChatScreen] _initChat starting for service: ${widget.serviceId}',
     );
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      final storedRole = prefs.getString('user_role');
-      debugPrint('[ChatScreen] Stored role: $storedRole');
-      setState(() => role = storedRole);
-    }
+    if (!mounted || initRun != _initVersion) return;
+    final storedRole = prefs.getString('user_role');
+    final preferredApp = prefs.getString(_navigationPreferenceKey);
+    debugPrint('[ChatScreen] Stored role: $storedRole');
+    debugPrint('[ChatScreen] Preferred navigation app ID: $preferredApp');
+    setState(() {
+      role = storedRole;
+      if (preferredApp != null) {
+        _preferredNavigationAppId = preferredApp;
+      }
+    });
 
     var id = await api.getMyUserId();
+    if (!mounted || initRun != _initVersion) return;
     debugPrint('[ChatScreen] getMyUserId returned: $id');
 
     if (id == null) {
@@ -90,6 +109,7 @@ class _ChatScreenState extends State<ChatScreen>
       debugPrint('[ChatScreen] api.userId cache: $id');
     }
 
+    if (!mounted || initRun != _initVersion) return;
     if (mounted) setState(() => myUserId = id);
     if (id != null) {
       debugPrint('[ChatScreen] Authenticating RealtimeService with: $id');
@@ -98,6 +118,7 @@ class _ChatScreenState extends State<ChatScreen>
 
     debugPrint('[ChatScreen] Calling loadServiceInfo...');
     await loadServiceInfo(widget.serviceId, () {
+      if (!mounted || initRun != _initVersion) return;
       debugPrint(
         '[ChatScreen] loadServiceInfo callback - calculating other user',
       );
@@ -108,6 +129,7 @@ class _ChatScreenState extends State<ChatScreen>
     debugPrint(
       '[ChatScreen] loadServiceInfo finished. serviceDetails: ${serviceDetails != null}',
     );
+    if (!mounted || initRun != _initVersion) return;
 
     RealtimeService().connect();
 
@@ -115,6 +137,7 @@ class _ChatScreenState extends State<ChatScreen>
       '[IMPORTANT] Starting signal-based chat subscription for service ${widget.serviceId}',
     );
     chatSubscription = DataGateway().watchChat(widget.serviceId).listen((msgs) {
+      if (!mounted || initRun != _initVersion) return;
       debugPrint('[ChatScreen] Received ${msgs.length} messages from stream');
       final previousCount = messages.length;
       final sortedMsgs = List<dynamic>.from(msgs);
@@ -127,19 +150,58 @@ class _ChatScreenState extends State<ChatScreen>
           messages = sortedMsgs;
           reconcilePendingMessages();
         });
+
+        // Marcar como lida a última mensagem recebida do outro usuário.
+        _markIncomingMessageAsRead(sortedMsgs);
+
         if (sortedMsgs.length != previousCount) {
           scrollToBottom();
         }
       }
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => updateBottomPadding());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || initRun != _initVersion) return;
+      updateBottomPadding();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || initRun != _initVersion) return;
+      _ensureNavigationAppsLoaded();
+    });
     debugPrint('[ChatScreen] _initChat complete');
     ChatScreen.activeChatServiceId = widget.serviceId;
   }
 
+  void _markIncomingMessageAsRead(List<dynamic> sortedMsgs) {
+    if (myUserId == null) return;
+
+    // Procurar a mensagem mais recente que não seja do próprio usuário e
+    // que ainda não esteja marcada como lida.
+    final unread = sortedMsgs.firstWhere((msg) {
+      final senderId = msg['sender_id'];
+      final readAt = msg['read_at'] ?? msg['readAt'];
+      return senderId != null &&
+          senderId.toString() != myUserId.toString() &&
+          (readAt == null || readAt.toString().isEmpty);
+    }, orElse: () => null);
+
+    if (unread == null) return;
+
+    final id = unread['id'];
+    final idInt = id is int ? id : int.tryParse('$id');
+    if (idInt == null) return;
+
+    if (_lastMarkedReadMessageId == idInt) return;
+    _lastMarkedReadMessageId = idInt;
+
+    DataGateway().markChatMessageRead(idInt).catchError((e) {
+      debugPrint('[ChatScreen] Erro ao marcar mensagem como lida: $e');
+    });
+  }
+
   @override
   void dispose() {
+    _initVersion++;
     if (ChatScreen.activeChatServiceId == widget.serviceId) {
       ChatScreen.activeChatServiceId = null;
     }
@@ -150,12 +212,6 @@ class _ChatScreenState extends State<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
-      '[ChatScreen] Building ChatScreen - isInline: ${widget.isInline}, serviceId: ${widget.serviceId}',
-    );
-    debugPrint(
-      '[ChatScreen] myUserId: $myUserId, serviceDetails: ${serviceDetails != null}',
-    );
 
     if (serviceDetails == null || myUserId == null) {
       debugPrint(
@@ -404,7 +460,11 @@ class _ChatScreenState extends State<ChatScreen>
                     left: widget.isInline ? 4 : 16,
                     right: widget.isInline ? 4 : 16,
                     top: 10,
-                    bottom: widget.isInline ? 120 : 180, // Space for InputArea
+                    bottom:
+                        (widget.isInline ? 120 : 180) +
+                        MediaQuery.of(context)
+                            .padding
+                            .bottom, // Space for InputArea + system nav bar
                   ),
                   itemCount: messages.length + pendingMessages.length,
                   itemBuilder: (context, index) {
@@ -439,12 +499,17 @@ class _ChatScreenState extends State<ChatScreen>
                       } catch (_) {}
                     }
 
+                    final isRead = (msg['read_at'] ?? msg['readAt']) != null;
+                    final isSent = msg['status'] == 'sent' || isPending;
+
                     return _buildMessageBubble(
                       (msg['content'] ?? '').toString(),
                       type,
                       isMe,
                       time,
                       isPending: isPending,
+                      isSent: isSent,
+                      isRead: isRead,
                       localContent: localContent,
                     );
                   },
@@ -463,7 +528,8 @@ class _ChatScreenState extends State<ChatScreen>
               widget.isInline ? 4 : 20,
               12,
               widget.isInline ? 4 : 20,
-              widget.isInline ? 12 : 32,
+              (widget.isInline ? 12 : 32) +
+                  MediaQuery.of(context).padding.bottom,
             ),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -498,11 +564,16 @@ class _ChatScreenState extends State<ChatScreen>
                       ],
                     ),
                   ),
+                if (_isAttachmentMenuOpen)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildAttachmentMenu(),
+                  ),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     GestureDetector(
-                      onTap: () =>
-                          openUnifiedCamera(widget.serviceId, scrollToBottom),
+                      onTap: _toggleAttachmentMenu,
                       child: Container(
                         width: 44,
                         height: 44,
@@ -519,78 +590,101 @@ class _ChatScreenState extends State<ChatScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
-                        controller: messageController,
-                        minLines: 1,
-                        maxLines: 4,
-                        style: GoogleFonts.manrope(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Escreva sua mensagem...',
-                          hintStyle: GoogleFonts.manrope(
-                            color: Colors.grey.shade400,
-                            fontSize: 14,
-                          ),
-                          filled: true,
-                          fillColor: AppTheme.backgroundLight.withValues(
-                            alpha: 0.5,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
+                      child: isRecording
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.backgroundLight.withValues(
+                                  alpha: 0.6,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    LucideIcons.mic,
+                                    color: Colors.red,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Gravando... ${_formatElapsed()}',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : TextField(
+                              controller: messageController,
+                              minLines: 1,
+                              maxLines: 4,
+                              style: GoogleFonts.manrope(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Escreva sua mensagem...',
+                                hintStyle: GoogleFonts.manrope(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 14,
+                                ),
+                                filled: true,
+                                fillColor: AppTheme.backgroundLight.withValues(
+                                  alpha: 0.5,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                              onTap: _closeAttachmentMenu,
+                            ),
                     ),
                     const SizedBox(width: 12),
                     GestureDetector(
-                      onTap: () =>
-                          toggleRecord(widget.serviceId, scrollToBottom),
+                      onTap: () {
+                        _closeAttachmentMenu();
+                        if (isRecording) {
+                          toggleRecord(widget.serviceId, scrollToBottom);
+                        } else {
+                          sendMessage(widget.serviceId);
+                        }
+                      },
                       child: Container(
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
                           color: isRecording
-                              ? Colors.red.withValues(alpha: 0.1)
-                              : AppTheme.backgroundLight,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          isRecording
-                              ? LucideIcons.stopCircle
-                              : LucideIcons.mic,
-                          color: isRecording ? Colors.red : AppTheme.textDark,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () => sendMessage(widget.serviceId),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryYellow,
+                              ? Colors.redAccent
+                              : AppTheme.primaryYellow,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryYellow.withValues(
-                                alpha: 0.3,
-                              ),
+                              color: (isRecording
+                                      ? Colors.redAccent
+                                      : AppTheme.primaryYellow)
+                                  .withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          LucideIcons.send,
+                        child: Icon(
+                          isRecording ? LucideIcons.square : LucideIcons.send,
                           color: AppTheme.textDark,
                           size: 18,
                         ),
@@ -602,19 +696,6 @@ class _ChatScreenState extends State<ChatScreen>
             ),
           ),
         ),
-        if (isRecording)
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(LucideIcons.mic, color: Colors.red, size: 16),
-                const SizedBox(width: 8),
-                Text('Gravando... ${_formatElapsed()}'),
-              ],
-            ),
-          ),
         if (isUploading)
           Container(
             color: Colors.black12,
@@ -732,15 +813,573 @@ class _ChatScreenState extends State<ChatScreen>
     );
   }
 
+  void _toggleAttachmentMenu() {
+    setState(() => _isAttachmentMenuOpen = !_isAttachmentMenuOpen);
+    WidgetsBinding.instance.addPostFrameCallback((_) => updateBottomPadding());
+  }
+
+  void _closeAttachmentMenu() {
+    if (!_isAttachmentMenuOpen) return;
+    setState(() => _isAttachmentMenuOpen = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) => updateBottomPadding());
+  }
+
+  Widget _buildAttachmentMenu() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildAttachmentMenuItem(
+            'Imagem',
+            LucideIcons.camera,
+            _handleImageSelection,
+          ),
+          const Divider(height: 1),
+          _buildAttachmentMenuItem(
+            'Vídeo',
+            LucideIcons.video,
+            _handleVideoSelection,
+          ),
+          const Divider(height: 1),
+          _buildAttachmentMenuItem(
+            'Áudio',
+            LucideIcons.mic,
+            _handleAudioAction,
+          ),
+          const Divider(height: 1),
+          _buildAttachmentMenuItem(
+            'Localização',
+            LucideIcons.mapPin,
+            _handleLocationAction,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentMenuItem(
+    String label,
+    IconData icon,
+    Future<void> Function() action,
+  ) {
+    return InkWell(
+      onTap: () async {
+        _closeAttachmentMenu();
+        await action();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: AppTheme.primaryBlue),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 14,
+                color: AppTheme.textDark,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleImageSelection() async {
+    _closeAttachmentMenu();
+    await openUnifiedCamera(widget.serviceId, scrollToBottom);
+  }
+
+  Future<void> _handleVideoSelection() async {
+    _closeAttachmentMenu();
+    await openUnifiedCamera(
+      widget.serviceId,
+      scrollToBottom,
+      initialVideoMode: true,
+    );
+  }
+
+  Future<void> _handleAudioAction() async {
+    _closeAttachmentMenu();
+    await toggleRecord(widget.serviceId, scrollToBottom);
+  }
+
+  Future<void> _handleLocationAction() async {
+    _closeAttachmentMenu();
+    await _shareLocation();
+  }
+
+  Future<void> _shareLocation() async {
+    _closeAttachmentMenu();
+    setState(() {
+      isUploading = true;
+      uploadingType = 'localização';
+    });
+
+    String? tempId;
+    String? payload;
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Serviço de localização desativado.');
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Permissão de localização negada.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+        ),
+      );
+
+      payload = jsonEncode({
+        'lat': position.latitude,
+        'lon': position.longitude,
+        'accuracy': position.accuracy,
+      });
+      tempId = 'temp_loc_${DateTime.now().millisecondsSinceEpoch}';
+
+      setState(() {
+        pendingMessages.add({
+          'id': tempId,
+          'content': payload,
+          'type': 'location',
+          'created_at': DateTime.now().toIso8601String(),
+          'sender_id': myUserId,
+          'status': 'sending',
+          'is_optimistic': true,
+        });
+      });
+
+      scrollToBottom();
+
+      await DataGateway().sendChatMessage(
+        widget.serviceId,
+        payload,
+        'location',
+      );
+
+      if (mounted) {
+        setState(() {
+          final idx = pendingMessages.indexWhere((m) => m['id'] == tempId);
+          if (idx != -1) pendingMessages[idx]['status'] = 'sent';
+        });
+      }
+
+      scrollToBottom();
+    } catch (e) {
+      if (mounted) {
+        setState(() => pendingMessages.removeWhere((m) => m['id'] == tempId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao compartilhar localização: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUploading = false;
+          uploadingType = '';
+        });
+      }
+    }
+  }
+
+  Map<String, dynamic>? _decodeLocationPayload(String content) {
+    try {
+      final decoded = jsonDecode(content);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  Widget _buildLocationBubble(String content) {
+    final locationData = _decodeLocationPayload(content);
+    final lat = _toDouble(locationData?['lat']);
+    final lon = _toDouble(locationData?['lon']);
+    final coords = lat != null && lon != null
+        ? '${lat.toStringAsFixed(5)}, ${lon.toStringAsFixed(5)}'
+        : 'Coordenadas indisponíveis';
+    final label = locationData?['label']?.toString();
+    final accuracyValue = locationData?['accuracy'];
+    final accuracy = accuracyValue is num
+        ? 'Precisão: ${accuracyValue.toStringAsFixed(1)}m'
+        : null;
+
+    final preferredApp = _getPreferredNavigationOption();
+    final preferredLabel = preferredApp == null
+        ? null
+        : 'App preferido: ${preferredApp.label}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(LucideIcons.mapPin, size: 18, color: AppTheme.primaryYellow),
+            const SizedBox(width: 6),
+            Text(
+              'Localização compartilhada',
+              style: GoogleFonts.manrope(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label ?? coords,
+          style: GoogleFonts.manrope(fontSize: 14, color: Colors.black87),
+        ),
+        if (accuracy != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            accuracy,
+            style: GoogleFonts.manrope(fontSize: 11, color: Colors.grey[600]),
+          ),
+        ],
+        if (preferredLabel != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            preferredLabel,
+            style: GoogleFonts.manrope(fontSize: 12, color: Colors.grey[700]),
+          ),
+        ],
+        const SizedBox(height: 10),
+        ElevatedButton.icon(
+          onPressed: lat != null && lon != null
+              ? () => _handleLocationNavigation(lat, lon)
+              : null,
+          icon: const Icon(LucideIcons.navigation, size: 16),
+          label: const Text('Abrir no mapa'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryYellow,
+            foregroundColor: Colors.black87,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: lat != null && lon != null
+              ? () => _handleLocationNavigation(lat, lon, forcePicker: true)
+              : null,
+          child: const Text('Trocar aplicativo de navegação'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleLocationNavigation(
+    double lat,
+    double lon, {
+    bool forcePicker = false,
+  }) async {
+    if (!forcePicker) {
+      final option = _getPreferredNavigationOption();
+      if (option != null) {
+        final launched = await _launchNavigation(option, lat, lon);
+        if (launched) return;
+      }
+    }
+
+    await _showNavigationPicker(lat, lon);
+  }
+
+  Future<void> _showNavigationPicker(double lat, double lon) async {
+    await _ensureNavigationAppsLoaded();
+    if (_availableNavigationApps.isEmpty) return;
+
+    final defaultOption =
+        _getPreferredNavigationOption() ?? _availableNavigationApps.first;
+
+    final result = await showModalBottomSheet<_NavigationSelectionResult>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) {
+        String selectedId = defaultOption.id;
+        bool savePreference = true;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Escolha o GPS',
+                    style: GoogleFonts.manrope(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._availableNavigationApps.map((option) {
+                    return RadioListTile<String>(
+                      value: option.id,
+                      groupValue: selectedId,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => selectedId = value);
+                      },
+                      title: Text(option.label),
+                      secondary: Icon(option.icon, color: AppTheme.primaryBlue),
+                    );
+                  }),
+                  SwitchListTile(
+                    title: const Text('Salvar como padrão'),
+                    value: savePreference,
+                    onChanged: (value) =>
+                        setState(() => savePreference = value),
+                    activeColor: AppTheme.primaryYellow,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final selectedOption = _availableNavigationApps
+                                .firstWhere((opt) => opt.id == selectedId);
+                            Navigator.of(context).pop(
+                              _NavigationSelectionResult(
+                                option: selectedOption,
+                                savePreference: savePreference,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryYellow,
+                            foregroundColor: Colors.black87,
+                          ),
+                          child: const Text('Abrir com este GPS'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+    if (result.savePreference) {
+      await _setPreferredNavigationApp(result.option.id);
+    }
+
+    await _launchNavigation(result.option, lat, lon);
+  }
+
+  Future<void> _ensureNavigationAppsLoaded() async {
+    if (_availableNavigationApps.isEmpty) {
+      await _detectAvailableNavigationApps();
+    }
+  }
+
+  Future<void> _detectAvailableNavigationApps() async {
+    final options = _navigationAppOptions;
+    final List<_NavigationAppOption> available = [];
+    for (final option in options) {
+      if (option.isFallback) continue;
+      final testUri = option.availabilityUri;
+      if (testUri == null) continue;
+      try {
+        if (await canLaunchUrl(testUri)) {
+          available.add(option);
+        }
+      } catch (_) {}
+    }
+
+    final fallback = options.firstWhere((opt) => opt.isFallback);
+    if (available.isEmpty) {
+      available.add(fallback);
+    } else if (!available.any((opt) => opt.id == fallback.id)) {
+      available.add(fallback);
+    }
+
+    if (!mounted) return;
+    setState(() => _availableNavigationApps = available);
+  }
+
+  Future<void> _setPreferredNavigationApp(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_navigationPreferenceKey, id);
+    if (mounted) {
+      setState(() => _preferredNavigationAppId = id);
+    }
+  }
+
+  _NavigationAppOption? _getPreferredNavigationOption() {
+    if (_preferredNavigationAppId == null) return null;
+    for (final option in _availableNavigationApps) {
+      if (option.id == _preferredNavigationAppId) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  Future<bool> _launchNavigation(
+    _NavigationAppOption option,
+    double lat,
+    double lon,
+  ) async {
+    try {
+      final uri = option.uriBuilder(lat, lon);
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao abrir ${option.label}: $e')),
+        );
+      }
+      return false;
+    }
+  }
+
+  List<_NavigationAppOption> get _navigationAppOptions {
+    return [
+      _NavigationAppOption(
+        id: 'google_maps',
+        label: 'Google Maps',
+        icon: LucideIcons.map,
+        uriBuilder: (lat, lon) {
+          if (kIsWeb) {
+            return Uri.parse(
+              'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon',
+            );
+          }
+          if (Platform.isIOS) {
+            return Uri.parse(
+              'comgooglemaps://?daddr=$lat,$lon&directionsmode=driving',
+            );
+          }
+          return Uri.parse('google.navigation:q=$lat,$lon');
+        },
+        availabilityUri: kIsWeb
+            ? null
+            : (Platform.isIOS
+                  ? Uri.parse('comgooglemaps://')
+                  : Uri.parse('google.navigation:?q=0,0')),
+      ),
+      _NavigationAppOption(
+        id: 'waze',
+        label: 'Waze',
+        icon: LucideIcons.navigation,
+        uriBuilder: (lat, lon) =>
+            Uri.parse('waze://?ll=$lat,$lon&navigate=yes'),
+        availabilityUri: kIsWeb ? null : Uri.parse('waze://'),
+      ),
+      _NavigationAppOption(
+        id: 'apple_maps',
+        label: 'Apple Maps',
+        icon: LucideIcons.mapPin,
+        uriBuilder: (lat, lon) => Platform.isIOS
+            ? Uri.parse('maps://?daddr=$lat,$lon&dirflg=d')
+            : Uri.parse('https://maps.apple.com/?daddr=$lat,$lon&dirflg=d'),
+        availabilityUri: kIsWeb
+            ? null
+            : (Platform.isIOS ? Uri.parse('maps://') : null),
+      ),
+      _NavigationAppOption(
+        id: 'browser_maps',
+        label: 'Navegador',
+        icon: LucideIcons.globe,
+        uriBuilder: (lat, lon) => Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon',
+        ),
+        availabilityUri: null,
+        isFallback: true,
+      ),
+    ];
+  }
+
   Widget _buildMessageBubble(
     String content,
     String type,
     bool isMe,
     String time, {
     bool isPending = false,
+    bool isSent = true,
+    bool isRead = false,
     dynamic localContent,
   }) {
     final isImage = type == 'image';
+    final isLocation = type == 'location';
     Widget bubbleChild;
     if (isImage) {
       Widget imageWidget;
@@ -820,6 +1459,8 @@ class _ChatScreenState extends State<ChatScreen>
       bubbleChild = VideoMessageBubble(videoUrl: content, isMe: isMe);
     } else if (type == 'audio') {
       bubbleChild = AudioBubble(mediaKey: content, api: api, isMe: isMe);
+    } else if (isLocation) {
+      bubbleChild = _buildLocationBubble(content);
     } else if (type == 'schedule_proposal') {
       DateTime? schDate;
       try {
@@ -850,7 +1491,9 @@ class _ChatScreenState extends State<ChatScreen>
               ? const EdgeInsets.all(4)
               : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * (widget.isInline ? 0.96 : 0.75),
+            maxWidth:
+                MediaQuery.of(context).size.width *
+                (widget.isInline ? 0.96 : 0.75),
           ),
           decoration: BoxDecoration(
             color: isImage
@@ -891,11 +1534,27 @@ class _ChatScreenState extends State<ChatScreen>
                   ),
                   if (isMe) ...[
                     const SizedBox(width: 4),
-                    const Icon(
-                      LucideIcons.checkCheck,
-                      size: 14,
-                      color: Colors.blueAccent,
-                    ),
+                    if (isPending)
+                      const SizedBox(
+                        height: 14,
+                        width: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.grey,
+                        ),
+                      )
+                    else if (isRead)
+                      const Icon(
+                        LucideIcons.checkCheck,
+                        size: 14,
+                        color: Colors.blueAccent,
+                      )
+                    else if (isSent)
+                      Icon(
+                        LucideIcons.check,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
                   ],
                 ],
               ),
@@ -905,4 +1564,32 @@ class _ChatScreenState extends State<ChatScreen>
       ),
     );
   }
+}
+
+class _NavigationSelectionResult {
+  final _NavigationAppOption option;
+  final bool savePreference;
+
+  _NavigationSelectionResult({
+    required this.option,
+    required this.savePreference,
+  });
+}
+
+class _NavigationAppOption {
+  final String id;
+  final String label;
+  final IconData icon;
+  final Uri Function(double lat, double lon) uriBuilder;
+  final Uri? availabilityUri;
+  final bool isFallback;
+
+  const _NavigationAppOption({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.uriBuilder,
+    this.availabilityUri,
+    this.isFallback = false,
+  });
 }

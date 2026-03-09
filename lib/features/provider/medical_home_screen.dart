@@ -40,7 +40,9 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
     try {
       final profile = await _api.getMyProfile();
       if (profile['id'] != null) {
-        final userId = profile['id'] is int ? profile['id'] : int.tryParse(profile['id'].toString());
+        final userId = profile['id'] is int
+            ? profile['id']
+            : int.tryParse(profile['id'].toString());
         if (userId != null) {
           rt.init(userId);
         }
@@ -149,8 +151,12 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
             )
             .toList();
 
-        _schedules = schedulesData.map((s) => Map<String, dynamic>.from(s)).toList();
-        _exceptions = exceptionsData.map((e) => Map<String, dynamic>.from(e)).toList();
+        _schedules = schedulesData
+            .map((s) => Map<String, dynamic>.from(s))
+            .toList();
+        _exceptions = exceptionsData
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
 
         _isLoading = false;
       });

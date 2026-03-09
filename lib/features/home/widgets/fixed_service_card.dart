@@ -59,12 +59,6 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   bool _expanded = false;
   String? _providerAvatarUrl;
   Uint8List? _providerAvatarBytes;
-  
-  // Review State
-  final int _rating = 0;
-  final _commentController = TextEditingController();
-  bool _submittingReview = false;
-  bool _reviewSubmittedSuccessfully = false;
 
   // Real-time Sync
   StreamSubscription? _serviceSubscription;
@@ -72,15 +66,13 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   Map<String, dynamic>? _streamDetails;
 
   String get _currentStatus => _streamStatus ?? widget.status;
-  Map<String, dynamic> get _currentDetails => {...?widget.details, ...?_streamDetails};
-
-  final bool _isSchedulingCounter = false;
-  final DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
-  final TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  Map<String, dynamic> get _currentDetails => {
+    ...?widget.details,
+    ...?_streamDetails,
+  };
 
   Timer? _refreshTimer;
   String? _travelHeadline;
-  String? _travelSubtitle;
   DateTime? _lastScheduledAtForNotify;
   bool _alertTriggered = false; // Flag para evitar disparos múltiplos do modal
 
@@ -95,15 +87,16 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   @override
   void didUpdateWidget(FixedServiceCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Setup listener if ID changes
     if (widget.details?['id'] != oldWidget.details?['id']) {
       _setupRealtimeListener();
     }
 
     // Refresh calculations and avatar if critical data changes
-    if (widget.details?['id'] != oldWidget.details?['id'] || 
-        widget.details?['client_arrived'] != oldWidget.details?['client_arrived'] ||
+    if (widget.details?['id'] != oldWidget.details?['id'] ||
+        widget.details?['client_arrived'] !=
+            oldWidget.details?['client_arrived'] ||
         widget.details?['arrived_at'] != oldWidget.details?['arrived_at'] ||
         widget.status != oldWidget.status) {
       _calculateTravelTime();
@@ -123,7 +116,6 @@ class _FixedServiceCardState extends State<FixedServiceCard>
 
   @override
   void dispose() {
-    _commentController.dispose();
     _serviceSubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();
@@ -134,14 +126,18 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     _calculateTravelTime();
     // Atualiza a cada 30 segundos para evitar sobrecarga de GPS e poluição do console
     // A precisão de 30s é suficiente para um alerta de trânsito.
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _calculateTravelTime());
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _calculateTravelTime(),
+    );
   }
 
   Future<void> _calculateTravelTime() async {
     final detail = _currentDetails;
 
     // 0. Check for client arrival first to stop polling and show correct info
-    final bool clientHasArrived = detail['arrived_at'] != null ||
+    final bool clientHasArrived =
+        detail['arrived_at'] != null ||
         detail['client_arrived'] == true ||
         detail['client_arrived'] == 'true';
 
@@ -149,7 +145,6 @@ class _FixedServiceCardState extends State<FixedServiceCard>
       if (mounted) {
         setState(() {
           _travelHeadline = 'CLIENTE NO LOCAL 📍';
-          _travelSubtitle = 'O cliente informou que já chegou.';
         });
       }
       return;
@@ -161,7 +156,6 @@ class _FixedServiceCardState extends State<FixedServiceCard>
       if (mounted) {
         setState(() {
           _travelHeadline = null;
-          _travelSubtitle = null;
         });
       }
       return;
@@ -179,12 +173,16 @@ class _FixedServiceCardState extends State<FixedServiceCard>
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse) {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 3),
-          ),
-        ).timeout(const Duration(seconds: 4), onTimeout: () => throw TimeoutException('GPS Timeout'));
+        position =
+            await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.medium,
+                timeLimit: Duration(seconds: 3),
+              ),
+            ).timeout(
+              const Duration(seconds: 4),
+              onTimeout: () => throw TimeoutException('GPS Timeout'),
+            );
       }
 
       if (position != null) {
@@ -201,16 +199,14 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         const leadTimeMin = 3;
 
         // 3. Momento de sair = Início do serviço - tempo de viagem - antecedência
-        final leaveAt =
-            scheduledAt.subtract(Duration(minutes: travelTimeMin + leadTimeMin));
+        final leaveAt = scheduledAt.subtract(
+          Duration(minutes: travelTimeMin + leadTimeMin),
+        );
 
         final now = DateTime.now();
         final diffService = scheduledAt.difference(now);
-        final diffLeave = leaveAt.difference(now);
 
         final bool isLate = now.isAfter(leaveAt);
-        final leaveTimeStr =
-            '${leaveAt.hour.toString().padLeft(2, '0')}:${leaveAt.minute.toString().padLeft(2, '0')}';
 
         // Formatação amigável do tempo restante
         String formatRemaining(Duration d) {
@@ -230,8 +226,6 @@ class _FixedServiceCardState extends State<FixedServiceCard>
             // Subtítulo focado na saída com a inteligência de trânsito + antecedência
             if (isLate) {
               _travelHeadline = 'SAIA AGORA!';
-              _travelSubtitle =
-                  'Você deve chegar às ${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')} (-3min)';
 
               // 4. DISPARO ATIVO (Polling): Se ainda não disparou o alerta, dispara agora
               if (!_alertTriggered) {
@@ -250,9 +244,8 @@ class _FixedServiceCardState extends State<FixedServiceCard>
                 }
               }
             } else {
-              final leaveIn = formatRemaining(diffLeave);
-              _travelSubtitle = 'Sair até $leaveTimeStr (daqui a $leaveIn)';
-              _alertTriggered = false; // Reseta o trigger se o usuário se aproximar do local e o trânsito mudar
+              _alertTriggered =
+                  false; // Reseta o trigger se o usuário se aproximar do local e o trânsito mudar
             }
           });
 
@@ -282,16 +275,19 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     _serviceSubscription?.cancel();
     final serviceId = widget.details?['id']?.toString();
     if (serviceId != null) {
-      _serviceSubscription = DataGateway().watchService(serviceId).listen((data) {
+      _serviceSubscription = DataGateway().watchService(serviceId).listen((
+        data,
+      ) {
         if (!mounted) return;
         if (data.isNotEmpty) {
           final oldStatus = _streamStatus;
           final newStatus = data['status'];
-          
-          if (newStatus == 'deleted' || (oldStatus != newStatus && widget.onRefreshNeeded != null)) {
+
+          if (newStatus == 'deleted' ||
+              (oldStatus != newStatus && widget.onRefreshNeeded != null)) {
             if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
           }
-          
+
           setState(() {
             _streamStatus = newStatus;
             _streamDetails = data;
@@ -328,7 +324,10 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     }
     if (v is num) {
       final n = v.toInt();
-      return DateTime.fromMillisecondsSinceEpoch(n > 1000000000000 ? n : n * 1000, isUtc: true).toLocal();
+      return DateTime.fromMillisecondsSinceEpoch(
+        n > 1000000000000 ? n : n * 1000,
+        isUtc: true,
+      ).toLocal();
     }
     return null;
   }
@@ -338,10 +337,19 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     final target = DateTime(dt.year, dt.month, dt.day);
-    final timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     if (target == today) return 'Hoje às $timeStr';
     if (target == tomorrow) return 'Amanhã às $timeStr';
-    final days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    final days = [
+      'Segunda',
+      'Terça',
+      'Quarta',
+      'Quinta',
+      'Sexta',
+      'Sábado',
+      'Domingo',
+    ];
     return '${days[dt.weekday - 1]} ${dt.day}/${dt.month} às $timeStr';
   }
 
@@ -350,44 +358,58 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     final arrivedAt = detail['arrived_at'];
     final paymentStatus = detail['payment_remaining_status'];
 
-    if (arrivedAt != null && paymentStatus != 'paid' && ['accepted', 'in_progress'].contains(_currentStatus)) {
+    if (arrivedAt != null &&
+        paymentStatus != 'paid' &&
+        ['accepted', 'in_progress'].contains(_currentStatus)) {
       return 'Pagar Restante';
     }
 
     switch (_currentStatus) {
-      case 'accepted': return 'Agendado';
-      case 'in_progress': return 'Em Andamento';
-      case 'awaiting_confirmation': return 'Aguardando Validação';
-      case 'completed': return 'Serviço concluído';
-      case 'waiting_client_confirmation': return 'Serviço Finalizado. Confirme!';
-      case 'pending': return 'Agendado';
-      case 'waiting_payment': return 'Aguardando pagamento';
-      case 'cancelled': return 'Cancelado';
-      case 'open_for_schedule': return 'Disponível para Agendamento';
-      case 'schedule_proposed': return 'Proposta de Agendamento';
-      case 'scheduled': return 'Serviço Agendado';
-      case 'confirmed': return 'Confirmado';
-      default: return _currentStatus;
+      case 'accepted':
+        return 'Agendado';
+      case 'in_progress':
+        return 'Em Andamento';
+      case 'awaiting_confirmation':
+        return 'Aguardando Validação';
+      case 'completed':
+        return 'Serviço concluído';
+      case 'waiting_client_confirmation':
+        return 'Serviço Finalizado. Confirme!';
+      case 'pending':
+        return 'Agendado';
+      case 'waiting_payment':
+        return 'Aguardando pagamento';
+      case 'cancelled':
+        return 'Cancelado';
+      case 'open_for_schedule':
+        return 'Disponível para Agendamento';
+      case 'schedule_proposed':
+        return 'Proposta de Agendamento';
+      case 'scheduled':
+        return 'Serviço Agendado';
+      case 'confirmed':
+        return 'Confirmado';
+      default:
+        return _currentStatus;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final detail = _currentDetails;
-    final priceEstimated = _toDouble(detail['price_estimated']);
     final scheduledAt = _toDate(detail['scheduled_at']);
-    final dateText = scheduledAt != null ? _formatFriendlyDate(scheduledAt) : '';
     final isExpanded = widget.expanded ?? _expanded;
 
-    final bool clientHasArrived = detail['arrived_at'] != null ||
+    final bool clientHasArrived =
+        detail['arrived_at'] != null ||
         detail['client_arrived'] == true ||
         detail['client_arrived'] == 'true';
 
-    Color borderColor = clientHasArrived 
-        ? Colors.grey.shade300 
+    Color borderColor = clientHasArrived
+        ? Colors.grey.shade300
         : (['accepted', 'scheduled', 'confirmed'].contains(_currentStatus)
-            ? AppTheme.primaryYellow 
-            : Colors.grey.shade300);
+              ? AppTheme.primaryYellow
+              : Colors.grey.shade300);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -401,7 +423,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
             color: Colors.black.withValues(alpha: 0.06),
             offset: const Offset(0, 4),
             blurRadius: 16,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -473,7 +495,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   Widget _buildTravelAlert(bool clientHasArrived) {
     final isLate = _travelHeadline?.contains('AGORA') ?? false;
     final isDeparting = _currentStatus == 'client_departing';
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -486,7 +508,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isLate || isDeparting ? LucideIcons.alertTriangle : LucideIcons.clock,
+            isLate || isDeparting
+                ? LucideIcons.alertTriangle
+                : LucideIcons.clock,
             color: isLate || isDeparting ? Colors.red[700] : Colors.blue[700],
             size: 18,
           ),
@@ -495,7 +519,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
             child: Text(
               isDeparting ? 'ESTOU A CAMINHO! 🚗' : _travelHeadline!,
               style: TextStyle(
-                color: isLate || isDeparting ? Colors.red[700] : Colors.blue[700],
+                color: isLate || isDeparting
+                    ? Colors.red[700]
+                    : Colors.blue[700],
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
@@ -509,7 +535,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   Widget _buildProviderSection(Map<String, dynamic> detail) {
     final name = detail['provider_name'] ?? widget.providerName;
     final rating = detail['provider_rating'] ?? 0;
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -521,19 +547,28 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundImage: _providerAvatarBytes != null 
-                ? MemoryImage(_providerAvatarBytes!) 
-                : (_providerAvatarUrl != null ? CachedNetworkImageProvider(_providerAvatarUrl!) : null) as ImageProvider?,
+            backgroundImage: _providerAvatarBytes != null
+                ? MemoryImage(_providerAvatarBytes!)
+                : (_providerAvatarUrl != null
+                          ? CachedNetworkImageProvider(_providerAvatarUrl!)
+                          : null)
+                      as ImageProvider?,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Profissional', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                const Text(
+                  'Profissional',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
                 Text(
                   name,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Row(
                   children: [
@@ -541,7 +576,10 @@ class _FixedServiceCardState extends State<FixedServiceCard>
                     const SizedBox(width: 4),
                     Text(
                       rating > 0 ? rating.toString() : 'Novo',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -550,7 +588,10 @@ class _FixedServiceCardState extends State<FixedServiceCard>
                   onTap: () {
                     final providerId = detail['provider_id'];
                     if (providerId != null) {
-                      context.push('/provider-profile', extra: int.tryParse(providerId.toString()));
+                      context.push(
+                        '/provider-profile',
+                        extra: int.tryParse(providerId.toString()),
+                      );
                     }
                   },
                   child: Text(
@@ -575,7 +616,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
             icon: Icon(LucideIcons.messageCircle, color: AppTheme.primaryBlue),
             style: IconButton.styleFrom(
               backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(1),
+              ),
             ),
           ),
         ],
@@ -590,14 +633,20 @@ class _FixedServiceCardState extends State<FixedServiceCard>
 
   Widget _buildClientActions(Map<String, dynamic> detail) {
     final status = _currentStatus;
-    final bool clientHasArrived = detail['arrived_at'] != null ||
+    final bool clientHasArrived =
+        detail['arrived_at'] != null ||
         detail['client_arrived'] == true ||
         detail['client_arrived'] == 'true';
 
     return Column(
       children: [
         // 1. Abrir no Maps (Sempre visível para agendados ativos)
-        if (['accepted', 'scheduled', 'confirmed', 'in_progress'].contains(status))
+        if ([
+          'accepted',
+          'scheduled',
+          'confirmed',
+          'in_progress',
+        ].contains(status))
           _buildActionButton(
             label: 'Abrir no Maps',
             icon: LucideIcons.map,
@@ -610,7 +659,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         const SizedBox(height: 12),
 
         // 2. Estou a Caminho
-        if (status == 'accepted' || status == 'scheduled' || status == 'confirmed')
+        if (status == 'accepted' ||
+            status == 'scheduled' ||
+            status == 'confirmed')
           _buildActionButton(
             label: 'Estou a Caminho',
             icon: LucideIcons.car,
@@ -619,7 +670,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
           ),
 
         // 3. Cheguei no Local
-        if (status == 'client_departing' || (['accepted', 'scheduled', 'confirmed'].contains(status) && !clientHasArrived))
+        if (status == 'client_departing' ||
+            (['accepted', 'scheduled', 'confirmed'].contains(status) &&
+                !clientHasArrived))
           _buildActionButton(
             label: 'CHEGUEI AO LOCAL',
             icon: LucideIcons.mapPin,
@@ -628,7 +681,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
           ),
 
         // 4. Pagar Restante
-        if (clientHasArrived && status != 'completed' && detail['payment_remaining_status'] != 'paid')
+        if (clientHasArrived &&
+            status != 'completed' &&
+            detail['payment_remaining_status'] != 'paid')
           _buildActionButton(
             label: 'PAGAR RESTANTE',
             icon: LucideIcons.creditCard,
@@ -640,7 +695,10 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         if (!clientHasArrived && status != 'completed' && status != 'cancelled')
           TextButton(
             onPressed: widget.onCancel,
-            child: Text('Cancelar Agendamento', style: TextStyle(color: Colors.red[300], fontSize: 13)),
+            child: Text(
+              'Cancelar Agendamento',
+              style: TextStyle(color: Colors.red[300], fontSize: 13),
+            ),
           ),
       ],
     );
@@ -651,16 +709,42 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     return Column(
       children: [
         if (status == 'pending')
-          _buildActionButton(label: 'ACEITAR', icon: Icons.check, color: Colors.green, onPressed: () => _handleStatusChange('accepted')),
-        
-        if (['accepted', 'scheduled', 'confirmed', 'client_departing'].contains(status))
-          _buildActionButton(label: 'INICIAR SERVIÇO', icon: Icons.play_arrow, color: Colors.blue, onPressed: () => _handleStatusChange('in_progress')),
-        
+          _buildActionButton(
+            label: 'ACEITAR',
+            icon: Icons.check,
+            color: Colors.green,
+            onPressed: () => _handleStatusChange('accepted'),
+          ),
+
+        if ([
+          'accepted',
+          'scheduled',
+          'confirmed',
+          'client_departing',
+        ].contains(status))
+          _buildActionButton(
+            label: 'INICIAR SERVIÇO',
+            icon: Icons.play_arrow,
+            color: Colors.blue,
+            onPressed: () => _handleStatusChange('in_progress'),
+          ),
+
         if (status == 'in_progress')
-          _buildActionButton(label: 'CONCLUIR SERVIÇO', icon: Icons.stop, color: Colors.black, onPressed: () => _handleStatusChange('completed')),
-        
-        if (status == 'client_arrived' || detail['payment_remaining_status'] == 'pending')
-           _buildActionButton(label: 'CONFIRMAR PAGAMENTO (MANUAL)', icon: Icons.money, color: Colors.pink, onPressed: _confirmManualPayment),
+          _buildActionButton(
+            label: 'CONCLUIR SERVIÇO',
+            icon: Icons.stop,
+            color: Colors.black,
+            onPressed: () => _handleStatusChange('completed'),
+          ),
+
+        if (status == 'client_arrived' ||
+            detail['payment_remaining_status'] == 'pending')
+          _buildActionButton(
+            label: 'CONFIRMAR PAGAMENTO (MANUAL)',
+            icon: Icons.money,
+            color: Colors.pink,
+            onPressed: _confirmManualPayment,
+          ),
       ],
     );
   }
@@ -680,14 +764,19 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         child: ElevatedButton.icon(
           onPressed: onPressed,
           icon: Icon(icon, size: 20),
-          label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          label: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: color,
             foregroundColor: textColor,
             elevation: 0,
             side: border,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ),
@@ -701,7 +790,11 @@ class _FixedServiceCardState extends State<FixedServiceCard>
       await ApiService().post('/services/$id/$endpoint', {});
       if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
     }
   }
 
@@ -711,33 +804,51 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     try {
       await ApiService().updateServiceStatus(id, s);
       if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e'))); }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
+    }
   }
 
   Future<void> _confirmManualPayment() async {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Confirmar Pagamento?'),
-          content: const Text('O cliente realizou o pagamento do restante por fora do app? Isso finalizará o serviço.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Não')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sim, Recebi')),
-          ],
-        )
-      );
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar Pagamento?'),
+        content: const Text(
+          'O cliente realizou o pagamento do restante por fora do app? Isso finalizará o serviço.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Não'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sim, Recebi'),
+          ),
+        ],
+      ),
+    );
 
-      if (confirm == true) {
-         try {
-            final id = _currentDetails['id']?.toString();
-            if (id != null) {
-              await ApiService().confirmPaymentManual(id);
-              if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
-            }
-         } catch (e) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
-         }
+    if (confirm == true) {
+      try {
+        final id = _currentDetails['id']?.toString();
+        if (id != null) {
+          await ApiService().confirmPaymentManual(id);
+          if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        }
       }
+    }
   }
 
   Future<void> _openMap() async {
@@ -756,16 +867,16 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   void _payRemainingFlow(Map<String, dynamic> detail) {
     final id = detail['id']?.toString();
     if (id == null) return;
-    
+
     final double? total = _toDouble(detail['price_estimated']);
     double remaining = total ?? 0.0;
-    
+
     if (detail['payment_status'] == 'partially_paid') {
       remaining = remaining * 0.7;
     }
 
     context.push(
-      '/payment/$id', 
+      '/payment/$id',
       extra: {
         'serviceId': id,
         'type': 'remaining',
@@ -773,27 +884,22 @@ class _FixedServiceCardState extends State<FixedServiceCard>
         'total': total,
         'providerName': detail['provider_name'],
         'serviceType': detail['service_type'] ?? widget.category,
-      }
+      },
     );
-  }
-
-  Future<void> _submitLocalReview() async {
-    final id = _currentDetails['id']?.toString();
-    if (id == null) return;
-    setState(() => _submittingReview = true);
-    try {
-      await ApiService().submitReview(serviceId: id, rating: _rating, comment: _commentController.text);
-      if (mounted) setState(() { _reviewSubmittedSuccessfully = true; _submittingReview = false; });
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e'))); }
-    finally { if (mounted) setState(() => _submittingReview = false); }
   }
 
   Future<void> resolveProviderAvatar() async {
     try {
       final d = _currentDetails;
-      final raw = d['provider_avatar'] ?? d['providerPhoto'] ?? d['providers']?['users']?['avatar_url'];
-      if (raw is String && raw.startsWith('http')) { _providerAvatarUrl = raw; }
-      else if (raw is String && raw.isNotEmpty) { _providerAvatarBytes = await ApiService().getMediaBytes(raw); }
+      final raw =
+          d['provider_avatar'] ??
+          d['providerPhoto'] ??
+          d['providers']?['users']?['avatar_url'];
+      if (raw is String && raw.startsWith('http')) {
+        _providerAvatarUrl = raw;
+      } else if (raw is String && raw.isNotEmpty) {
+        _providerAvatarBytes = await ApiService().getMediaBytes(raw);
+      }
       setState(() {});
     } catch (_) {}
   }

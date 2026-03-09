@@ -14,7 +14,9 @@ mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
   void onSearchChanged(String query, bool isPickup) {
     if (debouncer?.isActive ?? false) debouncer!.cancel();
     debouncer = Timer(const Duration(milliseconds: 600), () async {
-      if (!isSearchExpanded && !pickupFocus.hasFocus && !destinationFocus.hasFocus) {
+      if (!isSearchExpanded &&
+          !pickupFocus.hasFocus &&
+          !destinationFocus.hasFocus) {
         return;
       }
 
@@ -25,7 +27,9 @@ mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
       }
 
       if (_autocompleteCache.containsKey(trimmedQuery)) {
-        if (mounted) setState(() => searchResults = _autocompleteCache[trimmedQuery]!);
+        if (mounted) {
+          setState(() => searchResults = _autocompleteCache[trimmedQuery]!);
+        }
         return;
       }
 
@@ -43,7 +47,9 @@ mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
         if (responseSuccess(results)) {
           final enrichedResults = await _enrichResults(results);
           if (mounted) {
-            if (!isSearchExpanded && !pickupFocus.hasFocus && !destinationFocus.hasFocus) {
+            if (!isSearchExpanded &&
+                !pickupFocus.hasFocus &&
+                !destinationFocus.hasFocus) {
               setState(() => isSearching = false);
               return;
             }
@@ -75,55 +81,78 @@ mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
       };
     }).toList();
 
-    return Future.wait(rawResults.map((raw) async {
-      final address = raw['address'];
-      final poi = raw['poi'];
-      String? bairro = address['municipalitySubdivision'] ?? address['neighborhood'] ?? address['subDivision'];
+    return Future.wait(
+      rawResults.map((raw) async {
+        final address = raw['address'];
+        final poi = raw['poi'];
+        String? bairro =
+            address['municipalitySubdivision'] ??
+            address['neighborhood'] ??
+            address['subDivision'];
 
-      if ((bairro == null || bairro.isEmpty) && raw['lat'] != null && raw['lon'] != null) {
-        try {
-          final reverseResp = await _api.reverseGeocode(raw['lat'], raw['lon']);
-          final revAddress = reverseResp['address'] as Map<String, dynamic>?;
-          bairro = revAddress?['suburb'] ?? revAddress?['neighbourhood'] ?? revAddress?['city_district'];
-        } catch (_) {}
-      }
+        if ((bairro == null || bairro.isEmpty) &&
+            raw['lat'] != null &&
+            raw['lon'] != null) {
+          try {
+            final reverseResp = await _api.reverseGeocode(
+              raw['lat'],
+              raw['lon'],
+            );
+            final revAddress = reverseResp['address'] as Map<String, dynamic>?;
+            bairro =
+                revAddress?['suburb'] ??
+                revAddress?['neighbourhood'] ??
+                revAddress?['city_district'];
+          } catch (_) {}
+        }
 
-      String mainTitle = poi != null ? poi['name'] : (address['streetName'] ?? "Endereço desconhecido");
-      if (poi == null && address['freeformAddress'] != null) mainTitle = address['freeformAddress'].split(',')[0];
+        String mainTitle = poi != null
+            ? poi['name']
+            : (address['streetName'] ?? "Endereço desconhecido");
+        if (poi == null && address['freeformAddress'] != null) {
+          mainTitle = address['freeformAddress'].split(',')[0];
+        }
 
-      List<String> parts = [];
-      if (address['streetName'] != null) {
-        String street = address['streetName'];
-        if (address['streetNumber'] != null) street += ", ${address['streetNumber']}";
-        parts.add(street);
-      }
-      if (bairro != null) parts.add(bairro);
-      parts.add(address['municipality'] ?? 'Imperatriz');
+        List<String> parts = [];
+        if (address['streetName'] != null) {
+          String street = address['streetName'];
+          if (address['streetNumber'] != null) {
+            street += ", ${address['streetNumber']}";
+          }
+          parts.add(street);
+        }
+        if (bairro != null) parts.add(bairro);
+        parts.add(address['municipality'] ?? 'Imperatriz');
 
-      String subtitle = parts.isNotEmpty ? parts.join(' - ') : (address['freeformAddress'] ?? '');
+        String subtitle = parts.isNotEmpty
+            ? parts.join(' - ')
+            : (address['freeformAddress'] ?? '');
 
-      String categoryStr = '';
-      if (poi != null) {
-        categoryStr = '${(poi['categories'] as List?)?.join(' ') ?? ''} ${poi['classifications']?.toString() ?? ''}'.toLowerCase();
-      }
+        String categoryStr = '';
+        if (poi != null) {
+          categoryStr =
+              '${(poi['categories'] as List?)?.join(' ') ?? ''} ${poi['classifications']?.toString() ?? ''}'
+                  .toLowerCase();
+        }
 
-      return {
-        'main_text': mainTitle,
-        'secondary_text': subtitle,
-        'is_poi': poi != null,
-        'display_name': '$mainTitle - $subtitle',
-        'lat': raw['lat'],
-        'lon': raw['lon'],
-        'dist': raw['dist'],
-        'category': categoryStr,
-        'street': address['streetName'],
-        'number': address['streetNumber'],
-        'neighborhood': bairro,
-        'city': address['municipality'],
-        'state': address['countrySubdivisionCode'],
-        'poi_name': poi != null ? poi['name'] : null,
-      };
-    }));
+        return {
+          'main_text': mainTitle,
+          'secondary_text': subtitle,
+          'is_poi': poi != null,
+          'display_name': '$mainTitle - $subtitle',
+          'lat': raw['lat'],
+          'lon': raw['lon'],
+          'dist': raw['dist'],
+          'category': categoryStr,
+          'street': address['streetName'],
+          'number': address['streetNumber'],
+          'neighborhood': bairro,
+          'city': address['municipality'],
+          'state': address['countrySubdivisionCode'],
+          'poi_name': poi != null ? poi['name'] : null,
+        };
+      }),
+    );
   }
 
   Future<void> selectSearchResult(dynamic result, bool isPickup) async {
@@ -172,7 +201,12 @@ mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
           mapController.fitCamera(
             CameraFit.bounds(
               bounds: bounds,
-              padding: const EdgeInsets.only(top: 150, bottom: 540, left: 60, right: 60),
+              padding: const EdgeInsets.only(
+                top: 150,
+                bottom: 540,
+                left: 60,
+                right: 60,
+              ),
             ),
           );
         }

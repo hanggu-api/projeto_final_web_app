@@ -110,7 +110,8 @@ Future<void> initializeBackgroundService() async {
 
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(channel);
 
   await service.configure(
@@ -122,7 +123,10 @@ Future<void> initializeBackgroundService() async {
       initialNotificationTitle: 'App Ativo',
       initialNotificationContent: 'Otimizando processos...',
       foregroundServiceNotificationId: 888,
-      foregroundServiceTypes: [AndroidForegroundType.specialUse, AndroidForegroundType.location],
+      foregroundServiceTypes: [
+        AndroidForegroundType.specialUse,
+        AndroidForegroundType.location,
+      ],
     ),
     iosConfiguration: IosConfiguration(
       autoStart: false,

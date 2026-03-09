@@ -6,12 +6,7 @@ class BaseSkeleton extends StatelessWidget {
   final double? height;
   final BorderRadius? borderRadius;
 
-  const BaseSkeleton({
-    super.key,
-    this.width,
-    this.height,
-    this.borderRadius,
-  });
+  const BaseSkeleton({super.key, this.width, this.height, this.borderRadius});
 
   @override
   Widget build(BuildContext context) {
@@ -35,12 +30,7 @@ class CardSkeleton extends StatelessWidget {
   final double? width;
   final BorderRadius? borderRadius;
 
-  const CardSkeleton({
-    super.key,
-    this.height,
-    this.width,
-    this.borderRadius,
-  });
+  const CardSkeleton({super.key, this.height, this.width, this.borderRadius});
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +48,11 @@ class CardSkeleton extends StatelessWidget {
         children: [
           Row(
             children: [
-              const BaseSkeleton(width: 40, height: 40, borderRadius: BorderRadius.all(Radius.circular(20))),
+              const BaseSkeleton(
+                width: 40,
+                height: 40,
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -79,9 +73,7 @@ class CardSkeleton extends StatelessWidget {
           const SizedBox(height: 16),
           const Row(
             mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              BaseSkeleton(width: 100, height: 36),
-            ],
+            children: [BaseSkeleton(width: 100, height: 36)],
           ),
         ],
       ),
@@ -96,7 +88,11 @@ class ProfileSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const BaseSkeleton(width: 48, height: 48, borderRadius: BorderRadius.all(Radius.circular(24))),
+        const BaseSkeleton(
+          width: 48,
+          height: 48,
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+        ),
         const SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,

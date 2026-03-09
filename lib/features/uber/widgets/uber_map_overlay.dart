@@ -84,16 +84,17 @@ class UberMapOverlay extends StatelessWidget {
       }
     }
 
-    // Cor da Rota: Verde para Motorista indo buscar ou Passageiro acompanhando
+    // Cor da Rota: Verde apenas para o motorista (modo driver).
+    // No modo tracking (cliente acompanhando), usamos azul para alinhar com o estilo da UI.
     final effectiveRouteColor =
         routeColor ??
-        ((mode == MapOverlayMode.driver || mode == MapOverlayMode.tracking)
-            ? Colors.green.withOpacity(0.8)
-            : const Color(0xFF2196F3).withOpacity(0.9));
+        (mode == MapOverlayMode.driver
+            ? Colors.green.withValues(alpha: 0.8)
+            : const Color(0xFF2196F3).withValues(alpha: 0.9));
 
     final effectiveBorderColor =
         routeBorderColor ??
-        ((mode == MapOverlayMode.driver || mode == MapOverlayMode.tracking)
+        (mode == MapOverlayMode.driver
             ? Colors.green.shade900
             : const Color(0xFF1976D2));
 
@@ -192,7 +193,7 @@ class UberMapOverlay extends StatelessWidget {
                 ? []
                 : [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -214,7 +215,7 @@ class UberMapOverlay extends StatelessWidget {
                   width: 1,
                   height: 10,
                   margin: const EdgeInsets.symmetric(horizontal: 6),
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
                 Text(
                   info,

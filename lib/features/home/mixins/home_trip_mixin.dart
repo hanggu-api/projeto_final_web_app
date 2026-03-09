@@ -39,7 +39,10 @@ mixin HomeTripMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
 
     setState(() => isRequestingTrip = true);
     try {
-      final route = await MapService().getRoute(pickupLocation!, dropoffLocation!);
+      final route = await MapService().getRoute(
+        pickupLocation!,
+        dropoffLocation!,
+      );
 
       if (mounted) {
         setState(() {
@@ -52,9 +55,9 @@ mixin HomeTripMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
       await calculateFare();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao traçar rota: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao traçar rota: $e')));
       }
     } finally {
       if (mounted) setState(() => isRequestingTrip = false);
@@ -93,9 +96,9 @@ mixin HomeTripMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
       await Future.wait(fareFutures);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao calcular tarifas: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao calcular tarifas: $e')));
       }
     } finally {
       if (mounted) setState(() => isRequestingTrip = false);
@@ -106,7 +109,14 @@ mixin HomeTripMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
     if (data == null) return 0.0;
     if (data is num) return data.toDouble();
     if (data is Map) {
-      final value = data['estimated'] ?? data['fare'] ?? data['total'] ?? data['price'] ?? data['amount'] ?? data['estimated_fare'] ?? 0;
+      final value =
+          data['estimated'] ??
+          data['fare'] ??
+          data['total'] ??
+          data['price'] ??
+          data['amount'] ??
+          data['estimated_fare'] ??
+          0;
       if (value is Map) return extractFareValue(value);
       return double.tryParse(value.toString()) ?? 0.0;
     }
@@ -143,9 +153,9 @@ mixin HomeTripMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao solicitar viagem: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao solicitar viagem: $e')));
       }
     } finally {
       if (mounted) setState(() => isRequestingTrip = false);

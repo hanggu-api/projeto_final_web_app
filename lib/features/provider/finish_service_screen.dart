@@ -91,7 +91,7 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
 
     try {
       final isValid = await _api.verifyServiceCode(widget.serviceId, code);
-      
+
       if (mounted) {
         setState(() {
           _isCodeValid = isValid;
@@ -131,7 +131,7 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     });
     try {
       String? videoKey;
-      
+
       if (_video != null) {
         videoKey = await _api.uploadServiceVideoFromPath(
           _video!.path,
@@ -140,15 +140,16 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
         );
       }
 
-      await _api.confirmServiceCompletion(widget.serviceId, 
-        code: _codeController.text, 
-        proofVideo: videoKey
+      await _api.confirmServiceCompletion(
+        widget.serviceId,
+        code: _codeController.text,
+        proofVideo: videoKey,
       );
 
       if (!mounted) return;
-      
+
       await _showSuccessDialog();
-      
+
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
@@ -182,7 +183,11 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
                   color: Colors.green.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(LucideIcons.check, color: Colors.green, size: 40),
+                child: const Icon(
+                  LucideIcons.check,
+                  color: Colors.green,
+                  size: 40,
+                ),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -212,7 +217,9 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[600],
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: const Text('OK'),
                 ),
@@ -264,7 +271,11 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             color: AppTheme.primaryPurple.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(LucideIcons.rocket, color: AppTheme.primaryPurple, size: 32),
+          child: Icon(
+            LucideIcons.rocket,
+            color: AppTheme.primaryPurple,
+            size: 32,
+          ),
         ),
         const SizedBox(height: 16),
         const Text(
@@ -285,7 +296,11 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     Widget? suffix;
 
     if (_validating) {
-      suffix = const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2));
+      suffix = const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
     } else if (_isCodeValid == true) {
       borderColor = Colors.green;
       helperText = 'Código validado com sucesso!';
@@ -303,7 +318,12 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
           children: [
             const Text(
               'CÓDIGO DE VALIDAÇÃO',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                color: Colors.grey,
+              ),
             ),
             const SizedBox(width: 8),
             Container(
@@ -314,7 +334,11 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
               ),
               child: const Text(
                 'OPCIONAL',
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
               ),
             ),
           ],
@@ -330,22 +354,31 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             fontWeight: FontWeight.bold,
             letterSpacing: 8,
           ),
-          decoration: AppTheme.inputDecoration(
-            'Código de 6 dígitos',
-            LucideIcons.lock,
-          ).copyWith(
-            hintText: '000000',
-            counterText: '',
-            helperText: helperText,
-            helperStyle: TextStyle(color: borderColor ?? Colors.grey),
-            suffixIcon: suffix != null ? Padding(padding: const EdgeInsets.all(12), child: suffix) : null,
-            enabledBorder: borderColor != null
-              ? OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: borderColor, width: 2))
-              : null,
-            focusedBorder: borderColor != null
-              ? OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: borderColor, width: 2))
-              : null,
-          ),
+          decoration:
+              AppTheme.inputDecoration(
+                'Código de 6 dígitos',
+                LucideIcons.lock,
+              ).copyWith(
+                hintText: '000000',
+                counterText: '',
+                helperText: helperText,
+                helperStyle: TextStyle(color: borderColor ?? Colors.grey),
+                suffixIcon: suffix != null
+                    ? Padding(padding: const EdgeInsets.all(12), child: suffix)
+                    : null,
+                enabledBorder: borderColor != null
+                    ? OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: borderColor, width: 2),
+                      )
+                    : null,
+                focusedBorder: borderColor != null
+                    ? OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: borderColor, width: 2),
+                      )
+                    : null,
+              ),
           onChanged: (v) {
             if (v.length == 6) {
               _verifyCode(v);
@@ -369,7 +402,12 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
       children: [
         const Text(
           'PROVA MATERIAL (VÍDEO)',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.grey),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+            color: Colors.grey,
+          ),
         ),
         const SizedBox(height: 12),
         if (_video != null && _videoController != null)
@@ -388,7 +426,13 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
@@ -401,12 +445,16 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
                     child: InkWell(
                       onTap: () {
                         setState(() {
-                          _videoController!.value.isPlaying ? _videoController!.pause() : _videoController!.play();
+                          _videoController!.value.isPlaying
+                              ? _videoController!.pause()
+                              : _videoController!.play();
                         });
                       },
                       child: Center(
                         child: Icon(
-                          _videoController!.value.isPlaying ? LucideIcons.pause : LucideIcons.play,
+                          _videoController!.value.isPlaying
+                              ? LucideIcons.pause
+                              : LucideIcons.play,
                           size: 64,
                           color: Colors.white,
                         ),
@@ -446,11 +494,18 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(LucideIcons.camera, color: AppTheme.primaryPurple.withValues(alpha: 0.4), size: 40),
+              Icon(
+                LucideIcons.camera,
+                color: AppTheme.primaryPurple.withValues(alpha: 0.4),
+                size: 40,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'Toque para gravar o vídeo',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54,
+                ),
               ),
               const Text(
                 'Máximo de 2 minutos',
@@ -466,12 +521,20 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
   Widget _buildErrorBadge() {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
           const Icon(LucideIcons.alertCircle, color: Colors.red, size: 16),
           const SizedBox(width: 8),
-          Expanded(child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))),
+          Expanded(
+            child: Text(
+              _error!,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
         ],
       ),
     );
@@ -481,14 +544,24 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        boxShadow: _isFormValid ? [BoxShadow(color: AppTheme.primaryPurple.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))] : null,
+        boxShadow: _isFormValid
+            ? [
+                BoxShadow(
+                  color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: ElevatedButton(
         onPressed: _isFormValid ? _submit : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryPurple,
           minimumSize: const Size(double.infinity, 60),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: _submitting
             ? Row(
@@ -505,9 +578,9 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    _uploadProgress > 0 
-                      ? 'ENVIANDO: ${(_uploadProgress * 100).toInt()}%' 
-                      : 'PROCESSANDO...',
+                    _uploadProgress > 0
+                        ? 'ENVIANDO: ${(_uploadProgress * 100).toInt()}%'
+                        : 'PROCESSANDO...',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -518,10 +591,13 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
               )
             : const Text(
                 'FINALIZAR SERVIÇO',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
               ),
       ),
     );
   }
 }
-

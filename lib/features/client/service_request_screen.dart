@@ -25,7 +25,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   // 'mobile' -> Fluxo Imediato/Móvel (Default para genérico)
   // 'fixed' -> Fluxo Agendado (Se provider inicial for fixo ou AI detectar)
   String _currentFlow = 'mobile';
-  
+
   // Dados transferidos entre as telas caso haja troca de contexto
   Map<String, dynamic>? _transferredData;
 
@@ -33,9 +33,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   void initState() {
     super.initState();
     if (widget.initialPrompt != null) {
-       _transferredData = {
-          'description': widget.initialPrompt,
-       };
+      _transferredData = {'description': widget.initialPrompt};
     }
     _determineInitialFlow();
   }
@@ -43,36 +41,38 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   void _determineInitialFlow() {
     // 1. Se veio com Provider ou Serviço inicial, verificamos o tipo
     if (widget.initialService != null) {
-       final rawType = widget.initialService!['service_type'];
-       if (rawType == 'at_provider') {
-          _currentFlow = 'fixed';
-          return;
-       }
-       // Fallback by name
-       final name = (widget.initialService!['name'] ?? '').toString().toLowerCase();
-       if (_isFixedByName(name)) {
-          _currentFlow = 'fixed';
-          return;
-       }
+      final rawType = widget.initialService!['service_type'];
+      if (rawType == 'at_provider') {
+        _currentFlow = 'fixed';
+        return;
+      }
+      // Fallback by name
+      final name = (widget.initialService!['name'] ?? '')
+          .toString()
+          .toLowerCase();
+      if (_isFixedByName(name)) {
+        _currentFlow = 'fixed';
+        return;
+      }
     }
 
     if (widget.initialProvider != null) {
-       // Check provider traits
-       // Se o provider tem endereço fixo cadastrado e serviço "no local", é fixo.
-       // Simplificação: Se initialProviderId não é nulo, geralmente no app atual 
-       // o usuário clicou em "Agendar" num perfil de prestador Fixo (Barbearias).
-       // Prestadores móveis são chamados via "Solicitar" genérico.
-       // MAS, se tiver borracharia específica...
-       // Por enquanto, assumimos que escolher provider específico -> Fluxo Agendado (Fixo UI)
-       // A MENOS que seja explicitamente móvel (Uber-like).
-       // Vamos assumir 'fixed' se providerId existe, pois Mobile flow é "find random".
-       _currentFlow = 'fixed';
+      // Check provider traits
+      // Se o provider tem endereço fixo cadastrado e serviço "no local", é fixo.
+      // Simplificação: Se initialProviderId não é nulo, geralmente no app atual
+      // o usuário clicou em "Agendar" num perfil de prestador Fixo (Barbearias).
+      // Prestadores móveis são chamados via "Solicitar" genérico.
+      // MAS, se tiver borracharia específica...
+      // Por enquanto, assumimos que escolher provider específico -> Fluxo Agendado (Fixo UI)
+      // A MENOS que seja explicitamente móvel (Uber-like).
+      // Vamos assumir 'fixed' se providerId existe, pois Mobile flow é "find random".
+      _currentFlow = 'fixed';
     }
   }
 
   bool _isFixedByName(String name) {
-    if (name.contains('barbeiro') || 
-        name.contains('cabel') || 
+    if (name.contains('barbeiro') ||
+        name.contains('cabel') ||
         name.contains('manic') ||
         name.contains('dentista')) {
       return true;

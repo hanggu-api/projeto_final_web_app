@@ -25,11 +25,14 @@ class PremiumDriverMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // O ícone padrão do Lucide aponta para a direita (leste).
+    // Compensamos -90° para alinhar heading 0° com o topo (norte).
+    final visualHeading = heading - 90.0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Transform.rotate(
-          angle: heading * (pi / 180),
+          angle: visualHeading * (pi / 180),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -54,11 +57,11 @@ class PremiumDriverMarker extends StatelessWidget {
                       height: size * 0.9,
                       decoration: BoxDecoration(
                         color: (pulseColor ?? AppTheme.primaryYellow)
-                            .withOpacity(0.4),
+                            .withValues(alpha: 0.4),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: (pulseColor ?? AppTheme.primaryYellow)
-                              .withOpacity(0.2),
+                              .withValues(alpha: 0.2),
                           width: 2,
                         ),
                       ),

@@ -83,7 +83,10 @@ class _AssetVideoPlayerState extends State<AssetVideoPlayer> {
       return SizedBox(
         height: widget.height,
         child: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.amber)),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+          ),
         ),
       );
     }

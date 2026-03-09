@@ -27,10 +27,7 @@ class ServiceSyncService {
 
     // Criar novo watch
     final controller = StreamController<Map<String, dynamic>>.broadcast();
-    final watch = _ServiceWatch(
-      serviceId: serviceId,
-      controller: controller,
-    );
+    final watch = _ServiceWatch(serviceId: serviceId, controller: controller);
 
     _watches[serviceId] = watch;
 
@@ -61,10 +58,7 @@ class ServiceSyncService {
   }
 
   /// Começar listener do Firebase
-  void _startFirebaseListener(
-    String serviceId,
-    _ServiceWatch watch,
-  ) {
+  void _startFirebaseListener(String serviceId, _ServiceWatch watch) {
     try {
       watch.firebaseSubscription = DataGateway()
           .watchService(serviceId)
@@ -74,7 +68,9 @@ class ServiceSyncService {
               watch.firebaseWorking = true;
               watch.controller.add(service);
 
-              debugPrint('[ServiceSync] Firebase update recebido para $serviceId');
+              debugPrint(
+                '[ServiceSync] Firebase update recebido para $serviceId',
+              );
             },
             onError: (error) {
               // Firebase falhou
@@ -92,37 +88,33 @@ class ServiceSyncService {
   }
 
   /// Começar polling fallback (se Firebase falhar)
-  void _startPollingFallback(
-    String serviceId,
-    _ServiceWatch watch,
-  ) {
+  void _startPollingFallback(String serviceId, _ServiceWatch watch) {
     watch.pollingTimer?.cancel();
 
-    watch.pollingTimer = Timer.periodic(
-      Duration(seconds: 5),
-      (_) async {
-        // Só fazer polling se Firebase não está funcionando
-        if (watch.firebaseWorking) {
-          return;
-        }
+    watch.pollingTimer = Timer.periodic(Duration(seconds: 5), (_) async {
+      // Só fazer polling se Firebase não está funcionando
+      if (watch.firebaseWorking) {
+        return;
+      }
 
-        try {
-          // Fase 6: Usar Supabase SDK em vez da REST API legada
-          final response = await Supabase.instance.client
-              .from('service_requests_new')
-              .select()
-              .eq('id', serviceId)
-              .maybeSingle();
+      try {
+        // Fase 6: Usar Supabase SDK em vez da REST API legada
+        final response = await Supabase.instance.client
+            .from('service_requests_new')
+            .select()
+            .eq('id', serviceId)
+            .maybeSingle();
 
-          if (response != null) {
-            watch.controller.add(Map<String, dynamic>.from(response));
-            debugPrint('[ServiceSync] Polling update via Supabase para $serviceId');
-          }
-        } catch (error) {
-          debugPrint('[ServiceSync] Polling erro para $serviceId: $error');
+        if (response != null) {
+          watch.controller.add(Map<String, dynamic>.from(response));
+          debugPrint(
+            '[ServiceSync] Polling update via Supabase para $serviceId',
+          );
         }
-      },
-    );
+      } catch (error) {
+        debugPrint('[ServiceSync] Polling erro para $serviceId: $error');
+      }
+    });
   }
 
   /// Retornar stream contínuo com fallback automático
@@ -170,10 +162,7 @@ class _ServiceWatch {
   Timer? pollingTimer;
   bool firebaseWorking = false;
 
-  _ServiceWatch({
-    required this.serviceId,
-    required this.controller,
-  });
+  _ServiceWatch({required this.serviceId, required this.controller});
 
   void dispose() {
     firebaseSubscription?.cancel();

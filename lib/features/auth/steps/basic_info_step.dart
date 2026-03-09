@@ -14,7 +14,8 @@ class BasicInfoStep extends StatefulWidget {
   final String role;
   final VoidCallback onRoleToggle;
   final GlobalKey<FormState> formKey;
-  final Function(bool isValidating, Map<String, String?> errors) onValidationChanged;
+  final Function(bool isValidating, Map<String, String?> errors)
+  onValidationChanged;
 
   const BasicInfoStep({
     super.key,
@@ -40,7 +41,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
 
   void _onFieldChanged(String field, String value) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    
+
     // Clear error while typing or if empty
     if (value.isEmpty) {
       setState(() {
@@ -52,12 +53,20 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     }
 
     _debounce = Timer(const Duration(milliseconds: 600), () async {
-      final cleanValue = field == 'email' ? value.trim() : value.replaceAll(RegExp(r'\D'), '');
-      
+      final cleanValue = field == 'email'
+          ? value.trim()
+          : value.replaceAll(RegExp(r'\D'), '');
+
       // Basic format check before API call
-      if (field == 'email' && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(cleanValue)) return;
+      if (field == 'email' &&
+          !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(cleanValue)) {
+        return;
+      }
       if (field == 'phone' && cleanValue.length < 11) return;
-      if (field == 'doc' && (cleanValue.length != 11 && cleanValue.length != 14)) return;
+      if (field == 'doc' &&
+          (cleanValue.length != 11 && cleanValue.length != 14)) {
+        return;
+      }
 
       setState(() => _isValidating[field] = true);
       _notifyParent();
@@ -73,7 +82,8 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
           setState(() {
             _isValidating[field] = false;
             if (result['exists'] == true) {
-              _fieldErrors[field] = 'Este ${field == 'doc' ? 'CPF/CNPJ' : field} já está cadastrado';
+              _fieldErrors[field] =
+                  'Este ${field == 'doc' ? 'CPF/CNPJ' : field} já está cadastrado';
             } else {
               _fieldErrors[field] = null;
             }
@@ -107,7 +117,9 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.role == 'client' ? 'Cadastro de Cliente' : 'Seus Dados Básicos',
+              widget.role == 'client'
+                  ? 'Cadastro de Cliente'
+                  : 'Seus Dados Básicos',
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
@@ -121,10 +133,13 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                 ),
               ),
             const SizedBox(height: 16),
-            
+
             TextFormField(
               controller: widget.nameController,
-              decoration: AppTheme.inputDecoration('Nome Completo', Icons.person),
+              decoration: AppTheme.inputDecoration(
+                'Nome Completo',
+                Icons.person,
+              ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Informe seu nome completo';
@@ -138,19 +153,29 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             const SizedBox(height: 12),
             TextFormField(
               controller: widget.emailController,
-              decoration: AppTheme.inputDecoration('Email', Icons.email).copyWith(
-                suffixIcon: _isValidating['email'] == true 
-                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))) 
-                  : null,
-                errorText: _fieldErrors['email'],
-              ),
+              decoration: AppTheme.inputDecoration('Email', Icons.email)
+                  .copyWith(
+                    suffixIcon: _isValidating['email'] == true
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                    errorText: _fieldErrors['email'],
+                  ),
               keyboardType: TextInputType.emailAddress,
               onChanged: (v) => _onFieldChanged('email', v),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Informe seu email';
                 }
-                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                if (!RegExp(
+                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                ).hasMatch(value.trim())) {
                   return 'Email inválido';
                 }
                 if (_fieldErrors['email'] != null) return _fieldErrors['email'];
@@ -172,13 +197,21 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             const SizedBox(height: 12),
             TextFormField(
               controller: widget.phoneController,
-              decoration: AppTheme.inputDecoration('Celular', Icons.phone).copyWith(
-                hintText: '(XX) XXXXX-XXXX',
-                suffixIcon: _isValidating['phone'] == true 
-                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))) 
-                  : null,
-                errorText: _fieldErrors['phone'],
-              ),
+              decoration: AppTheme.inputDecoration('Celular', Icons.phone)
+                  .copyWith(
+                    hintText: '(XX) XXXXX-XXXX',
+                    suffixIcon: _isValidating['phone'] == true
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                    errorText: _fieldErrors['phone'],
+                  ),
               keyboardType: TextInputType.phone,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -199,12 +232,23 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             const SizedBox(height: 12),
             TextFormField(
               controller: widget.docController,
-              decoration: AppTheme.inputDecoration('CPF/CNPJ', Icons.assignment_ind).copyWith(
-                suffixIcon: _isValidating['doc'] == true 
-                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))) 
-                  : null,
-                errorText: _fieldErrors['doc'],
-              ),
+              decoration:
+                  AppTheme.inputDecoration(
+                    'CPF/CNPJ',
+                    Icons.assignment_ind,
+                  ).copyWith(
+                    suffixIcon: _isValidating['doc'] == true
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                    errorText: _fieldErrors['doc'],
+                  ),
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,

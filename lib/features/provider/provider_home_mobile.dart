@@ -44,29 +44,28 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   late TabController _tabController;
   final _api = ApiService();
   final _media = MediaService();
-  
+
   // Data State
   List<dynamic> _availableServices = [];
   List<dynamic> _myServices = [];
   String? _notifText;
   bool _loadingData = false;
   double _walletBalance = 0.0;
-  
+
   // Travel/Location State
   final Map<String, Map<String, String>> _travelById = {};
   Uint8List? _avatarBytes;
   String? _userName;
   int? _currentUserId;
-  final int _unreadCount = 0;
   bool _uberEnabled = false;
 
   // Notification / Offer State
   final Set<String> _openOfferIds = {};
-  
+
   // Firebase Listeners for auto-refresh
   final List<StreamSubscription> _serviceSubscriptions = [];
   List<String> _myProfessions = []; // Store provider professions for filtering
-  
+
   // UI Notifiers
   final ValueNotifier<bool> _isLoadingVN = ValueNotifier<bool>(true);
 
@@ -77,21 +76,22 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     _checkLocationPermission();
     _checkOverlayPermission();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     if (widget.initialAvailableServices != null ||
         widget.initialMyServices != null) {
-      _availableServices = widget.initialAvailableServices ?? _availableServices;
+      _availableServices =
+          widget.initialAvailableServices ?? _availableServices;
       _myServices = widget.initialMyServices ?? _myServices;
       _isLoadingVN.value = false;
       if (_availableServices.isNotEmpty) {
         final first = _availableServices.first;
-        _notifText = '${first['category_name'] ?? first['description'] ?? 'Serviço'} - ${first['address'] ?? ''}';
+        _notifText =
+            '${first['category_name'] ?? first['description'] ?? 'Serviço'} - ${first['address'] ?? ''}';
       } else {
         _notifText = null;
       }
     }
-    
-    
+
     if (widget.loadOnInit) {
       _initSocket();
       _loadData();
@@ -107,8 +107,14 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     rt.on('service.created', _handleServiceCreated);
     rt.on('service.offered', _handleServiceOffered);
     RealtimeService().onEvent('service_cancelled', _handleServiceCancelled);
-    RealtimeService().onEvent('service_canceled', _handleServiceCancelled); // Typo safety
-    RealtimeService().onEvent('payment_approved', _handlePaymentUpdate); // Ensure this is registered
+    RealtimeService().onEvent(
+      'service_canceled',
+      _handleServiceCancelled,
+    ); // Typo safety
+    RealtimeService().onEvent(
+      'payment_approved',
+      _handlePaymentUpdate,
+    ); // Ensure this is registered
     rt.on('payment_remaining', _handlePaymentUpdate);
     rt.on('payment_confirmed', _handlePaymentUpdate);
     rt.on('service.status', _handleServiceUpdated);
@@ -140,13 +146,13 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       final config = await _api.getAppConfig();
       if (mounted) {
         setState(() {
-          _uberEnabled = config['uber_module_enabled'] == 'true' || config['uber_module_enabled'] == true;
+          _uberEnabled =
+              config['uber_module_enabled'] == 'true' ||
+              config['uber_module_enabled'] == true;
         });
       }
     } catch (_) {}
   }
-
-
 
   // --- Socket Handlers ---
 
@@ -175,77 +181,113 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       sub.cancel();
     }
     _serviceSubscriptions.clear();
-    
-    debugPrint('🔥 [Supabase] Listening for services for professions: $_myProfessions');
+
+    debugPrint(
+      '🔥 [Supabase] Listening for services for professions: $_myProfessions',
+    );
 
     final sub = Supabase.instance.client
         .from('service_requests_new')
         .stream(primaryKey: ['id'])
         .eq('status', 'open_for_schedule')
-        .listen((snapshot) {
-      if (!mounted) return;
-      
-      final services = snapshot.where((d) {
-         final prof = d['profession']?.toString();
-         return prof != null && _myProfessions.contains(prof);
-      }).map((d) {
-        final data = d;
-        
-        // Ensure numeric types are safe for Dart
-        if (data['price_estimated'] is int) data['price_estimated'] = (data['price_estimated'] as int).toDouble();
-        if (data['price_upfront'] is int) data['price_upfront'] = (data['price_upfront'] as int).toDouble();
-        if (data['latitude'] is int) data['latitude'] = (data['latitude'] as int).toDouble();
-        if (data['longitude'] is int) data['longitude'] = (data['longitude'] as int).toDouble();
-        
-        return data;
-      }).toList();
+        .listen(
+          (snapshot) {
+            if (!mounted) return;
 
-      debugPrint('🔥 [Supabase] Received ${services.length} available services in real-time');
-      _updateAvailableServicesWithTravel(services);
-    }, onError: (e) {
-       debugPrint('❌ [Supabase] Error listening to services: $e');
-    });
-    
+            final services = snapshot
+                .where((d) {
+                  final prof = d['profession']?.toString();
+                  return prof != null && _myProfessions.contains(prof);
+                })
+                .map((d) {
+                  final data = d;
+
+                  // Ensure numeric types are safe for Dart
+                  if (data['price_estimated'] is int) {
+                    data['price_estimated'] = (data['price_estimated'] as int)
+                        .toDouble();
+                  }
+                  if (data['price_upfront'] is int) {
+                    data['price_upfront'] = (data['price_upfront'] as int)
+                        .toDouble();
+                  }
+                  if (data['latitude'] is int) {
+                    data['latitude'] = (data['latitude'] as int).toDouble();
+                  }
+                  if (data['longitude'] is int) {
+                    data['longitude'] = (data['longitude'] as int).toDouble();
+                  }
+
+                  return data;
+                })
+                .toList();
+
+            debugPrint(
+              '🔥 [Supabase] Received ${services.length} available services in real-time',
+            );
+            _updateAvailableServicesWithTravel(services);
+          },
+          onError: (e) {
+            debugPrint('❌ [Supabase] Error listening to services: $e');
+          },
+        );
+
     _serviceSubscriptions.add(sub);
   }
-  
-  void _updateAvailableServicesWithTravel(List<dynamic> firestoreServices) async {
-       Position? currentPos;
-       try {
-         // Best effort location
-         currentPos = await Geolocator.getLastKnownPosition();
-         currentPos ??= await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(timeLimit: Duration(seconds: 2)));
-       } catch (e) {
-         debugPrint('⚠️ [Location] Could not get location for distance calc: $e');
-       }
-       
-       final updated = firestoreServices.map((s) {
-           if (currentPos != null && s['latitude'] != null && s['longitude'] != null) {
-               final double lat = s['latitude'] is String ? double.parse(s['latitude']) : s['latitude'];
-               final double lon = s['longitude'] is String ? double.parse(s['longitude']) : s['longitude'];
-               
-               final dist = Geolocator.distanceBetween(
-                   currentPos.latitude, currentPos.longitude, 
-                   lat, lon
-               ) / 1000.0; // km
-               s['distance_km'] = dist;
-           }
-           return s;
-       }).toList();
-       
-       if (mounted) {
-           setState(() {
-               _availableServices = updated;
-               _notifText = (updated.isNotEmpty)
-                ? '${updated.first['category_name'] ?? updated.first['description'] ?? 'Serviço'} - ${updated.first['address'] ?? ''}'
-                : null;
-           });
-           
-           // If we have available services, try to prefetch better travel info if needed
-           if (_availableServices.isNotEmpty) {
-             _prefetchTravelForFirstAvailable();
-           }
-       }
+
+  void _updateAvailableServicesWithTravel(
+    List<dynamic> firestoreServices,
+  ) async {
+    Position? currentPos;
+    try {
+      // Best effort location
+      currentPos = await Geolocator.getLastKnownPosition();
+      currentPos ??= await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          timeLimit: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      debugPrint('⚠️ [Location] Could not get location for distance calc: $e');
+    }
+
+    final updated = firestoreServices.map((s) {
+      if (currentPos != null &&
+          s['latitude'] != null &&
+          s['longitude'] != null) {
+        final double lat = s['latitude'] is String
+            ? double.parse(s['latitude'])
+            : s['latitude'];
+        final double lon = s['longitude'] is String
+            ? double.parse(s['longitude'])
+            : s['longitude'];
+
+        final dist =
+            Geolocator.distanceBetween(
+              currentPos.latitude,
+              currentPos.longitude,
+              lat,
+              lon,
+            ) /
+            1000.0; // km
+        s['distance_km'] = dist;
+      }
+      return s;
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _availableServices = updated;
+        _notifText = (updated.isNotEmpty)
+            ? '${updated.first['category_name'] ?? updated.first['description'] ?? 'Serviço'} - ${updated.first['address'] ?? ''}'
+            : null;
+      });
+
+      // If we have available services, try to prefetch better travel info if needed
+      if (_availableServices.isNotEmpty) {
+        _prefetchTravelForFirstAvailable();
+      }
+    }
   }
 
   Future<void> _checkOverlayPermission() async {
@@ -255,7 +297,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       // Small delay to ensure UI is ready
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
-           _showOverlayPermissionDialog();
+          _showOverlayPermissionDialog();
         }
       });
     }
@@ -269,7 +311,10 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         backgroundColor: Colors.black,
         title: const Text(
           '🔔 Notificações Urgentes',
-          style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Color(0xFFFFD700),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: const Text(
           'Para que o aplicativo possa abrir automaticamente quando houver um novo serviço (mesmo se você estiver usando outro app), é necessário ativar a permissão "Sobreposição de Tela" ou "Mostrar sobre outros aplicativos".',
@@ -312,7 +357,9 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   void _handleServiceUpdated(dynamic data) {
     if (mounted) {
       if (data != null && data['status'] == 'open_for_schedule') {
-        debugPrint('🔄 [ProviderHome] Service became open_for_schedule. Forcing refresh.');
+        debugPrint(
+          '🔄 [ProviderHome] Service became open_for_schedule. Forcing refresh.',
+        );
         _loadData(showLoading: false);
       } else {
         _loadData(showLoading: false); // Avoid full screen loading for updates
@@ -324,17 +371,18 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     if (mounted && data != null && data['service_id'] != null) {
       final idStr = data['service_id'].toString();
       setState(() {
-         // Remove from available services
-         _availableServices.removeWhere((s) => s['id'].toString() == idStr);
-         
-         // If it was the notification text, clear it
-         if (_availableServices.isEmpty) {
-            _notifText = null;
-         } else if (_notifText != null && _notifText!.contains(idStr)) {
-            // Simplistic check, ideally verify if notif matches service
-             final first = _availableServices.first;
-             _notifText = '${first['category_name'] ?? first['description'] ?? 'Serviço'} - ${first['address'] ?? ''}';
-         }
+        // Remove from available services
+        _availableServices.removeWhere((s) => s['id'].toString() == idStr);
+
+        // If it was the notification text, clear it
+        if (_availableServices.isEmpty) {
+          _notifText = null;
+        } else if (_notifText != null && _notifText!.contains(idStr)) {
+          // Simplistic check, ideally verify if notif matches service
+          final first = _availableServices.first;
+          _notifText =
+              '${first['category_name'] ?? first['description'] ?? 'Serviço'} - ${first['address'] ?? ''}';
+        }
       });
       // Optionally show a toast (or not, if we want it silent)
       // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Um serviço foi cancelado.')));
@@ -359,7 +407,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      
+
       if (serviceEnabled &&
           (permission == LocationPermission.always ||
               permission == LocationPermission.whileInUse)) {
@@ -399,10 +447,10 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
             RealtimeService().startLocationUpdates(userId);
           }
         }
-        
+
         if (user['professions'] != null) {
-           _myProfessions = List<String>.from(user['professions']);
-           _listenToAvailableServices(); // Start listening after we know professions
+          _myProfessions = List<String>.from(user['professions']);
+          _listenToAvailableServices(); // Start listening after we know professions
         }
       }
     } catch (_) {}
@@ -439,7 +487,6 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     }
   }
 
-
   Future<void> _loadData({bool showLoading = true}) async {
     if (_loadingData || !mounted) return;
     _loadingData = true;
@@ -457,20 +504,24 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       debugPrint('📋 [DEBUG] availableNow: ${availableNow.length} items');
       debugPrint('📋 [DEBUG] availableSched: ${availableSched.length} items');
       debugPrint('📋 [DEBUG] myServices: ${my.length} items');
-      if (availableNow.isNotEmpty) debugPrint('📋 [DEBUG] availableNow[0]: ${availableNow.first}');
-      if (availableSched.isNotEmpty) debugPrint('📋 [DEBUG] availableSched[0]: ${availableSched.first}');
-      
+      if (availableNow.isNotEmpty) {
+        debugPrint('📋 [DEBUG] availableNow[0]: ${availableNow.first}');
+      }
+      if (availableSched.isNotEmpty) {
+        debugPrint('📋 [DEBUG] availableSched[0]: ${availableSched.first}');
+      }
+
       // Real-time notifications handled by DataGateway
 
       // Combine services and deduplicate by ID
       final Map<String, dynamic> uniqueServices = {};
-      
+
       for (var service in availableNow) {
         if (service['id'] != null) {
           uniqueServices[service['id'].toString()] = service;
         }
       }
-      
+
       for (var service in availableSched) {
         if (service['id'] != null) {
           uniqueServices[service['id'].toString()] = service;
@@ -478,11 +529,11 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       }
 
       final List<dynamic> combinedAvailable = uniqueServices.values.toList();
-      
+
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          
+
           final activeWork = my.where((s) {
             final st = s['status']?.toString().toLowerCase();
             return st != 'completed' && st != 'cancelled' && st != 'canceled';
@@ -494,13 +545,13 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
             _notifText = (combinedAvailable.isNotEmpty)
                 ? '${combinedAvailable.first['category_name'] ?? combinedAvailable.first['description'] ?? 'Serviço'} - ${combinedAvailable.first['address'] ?? ''}'
                 : null;
-            
+
             // Auto-switch based on presence of active work
             if (activeWork.isNotEmpty) {
-               if (_tabController.index != 0) _tabController.animateTo(0);
+              if (_tabController.index != 0) _tabController.animateTo(0);
             } else {
-               // Default to "Disponíveis" (Index 1) if "Meus" is empty
-               if (_tabController.index != 1) _tabController.animateTo(1);
+              // Default to "Disponíveis" (Index 1) if "Meus" is empty
+              if (_tabController.index != 1) _tabController.animateTo(1);
             }
           });
           _isLoadingVN.value = false;
@@ -538,12 +589,16 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     final id = s['id']?.toString();
     debugPrint('🚦 [Travel] Loading for service $id');
     try {
-      final toLat = s['latitude'] is num ? (s['latitude'] as num).toDouble() : double.tryParse('${s['latitude']}');
-      final toLon = s['longitude'] is num ? (s['longitude'] as num).toDouble() : double.tryParse('${s['longitude']}');
-      
+      final toLat = s['latitude'] is num
+          ? (s['latitude'] as num).toDouble()
+          : double.tryParse('${s['latitude']}');
+      final toLon = s['longitude'] is num
+          ? (s['longitude'] as num).toDouble()
+          : double.tryParse('${s['longitude']}');
+
       if (toLat == null || toLon == null) {
-         debugPrint('❌ [Travel] Invalid destination coords for $id');
-         return;
+        debugPrint('❌ [Travel] Invalid destination coords for $id');
+        return;
       }
 
       // ... (Fuel logic skipped for brevity, keeping existing if needed but focusing on distance) ...
@@ -555,30 +610,40 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         // Try getting last known first (faster)
         final lastPos = await Geolocator.getLastKnownPosition();
         if (lastPos != null) {
-           fromLat = lastPos.latitude;
-           fromLon = lastPos.longitude;
+          fromLat = lastPos.latitude;
+          fromLon = lastPos.longitude;
         } else {
-           final pos = await Geolocator.getCurrentPosition(timeLimit: const Duration(seconds: 5));
-           fromLat = pos.latitude;
-           fromLon = pos.longitude;
+          final pos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 5),
+            ),
+          );
+          fromLat = pos.latitude;
+          fromLon = pos.longitude;
         }
         debugPrint('📍 [Travel] Got start pos: $fromLat, $fromLon');
       } catch (e) {
-         debugPrint('⚠️ [Travel] Location error: $e');
+        debugPrint('⚠️ [Travel] Location error: $e');
       }
-      
+
       // Fallback if no location
       if (fromLat == null) {
-          debugPrint('⚠️ [Travel] No location found. Using default default.');
-          fromLat = -23.5505; 
-          fromLon = -46.6333;
+        debugPrint('⚠️ [Travel] No location found. Using default default.');
+        fromLat = -23.5505;
+        fromLon = -46.6333;
       }
 
       debugPrint('📍 [Travel] Service coords: $toLat, $toLon');
       debugPrint('📍 [Travel] Provider coords: $fromLat, $fromLon');
 
       // Calculate locally using Geolocator (Haversine)
-      final distMeters = Geolocator.distanceBetween(fromLat, fromLon!, toLat, toLon);
+      final distMeters = Geolocator.distanceBetween(
+        fromLat,
+        fromLon!,
+        toLat,
+        toLon,
+      );
       final d = distMeters / 1000.0;
       final t = d / (30.0 / 60.0); // 30km/h
 
@@ -604,20 +669,22 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   }
 
   Future<void> _openNavigation(Map<String, dynamic> s) async {
-    final toLat = s['latitude'] is num ? (s['latitude'] as num).toDouble() : double.tryParse('${s['latitude']}');
-    final toLon = s['longitude'] is num ? (s['longitude'] as num).toDouble() : double.tryParse('${s['longitude']}');
+    final toLat = s['latitude'] is num
+        ? (s['latitude'] as num).toDouble()
+        : double.tryParse('${s['latitude']}');
+    final toLon = s['longitude'] is num
+        ? (s['longitude'] as num).toDouble()
+        : double.tryParse('${s['longitude']}');
     if (toLat == null || toLon == null) return;
-    
-    await NavigationHelper.openNavigation(
-      latitude: toLat,
-      longitude: toLon,
-    );
+
+    await NavigationHelper.openNavigation(latitude: toLat, longitude: toLon);
   }
 
   void _showWithdrawalDialog() async {
     final success = await showDialog<bool>(
       context: context,
-      builder: (context) => WithdrawalDialog(api: _api, currentBalance: _walletBalance),
+      builder: (context) =>
+          WithdrawalDialog(api: _api, currentBalance: _walletBalance),
     );
     if (success == true) {
       _loadProfile();
@@ -634,11 +701,9 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         onRefresh: _loadData,
         child: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) => [
-            SliverToBoxAdapter(
-              child: _buildHeader(context),
-            ),
-            // Removed _buildNewOpportunityCard
+            SliverToBoxAdapter(child: _buildHeader(context)),
 
+            // Removed _buildNewOpportunityCard
             SliverPersistentHeader(
               pinned: true,
               delegate: _SliverAppBarDelegate(
@@ -646,21 +711,46 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                   controller: _tabController,
                   labelColor: AppTheme.darkBlueText,
                   unselectedLabelColor: Colors.grey[600],
-                  labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                  unselectedLabelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
+                  labelStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                  ),
                   indicatorColor: AppTheme.darkBlueText,
                   indicatorWeight: 3,
                   indicatorSize: TabBarIndicatorSize.label,
                   tabs: [
-                    Tab(child: _buildTabLabel('Meus', _myServices.where((s) {
-                       final st = s['status']?.toString().toLowerCase();
-                       return st != 'completed' && st != 'cancelled' && st != 'canceled';
-                    }).length)),
-                    Tab(child: _buildTabLabel('Disponíveis', _availableServices.length)),
-                    Tab(child: _buildTabLabel('Finalizados', _myServices.where((s) {
-                       final st = s['status']?.toString().toLowerCase();
-                       return st == 'completed' || st == 'cancelled' || st == 'canceled';
-                    }).length)),
+                    Tab(
+                      child: _buildTabLabel(
+                        'Meus',
+                        _myServices.where((s) {
+                          final st = s['status']?.toString().toLowerCase();
+                          return st != 'completed' &&
+                              st != 'cancelled' &&
+                              st != 'canceled';
+                        }).length,
+                      ),
+                    ),
+                    Tab(
+                      child: _buildTabLabel(
+                        'Disponíveis',
+                        _availableServices.length,
+                      ),
+                    ),
+                    Tab(
+                      child: _buildTabLabel(
+                        'Finalizados',
+                        _myServices.where((s) {
+                          final st = s['status']?.toString().toLowerCase();
+                          return st == 'completed' ||
+                              st == 'cancelled' ||
+                              st == 'canceled';
+                        }).length,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -675,28 +765,46 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
               return TabBarView(
                 controller: _tabController,
                 children: [
-                   _buildServiceList(
-                     _myServices.where((s) {
-                       final st = s['status']?.toString().toLowerCase();
-                       return st != 'completed' && st != 'cancelled' && st != 'canceled';
-                     }).toList()..sort((a, b) {
-                        // Prioritize 'accepted' or 'in_progress' over 'pending'
-                        final statusA = a['status']?.toString().toLowerCase() ?? '';
-                        final statusB = b['status']?.toString().toLowerCase() ?? '';
-                        if (statusA == 'in_progress' && statusB != 'in_progress') return -1;
-                        if (statusB == 'in_progress' && statusA != 'in_progress') return 1;
-                        if (statusA == 'accepted' && (statusB != 'accepted' && statusB != 'in_progress')) return -1;
-                        if (statusB == 'accepted' && (statusA != 'accepted' && statusA != 'in_progress')) return 1;
-                        return 0;
-                     }),
-                   ),
-                   _buildServiceList(_availableServices, isAvailable: true),
-                   _buildServiceList(
-                     _myServices.where((s) {
-                       final st = s['status']?.toString().toLowerCase();
-                       return st == 'completed' || st == 'cancelled' || st == 'canceled';
-                     }).toList(),
-                   ),
+                  _buildServiceList(
+                    _myServices.where((s) {
+                      final st = s['status']?.toString().toLowerCase();
+                      return st != 'completed' &&
+                          st != 'cancelled' &&
+                          st != 'canceled';
+                    }).toList()..sort((a, b) {
+                      // Prioritize 'accepted' or 'in_progress' over 'pending'
+                      final statusA =
+                          a['status']?.toString().toLowerCase() ?? '';
+                      final statusB =
+                          b['status']?.toString().toLowerCase() ?? '';
+                      if (statusA == 'in_progress' &&
+                          statusB != 'in_progress') {
+                        return -1;
+                      }
+                      if (statusB == 'in_progress' &&
+                          statusA != 'in_progress') {
+                        return 1;
+                      }
+                      if (statusA == 'accepted' &&
+                          (statusB != 'accepted' && statusB != 'in_progress')) {
+                        return -1;
+                      }
+                      if (statusB == 'accepted' &&
+                          (statusA != 'accepted' && statusA != 'in_progress')) {
+                        return 1;
+                      }
+                      return 0;
+                    }),
+                  ),
+                  _buildServiceList(_availableServices, isAvailable: true),
+                  _buildServiceList(
+                    _myServices.where((s) {
+                      final st = s['status']?.toString().toLowerCase();
+                      return st == 'completed' ||
+                          st == 'cancelled' ||
+                          st == 'canceled';
+                    }).toList(),
+                  ),
                 ],
               );
             },
@@ -739,10 +847,14 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                       ),
                       child: _avatarBytes == null
                           ? const Center(
-                              child: Text('P',
-                                  style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold)))
+                              child: Text(
+                                'P',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -750,14 +862,17 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Olá,',
-                              style: TextStyle(color: Colors.black54)),
+                          const Text(
+                            'Olá,',
+                            style: TextStyle(color: Colors.black54),
+                          ),
                           Text(
                             _userName ?? 'Prestador',
                             style: const TextStyle(
-                                color: Colors.black87,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16),
+                              color: Colors.black87,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -775,23 +890,30 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         StreamBuilder<List<Map<String, dynamic>>>(
-                          stream: Supabase.instance.client.auth.currentUser?.id != null
+                          stream:
+                              Supabase.instance.client.auth.currentUser?.id !=
+                                  null
                               ? DataGateway().watchNotifications(
-                                  Supabase.instance.client.auth.currentUser!.id)
+                                  Supabase.instance.client.auth.currentUser!.id,
+                                )
                               : const Stream.empty(),
                           builder: (context, snapshot) {
                             final notifications = snapshot.data ?? [];
                             final unreadCount = notifications
-                                .where((n) =>
-                                    n['read'] != true && n['is_read'] != true)
+                                .where(
+                                  (n) =>
+                                      n['read'] != true && n['is_read'] != true,
+                                )
                                 .length;
 
                             return Stack(
                               alignment: Alignment.topRight,
                               children: [
                                 IconButton(
-                                  icon: const Icon(LucideIcons.bell,
-                                      color: Colors.black87),
+                                  icon: const Icon(
+                                    LucideIcons.bell,
+                                    color: Colors.black87,
+                                  ),
                                   onPressed: () async {
                                     await context.push('/notifications');
                                     _loadData(showLoading: false);
@@ -818,9 +940,10 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                                             ? '9+'
                                             : unreadCount.toString(),
                                         style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold),
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
@@ -830,23 +953,30 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                           },
                         ),
                         const SizedBox(width: 12),
-                        const Text('Saldo disponível',
-                            style: TextStyle(color: Colors.black54)),
+                        const Text(
+                          'Saldo disponível',
+                          style: TextStyle(color: Colors.black54),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(LucideIcons.wallet,
-                            color: Colors.black87, size: 20),
+                        const Icon(
+                          LucideIcons.wallet,
+                          color: Colors.black87,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
-                            'R\$ ${_walletBalance.toStringAsFixed(2).replaceAll('.', ',')}',
-                            style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold)),
+                          'R\$ ${_walletBalance.toStringAsFixed(2).replaceAll('.', ',')}',
+                          style: const TextStyle(
+                            color: Colors.black87,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -867,7 +997,8 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
@@ -876,8 +1007,6 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       ),
     );
   }
-
-
 
   Widget _buildServiceList(List<dynamic> items, {bool isAvailable = false}) {
     if (items.isEmpty) {
@@ -894,15 +1023,21 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
               ),
               const SizedBox(height: 16),
               Text(
-                isAvailable ? 'Nenhuma oportunidade no momento' : 'Você não tem serviços ativos',
+                isAvailable
+                    ? 'Nenhuma oportunidade no momento'
+                    : 'Você não tem serviços ativos',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54,
+                ),
               ),
 
               const SizedBox(height: 48),
               const Padding(
-                 padding: EdgeInsets.symmetric(horizontal: 0.0),
-                 child: AdCarousel(height: 300),
+                padding: EdgeInsets.symmetric(horizontal: 0.0),
+                child: AdCarousel(height: 300),
               ),
               const SizedBox(height: 32),
             ],
@@ -930,60 +1065,92 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
           service: item,
           travelInfo: travel,
           onNavigate: () => _openNavigation(item),
-          onArrive: id != null ? () async {
-             final messenger = ScaffoldMessenger.of(context);
-             setState(() => _isLoadingVN.value = true);
-             try {
-               await _api.arriveService(id);
-               if (mounted) {
-                 messenger.showSnackBar(const SnackBar(content: Text('Cliente notificado!')));
-                 _loadData();
-               }
-             } catch (e) {
-               if (mounted) {
-                 messenger.showSnackBar(SnackBar(content: Text('Erro ao notificar: $e')));
-               }
-             } finally {
-               if (mounted) setState(() => _isLoadingVN.value = false);
-             }
-          } : null,
+          onArrive: id != null
+              ? () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  setState(() => _isLoadingVN.value = true);
+                  try {
+                    await _api.arriveService(id);
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('Cliente notificado!')),
+                      );
+                      _loadData();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Erro ao notificar: $e')),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isLoadingVN.value = false);
+                  }
+                }
+              : null,
           onStart: id != null ? () => _startService(id) : null,
-          onFinish: id != null ? () => context.push('/service-details', extra: id).then((_) => _loadData()) : null,
-          onViewDetails: id != null ? () => context.push('/service-details', extra: id).then((_) => _loadData()) : null,
-          onSchedule: id != null ? (scheduledAt, message) async {
-            setState(() => _isLoadingVN.value = true);
-            final messenger = ScaffoldMessenger.of(context);
-            try {
-              await _api.proposeSchedule(id, scheduledAt);
-              if (mounted) {
-                messenger.showSnackBar(const SnackBar(content: Text('Proposta enviada!')));
-                _loadData();
-              }
-            } catch (e) {
-              if (mounted) messenger.showSnackBar(SnackBar(content: Text('Erro: $e')));
-            } finally {
-              if (mounted) setState(() => _isLoadingVN.value = false);
-            }
-          } : null,
-          onConfirmSchedule: (id != null && item['scheduled_at'] != null) ? () async {
-            setState(() => _isLoadingVN.value = true);
-            final messenger = ScaffoldMessenger.of(context);
-            try {
-              final scheduledAt = DateTime.parse(item['scheduled_at'].toString());
-              await _api.confirmSchedule(id, scheduledAt);
-              if (mounted) {
-                messenger.showSnackBar(const SnackBar(
-                  content: Text('Agendamento confirmado!'),
-                  backgroundColor: Colors.green,
-                ));
-                _loadData();
-              }
-            } catch (e) {
-              if (mounted) messenger.showSnackBar(SnackBar(content: Text('Erro: $e')));
-            } finally {
-              if (mounted) setState(() => _isLoadingVN.value = false);
-            }
-          } : null,
+          onFinish: id != null
+              ? () => context
+                    .push('/service-details', extra: id)
+                    .then((_) => _loadData())
+              : null,
+          onViewDetails: id != null
+              ? () => context
+                    .push('/service-details', extra: id)
+                    .then((_) => _loadData())
+              : null,
+          onSchedule: id != null
+              ? (scheduledAt, message) async {
+                  setState(() => _isLoadingVN.value = true);
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await _api.proposeSchedule(id, scheduledAt);
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('Proposta enviada!')),
+                      );
+                      _loadData();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Erro: $e')),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isLoadingVN.value = false);
+                  }
+                }
+              : null,
+          onConfirmSchedule: (id != null && item['scheduled_at'] != null)
+              ? () async {
+                  setState(() => _isLoadingVN.value = true);
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    final scheduledAt = DateTime.parse(
+                      item['scheduled_at'].toString(),
+                    );
+                    await _api.confirmSchedule(id, scheduledAt);
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Agendamento confirmado!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      _loadData();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Erro: $e')),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isLoadingVN.value = false);
+                  }
+                }
+              : null,
         );
       },
     );
@@ -1000,17 +1167,11 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     }
   }
 
-
   Widget _buildTabLabel(String label, int count) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Flexible(
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
         if (count > 0) ...[
           const SizedBox(width: 4),
           Container(
@@ -1028,15 +1189,21 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       ],
     );
   }
-
-
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar _tabBar;
   _SliverAppBarDelegate(this._tabBar);
-  @override double get minExtent => _tabBar.preferredSize.height;
-  @override double get maxExtent => _tabBar.preferredSize.height;
-  @override Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => Container(color: Colors.grey[50], child: _tabBar);
-  @override bool shouldRebuild(covariant _SliverAppBarDelegate oldDelegate) => false;
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => Container(color: Colors.grey[50], child: _tabBar);
+  @override
+  bool shouldRebuild(covariant _SliverAppBarDelegate oldDelegate) => false;
 }

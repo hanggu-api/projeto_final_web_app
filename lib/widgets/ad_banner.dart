@@ -5,11 +5,7 @@ class AdBanner extends StatefulWidget {
   final String? url;
   final double height;
 
-  const AdBanner({
-    super.key,
-    this.url,
-    this.height = 250,
-  });
+  const AdBanner({super.key, this.url, this.height = 250});
 
   @override
   State<AdBanner> createState() => _AdBannerState();
@@ -35,7 +31,7 @@ class _AdBannerState extends State<AdBanner> {
               if (mounted) setState(() => _isLoading = false);
             },
             onWebResourceError: (WebResourceError error) {
-               if (mounted) setState(() => _isLoading = false);
+              if (mounted) setState(() => _isLoading = false);
             },
           ),
         )
@@ -86,10 +82,7 @@ class _AdBannerState extends State<AdBanner> {
       child: Stack(
         children: [
           if (_controller != null) WebViewWidget(controller: _controller!),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

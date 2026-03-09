@@ -147,7 +147,9 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryYellow,
                 foregroundColor: AppTheme.textDark,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 0,
               ),
               child: Text(
@@ -188,7 +190,9 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                 width: 32,
                 height: 120 * heightFactor,
                 decoration: BoxDecoration(
-                  color: isMax ? AppTheme.primaryYellow : AppTheme.textDark.withValues(alpha: 0.1),
+                  color: isMax
+                      ? AppTheme.primaryYellow
+                      : AppTheme.textDark.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -210,70 +214,100 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
 
   Widget _buildTransactionList() {
     final transactions = [
-      {'title': 'Corrida Econômico', 'time': 'Hoje, 14:20', 'value': 'R\$ 15,30', 'isAdd': true},
-      {'title': 'Corrida Conforto', 'time': 'Hoje, 12:45', 'value': 'R\$ 22,50', 'isAdd': true},
-      {'title': 'Transferência Banco', 'time': 'Ontem, 09:30', 'value': '- R\$ 450,00', 'isAdd': false},
-      {'title': 'Corrida Econômico', 'time': 'Ontem, 18:15', 'value': 'R\$ 12,00', 'isAdd': true},
+      {
+        'title': 'Corrida Econômico',
+        'time': 'Hoje, 14:20',
+        'value': 'R\$ 15,30',
+        'isAdd': true,
+      },
+      {
+        'title': 'Corrida Conforto',
+        'time': 'Hoje, 12:45',
+        'value': 'R\$ 22,50',
+        'isAdd': true,
+      },
+      {
+        'title': 'Transferência Banco',
+        'time': 'Ontem, 09:30',
+        'value': '- R\$ 450,00',
+        'isAdd': false,
+      },
+      {
+        'title': 'Corrida Econômico',
+        'time': 'Ontem, 18:15',
+        'value': 'R\$ 12,00',
+        'isAdd': true,
+      },
     ];
 
     return Column(
-      children: transactions.map((t) => Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade100),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
+      children: transactions
+          .map(
+            (t) => Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: (t['isAdd'] as bool) ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade100),
               ),
-              child: Icon(
-                (t['isAdd'] as bool) ? LucideIcons.arrowUpRight : LucideIcons.arrowDownLeft,
-                size: 20,
-                color: (t['isAdd'] as bool) ? Colors.green : Colors.red,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    t['title'] as String,
-                    style: GoogleFonts.manrope(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      color: AppTheme.textDark,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (t['isAdd'] as bool)
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.red.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      (t['isAdd'] as bool)
+                          ? LucideIcons.arrowUpRight
+                          : LucideIcons.arrowDownLeft,
+                      size: 20,
+                      color: (t['isAdd'] as bool) ? Colors.green : Colors.red,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t['title'] as String,
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: AppTheme.textDark,
+                          ),
+                        ),
+                        Text(
+                          t['time'] as String,
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Text(
-                    t['time'] as String,
+                    t['value'] as String,
                     style: GoogleFonts.manrope(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                      color: (t['isAdd'] as bool)
+                          ? Colors.green
+                          : AppTheme.textDark,
                     ),
                   ),
                 ],
               ),
             ),
-            Text(
-              t['value'] as String,
-              style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
-                color: (t['isAdd'] as bool) ? Colors.green : AppTheme.textDark,
-              ),
-            ),
-          ],
-        ),
-      )).toList(),
+          )
+          .toList(),
     );
   }
 }

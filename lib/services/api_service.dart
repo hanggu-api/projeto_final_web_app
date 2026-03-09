@@ -589,6 +589,53 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> validateFaceRecognition({
+    required String serviceId,
+    required String cnhImageUrl,
+    required String selfieImageUrl,
+  }) async {
+    try {
+      final client = Supabase.instance.client;
+      final response = await client.functions
+          .invoke(
+            'validate-rekognition',
+            body: {
+              'serviceId': serviceId,
+              'cnhImageUrl': cnhImageUrl,
+              'selfieImageUrl': selfieImageUrl,
+            },
+            method: HttpMethod.post,
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (response.status < 200 || response.status >= 300) {
+        final data = response.data;
+        final message = data is Map<String, dynamic>
+            ? (data['detail'] ?? data['error'] ?? 'Erro no Rekognition')
+                  .toString()
+            : 'Erro no Rekognition';
+        throw ApiException(message: message, statusCode: response.status);
+      }
+
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+      return {'result': data};
+    } on TimeoutException {
+      throw ApiException(
+        message: 'A validação facial demorou muito para responder',
+        statusCode: 408,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(
+        message: 'Falha ao validar reconhecimento facial: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> post(
     String endpoint,
     Map<String, dynamic> body,

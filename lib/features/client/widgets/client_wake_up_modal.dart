@@ -1,4 +1,3 @@
-
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -68,16 +67,20 @@ class _ClientWakeUpModalState extends State<ClientWakeUpModal> {
               ),
               child: Column(
                 children: [
-                   const Icon(LucideIcons.alarmClock, size: 48, color: Colors.black),
-                   const SizedBox(height: 12),
-                   Text(
-                     'HORA DO AGENDAMENTO!',
-                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                       fontWeight: FontWeight.bold,
-                       color: Colors.black,
-                     ),
-                     textAlign: TextAlign.center,
-                   ),
+                  const Icon(
+                    LucideIcons.alarmClock,
+                    size: 48,
+                    color: Colors.black,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'HORA DO AGENDAMENTO!',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -98,7 +101,7 @@ class _ClientWakeUpModalState extends State<ClientWakeUpModal> {
                     style: TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -113,9 +116,9 @@ class _ClientWakeUpModalState extends State<ClientWakeUpModal> {
                       child: const Text(
                         'OK, ESTOU CIENTE',
                         style: TextStyle(
-                          color: Colors.white, 
+                          color: Colors.white,
                           fontSize: 16,
-                          fontWeight: FontWeight.bold
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),

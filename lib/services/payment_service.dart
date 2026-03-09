@@ -76,7 +76,9 @@ class PaymentService {
       } else {
         final error = jsonDecode(response.body);
         final errorMessage =
-            error['message'] ?? error['error'] ?? 'Erro desconhecido ao tokenizar cartão';
+            error['message'] ??
+            error['error'] ??
+            'Erro desconhecido ao tokenizar cartão';
         throw Exception(errorMessage);
       }
     } catch (e) {

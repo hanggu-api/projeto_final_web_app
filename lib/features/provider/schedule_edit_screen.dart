@@ -12,7 +12,6 @@ class ScheduleEditScreen extends StatefulWidget {
 }
 
 class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
-  final ApiService _api = ApiService();
   bool _isLoading = true;
   List<Map<String, dynamic>> _schedules = [];
   final List<Map<String, dynamic>> _services = [];
@@ -59,10 +58,12 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
       setState(() {
         final List<dynamic> schedulesData = schedulesRaw;
         _schedules = List.generate(7, (index) {
-          final existing = schedulesData.cast<Map<String, dynamic>?>().firstWhere(
-            (s) => s?['day_of_week'] == index,
-            orElse: () => null,
-          );
+          final existing = schedulesData
+              .cast<Map<String, dynamic>?>()
+              .firstWhere(
+                (s) => s?['day_of_week'] == index,
+                orElse: () => null,
+              );
 
           final bool isEnabled = existing != null
               ? (existing['is_enabled'] == 1 || existing['is_enabled'] == true)
@@ -87,7 +88,9 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -106,18 +109,23 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
     }
   }
 
-  bool _isContained(String outerStart, String outerEnd, String innerStart, String innerEnd) {
+  bool _isContained(
+    String outerStart,
+    String outerEnd,
+    String innerStart,
+    String innerEnd,
+  ) {
     try {
       final os = outerStart.split(':');
       final oe = outerEnd.split(':');
       final iS = innerStart.split(':');
       final ie = innerEnd.split(':');
-      
+
       final osMin = int.parse(os[0]) * 60 + int.parse(os[1]);
       final oeMin = int.parse(oe[0]) * 60 + int.parse(oe[1]);
       final isMin = int.parse(iS[0]) * 60 + int.parse(iS[1]);
       final ieMin = int.parse(ie[0]) * 60 + int.parse(ie[1]);
-      
+
       return isMin >= osMin && ieMin <= oeMin;
     } catch (_) {
       return false;
@@ -130,15 +138,32 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
       if (s['is_enabled'] == true) {
         final day = _weekDays[s['day_of_week']];
         if (!_isValidTime(s['start_time'], s['end_time'])) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Horário inválido na $day: Fim deve ser após o Início.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Horário inválido na $day: Fim deve ser após o Início.',
+              ),
+            ),
+          );
           return;
         }
         if (!_isValidTime(s['break_start'], s['break_end'])) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Intervalo de almoço inválido na $day.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Intervalo de almoço inválido na $day.')),
+          );
           return;
         }
-        if (!_isContained(s['start_time'], s['end_time'], s['break_start'], s['break_end'])) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Almoço na $day deve estar dentro do expediente.')));
+        if (!_isContained(
+          s['start_time'],
+          s['end_time'],
+          s['break_start'],
+          s['break_end'],
+        )) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Almoço na $day deve estar dentro do expediente.'),
+            ),
+          );
           return;
         }
       }
@@ -152,15 +177,19 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
     }
     try {
       // Sprint 2: Supabase SDK em vez de POST /provider/schedule
-      final schedulesToSend = _schedules.map((s) => {
-        'provider_id': providerId,
-        'day_of_week': s['day_of_week'],
-        'start_time': s['start_time'],
-        'end_time': s['end_time'],
-        'break_start': s['break_start'],
-        'break_end': s['break_end'],
-        'is_enabled': s['is_enabled'] == true,
-      }).toList();
+      final schedulesToSend = _schedules
+          .map(
+            (s) => {
+              'provider_id': providerId,
+              'day_of_week': s['day_of_week'],
+              'start_time': s['start_time'],
+              'end_time': s['end_time'],
+              'break_start': s['break_start'],
+              'break_end': s['break_end'],
+              'is_enabled': s['is_enabled'] == true,
+            },
+          )
+          .toList();
 
       await Supabase.instance.client
           .from('provider_schedule_configs')
@@ -173,22 +202,30 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
           .eq('provider_id', providerId);
 
       if (_exceptions.isNotEmpty) {
-        final exceptionsToSend = _exceptions.map((e) => {
-          ...Map<String, dynamic>.from(e),
-          'provider_id': providerId,
-        }).toList();
+        final exceptionsToSend = _exceptions
+            .map(
+              (e) => {
+                ...Map<String, dynamic>.from(e),
+                'provider_id': providerId,
+              },
+            )
+            .toList();
         await Supabase.instance.client
             .from('provider_schedule_exceptions')
             .insert(exceptionsToSend);
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Configurações salvas com sucesso!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Configurações salvas com sucesso!')),
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

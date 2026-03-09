@@ -11,6 +11,7 @@ import 'package:service_101/features/client/service_request_screen.dart';
 import 'package:service_101/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'test_supabase_setup.dart';
 
 // Mock Geolocator
 class MockGeolocatorPlatform extends GeolocatorPlatform {
@@ -57,6 +58,10 @@ class MockHttpOverrides extends HttpOverrides {
 
 void main() {
   late MockClient mockClient;
+
+  setUpAll(() async {
+    await initializeSupabaseForTests();
+  });
 
   setUp(() {
     HttpOverrides.global = MockHttpOverrides();

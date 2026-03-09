@@ -42,7 +42,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
   bool _isSearchingLocation = false;
   bool _isPickingOnMap = false;
   bool _isMapReady = false;
-  bool _locationError = false;
   bool _selectingPickup = true;
   bool _isLoading = false;
   LatLng? _lastKnownGps; // GPS do dispositivo como refência de busca
@@ -161,7 +160,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
   Future<void> _getCurrentLocation() async {
     if (mounted) {
       setState(() {
-        _locationError = false;
         _pickupController.text = 'Buscando sua localização...';
       });
     }
@@ -177,7 +175,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
       if (!serviceEnabled) {
         if (mounted) {
           setState(() {
-            _locationError = true;
             _pickupController.clear();
           });
         }
@@ -190,7 +187,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
         if (permission == LocationPermission.denied) {
           if (mounted) {
             setState(() {
-              _locationError = true;
               _pickupController.clear();
             });
           }
@@ -201,7 +197,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           setState(() {
-            _locationError = true;
             _pickupController.clear();
           });
         }
@@ -218,7 +213,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
       debugPrint('GPS Error ($e)');
       if (mounted) {
         setState(() {
-          _locationError = true;
           _pickupController.clear();
         });
       }
@@ -293,7 +287,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
 
     setState(() {
       _pickupLocation = LatLng(lat, lng);
-      _locationError = false;
       _mapController.move(_pickupLocation!, 15);
       _pickupController.text = 'Identificando endereço...';
     });
@@ -316,7 +309,6 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
 
   void _enableManualPickup() {
     setState(() {
-      _locationError = true;
       _pickupController.text = '';
     });
     _pickupFocus.requestFocus();
@@ -867,7 +859,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                   urlTemplate:
                       'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${SupabaseConfig.mapboxToken}',
                   userAgentPackageName: 'com.play101.app',
-                  tileSize: 512,
+                  tileDimension: 512,
                   zoomOffset: -1,
                   maxZoom: 22,
                 ),
@@ -962,7 +954,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                             width: 10,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(5),
                             ),
                           ),
@@ -980,7 +972,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
               child: Container(
                 color: const Color(
                   0xFFF6F6F8,
-                ).withOpacity(0.9), // Slightly transparent to see map
+                ).withValues(alpha: 0.9), // Slightly transparent to see map
                 child: SafeArea(
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -1016,16 +1008,20 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.95),
+                              color: Colors.white.withValues(alpha: 0.95),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: Colors.grey.shade200.withOpacity(0.5),
+                                color: Colors.grey.shade200.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                               boxShadow: kIsWeb
                                   ? []
                                   : [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.04),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.04,
+                                        ),
                                         blurRadius: 20,
                                         offset: const Offset(0, 8),
                                       ),
@@ -1155,7 +1151,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: AppTheme.primaryYellow
-                                                .withOpacity(0.2),
+                                                .withValues(alpha: 0.2),
                                             shape: BoxShape.circle,
                                             border: Border.all(
                                               color: Colors.white,
@@ -1176,7 +1172,9 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                                                         BoxShadow(
                                                           color: AppTheme
                                                               .primaryYellow
-                                                              .withOpacity(0.5),
+                                                              .withValues(
+                                                                alpha: 0.5,
+                                                              ),
                                                           blurRadius: 4,
                                                         ),
                                                       ],
@@ -1361,7 +1359,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                                                   decoration: BoxDecoration(
                                                     color: AppTheme
                                                         .primaryYellow
-                                                        .withOpacity(0.1),
+                                                        .withValues(alpha: 0.1),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: Icon(
@@ -1423,8 +1421,8 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                                       child: InkWell(
                                         onTap: () => _selectSearchResult(item),
                                         borderRadius: BorderRadius.circular(16),
-                                        splashColor: categoryColor.withOpacity(
-                                          0.1,
+                                        splashColor: categoryColor.withValues(
+                                          alpha: 0.1,
                                         ),
                                         child: Container(
                                           padding: const EdgeInsets.all(12),
@@ -1440,7 +1438,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                                                 height: 48,
                                                 decoration: BoxDecoration(
                                                   color: categoryColor
-                                                      .withOpacity(0.1),
+                                                      .withValues(alpha: 0.1),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: Icon(
@@ -1582,7 +1580,9 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                                     ? []
                                     : [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.08),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.08,
+                                          ),
                                           blurRadius: 20,
                                           offset: const Offset(0, 4),
                                         ),
@@ -1782,10 +1782,14 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF427CF0).withOpacity(0.05),
+                              color: const Color(
+                                0xFF427CF0,
+                              ).withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0xFF427CF0).withOpacity(0.1),
+                                color: const Color(
+                                  0xFF427CF0,
+                                ).withValues(alpha: 0.1),
                               ),
                             ),
                             child: Row(
@@ -1855,7 +1859,9 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
                                 elevation: kIsWeb ? 0 : 4,
                                 shadowColor: kIsWeb
                                     ? Colors.transparent
-                                    : AppTheme.primaryYellow.withOpacity(0.4),
+                                    : AppTheme.primaryYellow.withValues(
+                                        alpha: 0.4,
+                                      ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -2087,7 +2093,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -2115,7 +2121,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -2152,7 +2158,9 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? primaryBlue.withOpacity(0.05) : Colors.white,
+          color: isSelected
+              ? primaryBlue.withValues(alpha: 0.05)
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? primaryBlue : Colors.grey.shade200,
@@ -2161,7 +2169,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
           boxShadow: isSelected && !kIsWeb
               ? [
                   BoxShadow(
-                    color: primaryBlue.withOpacity(0.1),
+                    color: primaryBlue.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -2402,7 +2410,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
             boxShadow: isSelected && !kIsWeb
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -2414,7 +2422,7 @@ class _UberRequestScreenState extends State<UberRequestScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: (option['color'] as Color).withOpacity(0.1),
+                  color: (option['color'] as Color).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(option['icon'], color: option['color'], size: 20),

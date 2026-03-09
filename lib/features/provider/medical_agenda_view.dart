@@ -113,12 +113,7 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
     if (_isDayEnabled) {
       int current = _startMinutes;
       while (current < _endMinutes) {
-        _slots.add(
-          TimeOfDay(
-            hour: current ~/ 60,
-            minute: current % 60,
-          ),
-        );
+        _slots.add(TimeOfDay(hour: current ~/ 60, minute: current % 60));
         current += widget.slotDuration;
       }
     }
@@ -329,11 +324,12 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
       itemBuilder: (context, index) {
         final slotTime = _slots[index];
         final appointments = _getAppointmentsForSlot(slotTime);
-        
+
         bool isBreak = false;
         if (_breakStartMinutes != null && _breakEndMinutes != null) {
           final slotMinutes = slotTime.hour * 60 + slotTime.minute;
-          if (slotMinutes >= _breakStartMinutes! && slotMinutes < _breakEndMinutes!) {
+          if (slotMinutes >= _breakStartMinutes! &&
+              slotMinutes < _breakEndMinutes!) {
             isBreak = true;
           }
         }
@@ -346,9 +342,11 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
                 _buildTimeColumn(slotTime),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: isBreak 
-                    ? _buildBreakCard()
-                    : (appointments.isEmpty ? _buildAvailableCard(slotTime) : _buildAppointmentCards(appointments)),
+                  child: isBreak
+                      ? _buildBreakCard()
+                      : (appointments.isEmpty
+                            ? _buildAvailableCard(slotTime)
+                            : _buildAppointmentCards(appointments)),
                 ),
               ],
             ),
@@ -504,7 +502,11 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
                   ],
                 ),
               ),
-              const Icon(LucideIcons.chevronRight, color: Colors.white60, size: 20),
+              const Icon(
+                LucideIcons.chevronRight,
+                color: Colors.white60,
+                size: 20,
+              ),
             ],
           ),
         );

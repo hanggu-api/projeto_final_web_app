@@ -244,26 +244,31 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
 
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium, // Reduce accuracy requirement speed
+          accuracy:
+              LocationAccuracy.medium, // Reduce accuracy requirement speed
         ),
       );
 
       if (!mounted) return;
-      debugPrint('[ROUTE] Current Position: ${position.latitude}, ${position.longitude}');
+      debugPrint(
+        '[ROUTE] Current Position: ${position.latitude}, ${position.longitude}',
+      );
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
       });
 
       // 2. Get service position
       if (_service != null) {
-        final destLat = double.tryParse(_service!['latitude']?.toString() ?? '0') ?? 0;
-        final destLng = double.tryParse(_service!['longitude']?.toString() ?? '0') ?? 0;
-        
+        final destLat =
+            double.tryParse(_service!['latitude']?.toString() ?? '0') ?? 0;
+        final destLng =
+            double.tryParse(_service!['longitude']?.toString() ?? '0') ?? 0;
+
         debugPrint('[ROUTE] Destination: $destLat, $destLng');
 
         if (destLat == 0 && destLng == 0) {
-           debugPrint('[ROUTE] Aborting: Destination is 0,0');
-           return;
+          debugPrint('[ROUTE] Aborting: Destination is 0,0');
+          return;
         }
 
         // 3. Fetch route from OSRM
@@ -304,10 +309,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
               // Fit bounds to show entire route
               if (points.isNotEmpty) {
                 final bounds = LatLngBounds.fromPoints(points);
-                
+
                 // Check if bounds represent a single point (degenerate)
                 // to avoid 'zoom.isFinite' assertion error in flutter_map
-                if (bounds.north == bounds.south && bounds.east == bounds.west) {
+                if (bounds.north == bounds.south &&
+                    bounds.east == bounds.west) {
                   _mapController.move(bounds.center, 15.0);
                 } else {
                   _mapController.fitCamera(
@@ -374,58 +380,60 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
   Future<void> _loadMedia(Map<String, dynamic> data) async {
     try {
       // 1. Photos
-    if (data['photos'] != null && (data['photos'] as List).isNotEmpty) {
-      final keys = List<String>.from(data['photos']);
-      final urls = <String>[];
-      final tempDir = await getTemporaryDirectory();
+      if (data['photos'] != null && (data['photos'] as List).isNotEmpty) {
+        final keys = List<String>.from(data['photos']);
+        final urls = <String>[];
+        final tempDir = await getTemporaryDirectory();
 
-      for (final key in keys) {
-        try {
-          final file = File('${tempDir.path}/service_photo_${key.hashCode}.jpg');
-          if (await file.exists()) {
-            urls.add(file.path);
-          } else {
-            final bytes = await _api.getMediaBytes(key);
-            await file.writeAsBytes(bytes);
-            urls.add(file.path);
-          }
-        } catch (_) {
-          // Fallback to URL if bytes fail or other error
+        for (final key in keys) {
           try {
-            final url = await _api.getMediaViewUrl(key);
-            urls.add(url);
-          } catch (__) {}
+            final file = File(
+              '${tempDir.path}/service_photo_${key.hashCode}.jpg',
+            );
+            if (await file.exists()) {
+              urls.add(file.path);
+            } else {
+              final bytes = await _api.getMediaBytes(key);
+              await file.writeAsBytes(bytes);
+              urls.add(file.path);
+            }
+          } catch (_) {
+            // Fallback to URL if bytes fail or other error
+            try {
+              final url = await _api.getMediaViewUrl(key);
+              urls.add(url);
+            } catch (__) {}
+          }
+        }
+        if (mounted) {
+          setState(() {
+            _photoUrls = urls;
+          });
         }
       }
-      if (mounted) {
-        setState(() {
-          _photoUrls = urls;
-        });
-      }
-    }
 
       // 2. Video
-    if (data['video'] != null && data['video'].toString().isNotEmpty) {
-      try {
-        final videoKey = data['video'].toString();
-        final videoUrl = await _api.getMediaViewUrl(videoKey);
+      if (data['video'] != null && data['video'].toString().isNotEmpty) {
+        try {
+          final videoKey = data['video'].toString();
+          final videoUrl = await _api.getMediaViewUrl(videoKey);
 
-        final controller = VideoPlayerController.networkUrl(
-          Uri.parse(videoUrl),
-        );
-        await controller.initialize();
+          final controller = VideoPlayerController.networkUrl(
+            Uri.parse(videoUrl),
+          );
+          await controller.initialize();
 
-        if (mounted) {
-          if (_videoController != null) {
-            await _videoController!.dispose();
+          if (mounted) {
+            if (_videoController != null) {
+              await _videoController!.dispose();
+            }
+            setState(() {
+              _videoController = controller;
+            });
+          } else {
+            await controller.dispose();
           }
-          setState(() {
-            _videoController = controller;
-          });
-        } else {
-          await controller.dispose();
-        }
-      } catch (e) {
+        } catch (e) {
           debugPrint('Error loading video: $e');
         }
       }
@@ -594,22 +602,22 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
 
         debugPrint('Distance to service: $distanceInMeters meters');
 
-      final precision = position.accuracy;
-      final tolerance = precision > 50 ? precision * 1.5 : 100.0;
+        final precision = position.accuracy;
+        final tolerance = precision > 50 ? precision * 1.5 : 100.0;
 
-      // Tolerance based on precision (min 100m)
-      if (distanceInMeters > tolerance) {
-        throw 'Você está a ${distanceInMeters.round()}m do local. Aproxime-se mais (limite de ${tolerance.round()}m para sua precisão atual de ${precision.round()}m).';
+        // Tolerance based on precision (min 100m)
+        if (distanceInMeters > tolerance) {
+          throw 'Você está a ${distanceInMeters.round()}m do local. Aproxime-se mais (limite de ${tolerance.round()}m para sua precisão atual de ${precision.round()}m).';
+        }
       }
-    }
 
-    await _api.updateServiceStatus(widget.serviceId, 'in_progress');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Serviço iniciado com sucesso!')),
-      );
-      _loadDetails();
-    }
+      await _api.updateServiceStatus(widget.serviceId, 'in_progress');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Serviço iniciado com sucesso!')),
+        );
+        _loadDetails();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -628,7 +636,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
   }
 
   Future<void> _notifyArrival() async {
-     setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
     try {
       await _api.arriveService(widget.serviceId);
       if (mounted) {
@@ -640,7 +648,10 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao notificar chegada: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erro ao notificar chegada: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -653,7 +664,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     try {
       // 1. Update status to 'on_way'
       await _api.updateServiceStatus(widget.serviceId, 'on_way');
-      
+
       // 2. Start location tracking
       if (_api.userId != null) {
         _realtime.startLocationUpdates(_api.userId!);
@@ -661,14 +672,21 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Status atualizado para: A Caminho. Compartilhamento de local ativado.')),
+          const SnackBar(
+            content: Text(
+              'Status atualizado para: A Caminho. Compartilhamento de local ativado.',
+            ),
+          ),
         );
         _loadDetails();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao iniciar deslocamento: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erro ao iniciar deslocamento: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -697,8 +715,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     }
   }
 
-
-
   Future<void> _toggleAudioPlay(String key) async {
     if (_loadingAudioKey != null) return;
 
@@ -723,17 +739,17 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
         _loadingAudioKey = key;
         _audioPosition = Duration.zero;
         _audioDuration = Duration.zero;
-    });
+      });
 
-    final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/service_audio_${key.hashCode}.m4a');
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/service_audio_${key.hashCode}.m4a');
 
-    if (!await file.exists()) {
-      final bytes = await _api.getMediaBytes(key);
-      await file.writeAsBytes(bytes);
-    }
+      if (!await file.exists()) {
+        final bytes = await _api.getMediaBytes(key);
+        await file.writeAsBytes(bytes);
+      }
 
-    await _audioPlayer.play(DeviceFileSource(file.path));
+      await _audioPlayer.play(DeviceFileSource(file.path));
       setState(() {
         _playingAudioKey = key;
         _isAudioPlaying = true;
@@ -784,10 +800,12 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
               icon: const Icon(LucideIcons.messageCircle),
               onPressed: () {
                 final client = _service!['client'];
-                final otherName = _service!['client_name'] ??
+                final otherName =
+                    _service!['client_name'] ??
                     (client is Map ? client['name'] : null) ??
                     'Cliente';
-                final otherAvatar = _service!['client_avatar'] ??
+                final otherAvatar =
+                    _service!['client_avatar'] ??
                     (client is Map
                         ? (client['avatar'] ?? client['photo'])
                         : null);
@@ -903,24 +921,24 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
           const SizedBox(height: 16),
 
           Row(
-          children: [
-            Expanded(
-              child: _buildInfoRow(
-                LucideIcons.navigation,
-                'Distância',
-                _isRouteLoading ? 'Calculando...' : _routeDistance,
+            children: [
+              Expanded(
+                child: _buildInfoRow(
+                  LucideIcons.navigation,
+                  'Distância',
+                  _isRouteLoading ? 'Calculando...' : _routeDistance,
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildInfoRow(
-                LucideIcons.clock,
-                'Tempo de deslocamento',
-                _isRouteLoading ? 'Calculando...' : _routeDuration,
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildInfoRow(
+                  LucideIcons.clock,
+                  'Tempo de deslocamento',
+                  _isRouteLoading ? 'Calculando...' : _routeDuration,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
           const SizedBox(height: 24),
 
           // Map Preview
@@ -943,13 +961,14 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
                     ),
                   ),
                   children: [
-                      TileLayer(
-                        urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
-                        userAgentPackageName: 'com.play101.app',
-                    tileSize: 512,
-                    zoomOffset: -1,
-                    maxZoom: 22,
-                      ),
+                    TileLayer(
+                      urlTemplate:
+                          'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
+                      userAgentPackageName: 'com.play101.app',
+                      tileDimension: 512,
+                      zoomOffset: -1,
+                      maxZoom: 22,
+                    ),
                     PolylineLayer(
                       polylines: [
                         if (_routePoints.isNotEmpty)
@@ -1046,11 +1065,14 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
 
   Widget _buildProofSection() {
     if (_service == null) return const SizedBox.shrink();
-    final completionCode = _service!['completion_code'] ?? _service!['proof_code'];
+    final completionCode =
+        _service!['completion_code'] ?? _service!['proof_code'];
     final proofPhoto = _service!['proof_photo'];
     final proofVideo = _service!['proof_video'];
 
-    if (completionCode == null && proofPhoto == null && proofVideo == null) return const SizedBox.shrink();
+    if (completionCode == null && proofPhoto == null && proofVideo == null) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1100,25 +1122,32 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
           ),
         if (proofPhoto != null) ...[
           const SizedBox(height: 12),
-          const Text('Foto da Conclusão', style: TextStyle(fontSize: 14, color: Colors.grey)),
+          const Text(
+            'Foto da Conclusão',
+            style: TextStyle(fontSize: 14, color: Colors.grey),
+          ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: CachedNetworkImage(
               imageUrl: _api.getMediaUrl(proofPhoto),
-              placeholder: (context, url) => Container(height: 200, width: double.infinity, color: Colors.grey[200]),
+              placeholder: (context, url) => Container(
+                height: 200,
+                width: double.infinity,
+                color: Colors.grey[200],
+              ),
               errorWidget: (context, url, error) => const Icon(Icons.error),
             ),
           ),
         ],
         if (proofVideo != null) ...[
           const SizedBox(height: 12),
-          const Text('Vídeo da Conclusão (Prova Material)', style: TextStyle(fontSize: 14, color: Colors.grey)),
-          const SizedBox(height: 8),
-          ProofVideoPlayer(
-            videoUrl: _api.getMediaUrl(proofVideo),
-            height: 250,
+          const Text(
+            'Vídeo da Conclusão (Prova Material)',
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
+          const SizedBox(height: 8),
+          ProofVideoPlayer(videoUrl: _api.getMediaUrl(proofVideo), height: 250),
         ],
       ],
     );
@@ -1182,38 +1211,40 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
               itemCount: _photoUrls.length,
               separatorBuilder: (context, index) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-              final path = _photoUrls[index];
-              final isLocal = !path.startsWith('http');
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: isLocal
-                    ? Image.file(
-                        File(path),
-                        height: 120,
-                        width: 120,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
+                final path = _photoUrls[index];
+                final isLocal = !path.startsWith('http');
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: isLocal
+                      ? Image.file(
+                          File(path),
+                          height: 120,
                           width: 120,
-                          color: Colors.grey[200],
-                          child: const Icon(Icons.broken_image),
-                        ),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: path,
-                        height: 120,
-                        width: 120,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 240,
-                        maxWidthDiskCache: 480,
-                        placeholder: (context, url) => BaseSkeleton(width: 120, height: 120),
-                        errorWidget: (context, url, error) => Container(
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: 120,
+                                color: Colors.grey[200],
+                                child: const Icon(Icons.broken_image),
+                              ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: path,
+                          height: 120,
                           width: 120,
-                          color: Colors.grey[200],
-                          child: const Icon(Icons.broken_image),
+                          fit: BoxFit.cover,
+                          memCacheWidth: 240,
+                          maxWidthDiskCache: 480,
+                          placeholder: (context, url) =>
+                              BaseSkeleton(width: 120, height: 120),
+                          errorWidget: (context, url, error) => Container(
+                            width: 120,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.broken_image),
+                          ),
                         ),
-                      ),
-              );
-            },
+                );
+              },
             ),
           ),
           const SizedBox(height: 16),
@@ -1434,7 +1465,10 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
               ),
               child: const Text(
                 'REALIZE PAGAMENTO',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -1492,7 +1526,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
             Text(
               'O cliente já recebeu a prova de conclusão. Caso ele não confirme em até 24 horas, o sistema fará a confirmação automática para liberar seu pagamento.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.9), height: 1.4),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white.withValues(alpha: 0.9),
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -1525,14 +1563,17 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
 
       if (!isFlowB) {
         if (status == 'accepted') {
-             return Padding(
+          return Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 ElevatedButton.icon(
                   onPressed: _startNavigationToClient, // New method
                   icon: const Icon(LucideIcons.navigation),
-                  label: const Text('INICIAR DESLOCAMENTO', style: TextStyle(color: Colors.white)),
+                  label: const Text(
+                    'INICIAR DESLOCAMENTO',
+                    style: TextStyle(color: Colors.white),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1540,12 +1581,12 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
-                 ElevatedButton(
+                ElevatedButton(
                   onPressed: _startService,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.purple,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                     minimumSize: const Size(double.infinity, 50),
+                    minimumSize: const Size(double.infinity, 50),
                   ),
                   child: const Text(
                     'JÁ ESTOU NO LOCAL (INICIAR)',
@@ -1556,24 +1597,33 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
             ),
           );
         }
-           
+
         if (status == 'on_way') {
-           return Padding(
+          return Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                 Container(
+                Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.blue[50],
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue[200]!)
+                    border: Border.all(color: Colors.blue[200]!),
                   ),
                   child: Row(
                     children: [
-                      const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text('Compartilhando localização...', style: TextStyle(color: Colors.blue[800]))),
+                      Expanded(
+                        child: Text(
+                          'Compartilhando localização...',
+                          style: TextStyle(color: Colors.blue[800]),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1587,30 +1637,33 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
                   ),
                   child: const Text(
                     'CHEGUEI NO LOCAL',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
                   onPressed: _startService,
-                   style: OutlinedButton.styleFrom(
+                  style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: BorderSide(color: Colors.purple),
                     minimumSize: const Size(double.infinity, 50),
                   ),
                   child: const Text(
                     'Pular e Iniciar Serviço',
-                     style: TextStyle(color: Colors.purple),
+                    style: TextStyle(color: Colors.purple),
                   ),
                 ),
               ],
             ),
           );
         }
-        
+
         if (arrivedAt == null && status != 'on_way' && status != 'accepted') {
           // Fallback
-           return const Padding(
+          return const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
               'Confirme sua chegada na aba "Meus Serviços" da tela inicial.',
@@ -1620,27 +1673,27 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
           );
         }
       }
-      
+
       // Keep existing logic for Flow B or paid checks...
       if (!isFlowB && !isPaid) {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text(
-                  'AGUARDANDO CLIENTE/PAGAMENTO',
-                  style: TextStyle(color: Colors.white),
-                ),
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text(
+                'AGUARDANDO CLIENTE/PAGAMENTO',
+                style: TextStyle(color: Colors.white),
               ),
             ),
-          );
-        }
+          ),
+        );
+      }
 
       return Padding(
         padding: const EdgeInsets.all(16),
@@ -1669,8 +1722,10 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
               backgroundColor: Colors.orange,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: const Text('INSERIR CÓDIGO DE VALIDAÇÃO',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'INSERIR CÓDIGO DE VALIDAÇÃO',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ),
       );
@@ -1724,7 +1779,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
         );
       }
 
-
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1753,5 +1807,3 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     return null;
   }
 }
-
-

@@ -6,8 +6,12 @@ import 'package:http/testing.dart';
 import 'package:service_101/features/auth/register_screen.dart';
 import 'package:service_101/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'test_supabase_setup.dart';
 
 void main() {
+  setUpAll(() async {
+    await initializeSupabaseForTests();
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -13,7 +12,7 @@ class AgencyPublicProfileScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Visualização Pública'),
         actions: [
-          IconButton(onPressed: (){}, icon: const Icon(LucideIcons.share2))
+          IconButton(onPressed: () {}, icon: const Icon(LucideIcons.share2)),
         ],
       ),
       body: SingleChildScrollView(
@@ -24,9 +23,11 @@ class AgencyPublicProfileScreen extends StatelessWidget {
               height: 200,
               width: double.infinity,
               color: Colors.grey.shade300,
-              child: const Center(child: Icon(LucideIcons.image, size: 64, color: Colors.grey)),
+              child: const Center(
+                child: Icon(LucideIcons.image, size: 64, color: Colors.grey),
+              ),
             ),
-            
+
             // Info
             Padding(
               padding: const EdgeInsets.all(24.0),
@@ -36,7 +37,10 @@ class AgencyPublicProfileScreen extends StatelessWidget {
                   CircleAvatar(
                     radius: 40,
                     backgroundColor: Theme.of(context).primaryColor,
-                    child: const Text('LOGO', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'LOGO',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -49,20 +53,23 @@ class AgencyPublicProfileScreen extends StatelessWidget {
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Contact Buttons
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton.icon(
-                        onPressed: (){},
+                        onPressed: () {},
                         icon: const Icon(LucideIcons.messageCircle),
                         label: const Text('WhastApp'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       OutlinedButton.icon(
-                        onPressed: (){},
+                        onPressed: () {},
                         icon: const Icon(LucideIcons.instagram),
                         label: const Text('Instagram'),
                       ),
@@ -71,26 +78,30 @@ class AgencyPublicProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             const Divider(),
-            
+
             // Catalog
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Nossos Serviços', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Nossos Serviços',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 16),
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.8,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.8,
+                        ),
                     itemCount: 4,
                     itemBuilder: (ctx, i) {
                       return Container(
@@ -98,23 +109,37 @@ class AgencyPublicProfileScreen extends StatelessWidget {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
-                            BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0,2))
-                          ]
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: Container(color: Colors.grey.shade200)),
+                            Expanded(
+                              child: Container(color: Colors.grey.shade200),
+                            ),
                             Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Serviço ${i+1}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  const Text('R\$ 150,00', style: TextStyle(color: Colors.green)),
+                                  Text(
+                                    'Serviço ${i + 1}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'R\$ 150,00',
+                                    style: TextStyle(color: Colors.green),
+                                  ),
                                 ],
                               ),
-                            )
+                            ),
                           ],
                         ),
                       );

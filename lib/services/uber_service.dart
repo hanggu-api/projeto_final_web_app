@@ -464,12 +464,12 @@ class UberService {
   }
 
   /// Stream de acompanhamento em tempo real via Supabase
-  Stream<Map<String, dynamic>> watchTrip(String tripId) {
+  Stream<Map<String, dynamic>?> watchTrip(String tripId) {
     return Supabase.instance.client
         .from('trips')
         .stream(primaryKey: ['id'])
         .eq('id', tripId)
-        .map((snapshot) => snapshot.isNotEmpty ? snapshot.first : {});
+        .map((snapshot) => snapshot.isNotEmpty ? snapshot.first : null);
   }
 
   /// Stream para acompanhar TODOS os motoristas online (para o mapa do cliente)
@@ -482,9 +482,7 @@ class UberService {
             '🚗 [OnlineDrivers] Stream recebeu ${snapshot.length} registros de driver_locations',
           );
           final now = DateTime.now().toUtc();
-          final filtered = snapshot.map((e) => e).where((
-            driver,
-          ) {
+          final filtered = snapshot.map((e) => e).where((driver) {
             final updatedAt = DateTime.tryParse(driver['updated_at'] ?? '');
             if (updatedAt == null) {
               debugPrint(

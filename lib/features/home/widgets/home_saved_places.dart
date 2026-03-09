@@ -20,17 +20,28 @@ class HomeSavedPlaces extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
-        children: savedPlaces.map((place) => _buildSavedPlaceItem(
-          place['title'] ?? 'Lugar',
-          place['address'] ?? '',
-          place['type'] == 'home' ? LucideIcons.home : LucideIcons.briefcase,
-          () => onPlaceTap(place),
-        )).toList(),
+        children: savedPlaces
+            .map(
+              (place) => _buildSavedPlaceItem(
+                place['title'] ?? 'Lugar',
+                place['address'] ?? '',
+                place['type'] == 'home'
+                    ? LucideIcons.home
+                    : LucideIcons.briefcase,
+                () => onPlaceTap(place),
+              ),
+            )
+            .toList(),
       ),
     );
   }
 
-  Widget _buildSavedPlaceItem(String title, String address, IconData icon, VoidCallback onTap) {
+  Widget _buildSavedPlaceItem(
+    String title,
+    String address,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -51,7 +62,9 @@ class HomeSavedPlaces extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1.5)),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade100, width: 1.5),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

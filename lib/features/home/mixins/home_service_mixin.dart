@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../home_state.dart';
 import '../../../services/api_service.dart';
 
-mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
+mixin HomeServiceMixin<T extends StatefulWidget>
+    on State<T>, HomeStateMixin<T> {
   final ApiService _api = ApiService();
 
   void toggleServiceMode() {
@@ -21,9 +22,12 @@ mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> 
 
   void onServicePromptChanged(String value) {
     if (serviceAiDebounce?.isActive ?? false) serviceAiDebounce!.cancel();
-    
+
     if (value.trim().isNotEmpty) {
-      serviceAiDebounce = Timer(const Duration(milliseconds: 1000), classifyServiceAi);
+      serviceAiDebounce = Timer(
+        const Duration(milliseconds: 1000),
+        classifyServiceAi,
+      );
     } else {
       setState(() {
         isServiceAiClassifying = false;
@@ -48,8 +52,11 @@ mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> 
 
           if (r['task'] != null) {
             aiTaskName = r['task']['name'];
-            aiTaskPrice = double.tryParse(r['task']['unit_price']?.toString() ?? '0');
-          } else if (r['candidates'] != null && (r['candidates'] as List).isNotEmpty) {
+            aiTaskPrice = double.tryParse(
+              r['task']['unit_price']?.toString() ?? '0',
+            );
+          } else if (r['candidates'] != null &&
+              (r['candidates'] as List).isNotEmpty) {
             final best = r['candidates'][0];
             aiTaskName = best['task_name'];
             aiTaskPrice = double.tryParse(best['price']?.toString() ?? '0');
@@ -58,7 +65,7 @@ mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> 
             aiTaskPrice = null;
           }
         });
-        
+
         if (aiProfessionName != null) {
           fetchNearbyServiceCandidates();
         }
@@ -99,7 +106,11 @@ mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> 
   Future<void> createImmediateService() async {
     if (aiProfessionName == null || aiTaskPrice == null || aiTaskPrice! <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível identificar o serviço. Tente detalhar mais.')),
+        const SnackBar(
+          content: Text(
+            'Não foi possível identificar o serviço. Tente detalhar mais.',
+          ),
+        ),
       );
       return;
     }
@@ -135,7 +146,8 @@ mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> 
         taskId: null,
       );
 
-      final serviceId = result['service']?['id']?.toString() ?? result['id']?.toString();
+      final serviceId =
+          result['service']?['id']?.toString() ?? result['id']?.toString();
 
       if (serviceId != null && mounted) {
         context.push(
@@ -152,7 +164,9 @@ mixin HomeServiceMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> 
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao criar serviço: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao criar serviço: $e')));
       }
     } finally {
       if (mounted) setState(() => isCreatingService = false);

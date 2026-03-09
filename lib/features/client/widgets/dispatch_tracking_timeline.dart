@@ -16,7 +16,8 @@ class DispatchTrackingTimeline extends StatefulWidget {
   });
 
   @override
-  State<DispatchTrackingTimeline> createState() => _DispatchTrackingTimelineState();
+  State<DispatchTrackingTimeline> createState() =>
+      _DispatchTrackingTimelineState();
 }
 
 class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
@@ -75,13 +76,20 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
     }).toList();
 
     // Gerar headline baseado no evento mais recente
-    final latestEvent = rows.isNotEmpty ? (rows.first['action'] as String? ?? '') : '';
-    final headline = _headlineFor(latestEvent, rows.isNotEmpty ? (rows.first['message'] as String?) : null);
+    final latestEvent = rows.isNotEmpty
+        ? (rows.first['action'] as String? ?? '')
+        : '';
+    final headline = _headlineFor(
+      latestEvent,
+      rows.isNotEmpty ? (rows.first['message'] as String?) : null,
+    );
 
     // Verificar se prestador foi encontrado
-    final accepted = rows.any((r) =>
-        (r['action'] as String?)?.contains('ACCEPTED') == true ||
-        (r['action'] as String?)?.contains('PROVIDER_ASSIGNED') == true);
+    final accepted = rows.any(
+      (r) =>
+          (r['action'] as String?)?.contains('ACCEPTED') == true ||
+          (r['action'] as String?)?.contains('PROVIDER_ASSIGNED') == true,
+    );
 
     setState(() {
       _headline = headline;
@@ -136,7 +144,9 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
             value: widget.serviceId,
           ),
           callback: (payload) {
-            debugPrint('[DispatchTimeline] Novo log recebido via RT: ${payload.newRecord}');
+            debugPrint(
+              '[DispatchTimeline] Novo log recebido via RT: ${payload.newRecord}',
+            );
             // Re-carregar todos os logs para manter a ordem
             _loadLogs();
           },
@@ -192,7 +202,10 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
           if (_timeline.isEmpty)
             const Padding(
               padding: EdgeInsets.only(left: 8.0),
-              child: Text("Conectando ao servidor...", style: TextStyle(color: Colors.grey)),
+              child: Text(
+                "Conectando ao servidor...",
+                style: TextStyle(color: Colors.grey),
+              ),
             )
           else
             ListView.builder(
@@ -201,7 +214,8 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
               itemCount: _timeline.length > 3 ? 3 : _timeline.length,
               itemBuilder: (context, index) {
                 final event = _timeline[index];
-                final isLast = index == (_timeline.length > 3 ? 2 : _timeline.length - 1);
+                final isLast =
+                    index == (_timeline.length > 3 ? 2 : _timeline.length - 1);
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
@@ -214,7 +228,9 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
                             width: 10,
                             height: 10,
                             decoration: BoxDecoration(
-                              color: index == 0 ? Colors.green : Colors.grey.shade300,
+                              color: index == 0
+                                  ? Colors.green
+                                  : Colors.grey.shade300,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -235,13 +251,20 @@ class _DispatchTrackingTimelineState extends State<DispatchTrackingTimeline> {
                               event['message'] ?? '',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: index == 0 ? Colors.black87 : Colors.grey,
-                                fontWeight: index == 0 ? FontWeight.w500 : FontWeight.normal,
+                                color: index == 0
+                                    ? Colors.black87
+                                    : Colors.grey,
+                                fontWeight: index == 0
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
                               ),
                             ),
                             Text(
                               event['time'] ?? '',
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade400,
+                              ),
                             ),
                           ],
                         ),

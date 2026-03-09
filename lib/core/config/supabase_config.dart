@@ -16,7 +16,7 @@ class SupabaseConfig {
   static const _defaultMapbox = '';
   static const _defaultTomTom = '';
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({bool disableAutoRefreshToken = false}) async {
     // Prioridade: --dart-define > .env > hardcoded
     String supabaseUrl = _compileUrl.isNotEmpty ? _compileUrl : _defaultUrl;
     String supabaseAnonKey = _compileKey.isNotEmpty ? _compileKey : _defaultKey;
@@ -34,11 +34,22 @@ class SupabaseConfig {
       }
     }
 
+    final previewUrl = supabaseUrl.length >= 30
+        ? supabaseUrl.substring(0, 30)
+        : supabaseUrl;
     debugPrint(
-      '✅ [Supabase] Inicializando com: ${supabaseUrl.substring(0, 30)}...',
+      '✅ [Supabase] Inicializando com: $previewUrl...',
     );
 
-    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    final authOptions = disableAutoRefreshToken
+        ? const FlutterAuthClientOptions(autoRefreshToken: false)
+        : const FlutterAuthClientOptions();
+
+    await Supabase.initialize(
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+      authOptions: authOptions,
+    );
   }
 
   static SupabaseClient get client => Supabase.instance.client;

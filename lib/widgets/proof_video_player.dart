@@ -30,7 +30,9 @@ class _ProofVideoPlayerState extends State<ProofVideoPlayer> {
 
   Future<void> _initializePlayer() async {
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+      );
       await _controller.initialize();
       if (mounted) {
         setState(() {
@@ -75,7 +77,10 @@ class _ProofVideoPlayerState extends State<ProofVideoPlayer> {
             children: [
               Icon(LucideIcons.videoOff, color: Colors.grey),
               SizedBox(height: 8),
-              Text('Erro ao carregar vídeo', style: TextStyle(color: Colors.grey)),
+              Text(
+                'Erro ao carregar vídeo',
+                style: TextStyle(color: Colors.grey),
+              ),
             ],
           ),
         ),
@@ -117,7 +122,11 @@ class _ProofVideoPlayerState extends State<ProofVideoPlayer> {
                             color: Colors.black54,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.play_arrow, color: Colors.white, size: 40),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                            size: 40,
+                          ),
                         ),
                       )
                     : const SizedBox.shrink(),

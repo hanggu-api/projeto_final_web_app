@@ -116,7 +116,7 @@ class _UberMarkerPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(centerX, stemBottomY),
       2,
-      Paint()..color = Colors.black.withOpacity(0.3),
+      Paint()..color = Colors.black.withValues(alpha: 0.3),
     );
   }
 

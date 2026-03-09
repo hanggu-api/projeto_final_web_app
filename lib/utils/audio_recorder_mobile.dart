@@ -12,7 +12,8 @@ class AudioRecorder {
       filePath = path;
     } else {
       final dir = await getTemporaryDirectory();
-      filePath = '${dir.path}/chat_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      filePath =
+          '${dir.path}/chat_${DateTime.now().millisecondsSinceEpoch}.m4a';
     }
 
     await _record.start(

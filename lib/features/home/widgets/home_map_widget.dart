@@ -61,7 +61,6 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
   bool _mapReady = false;
   bool _animationPlayed = false;
   double _driverBearing = 0.0;
-  LatLng? _lastDriverLatLng;
   StreamSubscription<Position>? _positionStream;
   final CompassService _compassService = CompassService();
   double _mapRotation = 0.0;
@@ -432,7 +431,7 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
           urlTemplate:
               'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${SupabaseConfig.mapboxToken}',
           userAgentPackageName: 'com.play101.app',
-          tileSize: 512,
+          tileDimension: 512,
           zoomOffset: -1,
           maxZoom: 22,
         ),
@@ -445,7 +444,7 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
                 points: List<LatLng>.from(widget.routePolyline),
                 strokeWidth: 5.0,
                 color: AppTheme.accentBlue,
-                borderColor: AppTheme.accentBlue.withOpacity(0.5),
+                borderColor: AppTheme.accentBlue.withValues(alpha: 0.5),
                 borderStrokeWidth: 1.0,
               ),
             ],
@@ -471,8 +470,8 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
                           width: 20 + (25 * _pulseController.value),
                           height: 20 + (25 * _pulseController.value),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(
-                              0.5 * (1.0 - _pulseController.value),
+                            color: AppTheme.primaryYellow.withValues(
+                              alpha: 0.5 * (1.0 - _pulseController.value),
                             ),
                             shape: BoxShape.circle,
                           ),
@@ -486,7 +485,7 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withValues(alpha: 0.2),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -528,8 +527,8 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
                           3,
                           (index) => Icon(
                             Icons.chevron_right,
-                            color: Colors.green.withOpacity(
-                              0.5 - (index * 0.15),
+                            color: Colors.green.withValues(
+                              alpha: 0.5 - (index * 0.15),
                             ),
                             size: 16,
                           ),
@@ -575,8 +574,8 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
                           3,
                           (index) => Icon(
                             Icons.chevron_right,
-                            color: Colors.orange.withOpacity(
-                              0.2 + (index * 0.15),
+                            color: Colors.orange.withValues(
+                              alpha: 0.2 + (index * 0.15),
                             ),
                             size: 16,
                           ),

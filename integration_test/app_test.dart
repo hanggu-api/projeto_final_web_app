@@ -8,7 +8,7 @@ void main() {
   testWidgets('App starts and loads', (WidgetTester tester) async {
     app.main();
     await tester.pumpAndSettle();
-    
+
     // Adicione verificações aqui conforme necessário
     // expect(find.text('Login'), findsOneWidget);
   });

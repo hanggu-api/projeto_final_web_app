@@ -62,7 +62,6 @@ class PixGenerator {
 
   static String _sanitize(String text) {
     // Remove acentos e caracteres especiais para compatibilidade EMV
-    var decoded = utf8.encode(text);
     // Para simplificar, vamos apenas remover caracteres não ASCII básicos
     return text.replaceAll(RegExp(r'[^\w\s]'), '').toUpperCase();
   }

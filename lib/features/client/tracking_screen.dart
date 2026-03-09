@@ -43,7 +43,7 @@ class _TrackingScreenState extends State<TrackingScreen>
   Timer? _pollingTimer;
   Timer? _searchTickTimer;
   int _searchCountdown = 20;
-  
+
   // Distance and time tracking
   double? _distanceKm;
   int? _estimatedMinutes;
@@ -108,17 +108,19 @@ class _TrackingScreenState extends State<TrackingScreen>
 
   void _setupRealtime() {
     // Listen to Service Updates (Status changes, etc.) via Gateway
-    _serviceSubscription = DataGateway().watchService(widget.serviceId).listen((data) {
+    _serviceSubscription = DataGateway().watchService(widget.serviceId).listen((
+      data,
+    ) {
       if (data.isNotEmpty) {
         // Enriched stream data allows us to update UI without full reload
         setState(() {
           _service = {...?_service, ...data};
           _status = data['status'] ?? _status;
-          
+
           // If metadata changed, we might need a full reload or just update here
           // For now, let's just use the enriched data
           if (data['arrived_at'] != null && _service?['arrived_at'] == null) {
-              _handleProviderArrivedEvent(data);
+            _handleProviderArrivedEvent(data);
           }
         });
       }
@@ -166,18 +168,24 @@ class _TrackingScreenState extends State<TrackingScreen>
   }
 
   /// Calculate distance between two coordinates using Haversine formula
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
     const double earthRadiusKm = 6371.0;
-    
+
     final dLat = _degreesToRadians(lat2 - lat1);
     final dLon = _degreesToRadians(lon2 - lon1);
-    
-    final a = sin(dLat / 2) * sin(dLat / 2) +
+
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(_degreesToRadians(lat1)) *
-        cos(_degreesToRadians(lat2)) *
-        sin(dLon / 2) *
-        sin(dLon / 2);
-    
+            cos(_degreesToRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
     final c = 2 * asin(sqrt(a));
     return earthRadiusKm * c;
   }
@@ -189,7 +197,7 @@ class _TrackingScreenState extends State<TrackingScreen>
   /// Start tracking distance and time updates
   void _startDistanceTracking() {
     _updateDistanceAndTime();
-    
+
     // Update every 10 seconds
     _distanceUpdateTimer?.cancel();
     _distanceUpdateTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -200,20 +208,20 @@ class _TrackingScreenState extends State<TrackingScreen>
   /// Update distance and estimated time
   Future<void> _updateDistanceAndTime() async {
     if (_service == null || _provider == null) return;
-    
+
     try {
       // Get service location
       final serviceLat = _service!['latitude'];
       final serviceLon = _service!['longitude'];
-      
+
       if (serviceLat == null || serviceLon == null) return;
-      
+
       // Get provider location from service data (updated by backend)
       final providerLat = _service!['provider_latitude'];
       final providerLon = _service!['provider_longitude'];
-      
+
       if (providerLat == null || providerLon == null) return;
-      
+
       // Calculate distance
       final distance = _calculateDistance(
         double.parse(providerLat.toString()),
@@ -221,12 +229,12 @@ class _TrackingScreenState extends State<TrackingScreen>
         double.parse(serviceLat.toString()),
         double.parse(serviceLon.toString()),
       );
-      
+
       // Estimate time (assuming average speed of 30 km/h in urban areas)
       const averageSpeedKmh = 30.0;
       final estimatedHours = distance / averageSpeedKmh;
       final estimatedMins = (estimatedHours * 60).ceil();
-      
+
       if (mounted) {
         setState(() {
           _distanceKm = distance;
@@ -244,23 +252,24 @@ class _TrackingScreenState extends State<TrackingScreen>
       if (mounted) {
         setState(() {
           if (_provider != null) {
-             // Prioritize profile data over existing generic data
-             final name = profile['name'] ?? profile['full_name'];
-             if (name != null && name.toString().isNotEmpty) {
-                _provider!['name'] = name;
-             }
-             
-             final avatar = profile['avatar_url'] ?? profile['photo'] ?? profile['avatar'];
-             if (avatar != null && avatar.toString().isNotEmpty) {
-                _provider!['avatar_url'] = avatar;
-             }
-             
-             if (profile['rating'] != null) {
-                _provider!['rating'] = profile['rating'];
-             }
-             if (profile['rating_count'] != null) {
-                _provider!['reviews_count'] = profile['rating_count'];
-             }
+            // Prioritize profile data over existing generic data
+            final name = profile['name'] ?? profile['full_name'];
+            if (name != null && name.toString().isNotEmpty) {
+              _provider!['name'] = name;
+            }
+
+            final avatar =
+                profile['avatar_url'] ?? profile['photo'] ?? profile['avatar'];
+            if (avatar != null && avatar.toString().isNotEmpty) {
+              _provider!['avatar_url'] = avatar;
+            }
+
+            if (profile['rating'] != null) {
+              _provider!['rating'] = profile['rating'];
+            }
+            if (profile['rating_count'] != null) {
+              _provider!['reviews_count'] = profile['rating_count'];
+            }
           }
         });
       }
@@ -275,7 +284,6 @@ class _TrackingScreenState extends State<TrackingScreen>
       if (!mounted) return;
 
       debugPrint('🔍 [TrackingScreen] Validating Provider Data: $data');
-
 
       final oldArrivedAt = _service?['arrived_at'];
       final newArrivedAt = data['arrived_at'];
@@ -349,9 +357,11 @@ class _TrackingScreenState extends State<TrackingScreen>
             'id': data['provider_id'],
             'name': data['provider_name'] ?? 'Prestador',
             'phone': data['provider_phone'],
-            'avatar_url': data['provider_avatar_url'] ?? data['provider_avatar'],
+            'avatar_url':
+                data['provider_avatar_url'] ?? data['provider_avatar'],
             'rating': data['provider_rating'] ?? 5.0,
-            'reviews_count': data['provider_rating_count'] ?? data['provider_reviews'] ?? 0,
+            'reviews_count':
+                data['provider_rating_count'] ?? data['provider_reviews'] ?? 0,
           };
         } else {
           _provider = null;
@@ -369,7 +379,7 @@ class _TrackingScreenState extends State<TrackingScreen>
           if (provIdInt != null) {
             // Enhanced: Fetch full profile if name is generic or missing
             if (_provider!['name'] == 'Prestador') {
-               _fetchFullProviderProfile(provIdInt);
+              _fetchFullProviderProfile(provIdInt);
             }
 
             // Calculate distance and time if we have coordinates
@@ -554,7 +564,9 @@ class _TrackingScreenState extends State<TrackingScreen>
           side: const BorderSide(color: Colors.black, width: 1.5),
         ),
         title: const Text('Confirmar Conclusão?'),
-        content: const Text('Ao confirmar, você atesta que o serviço foi realizado com sucesso e o pagamento será liberado para o prestador.'),
+        content: const Text(
+          'Ao confirmar, você atesta que o serviço foi realizado com sucesso e o pagamento será liberado para o prestador.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -651,7 +663,13 @@ class _TrackingScreenState extends State<TrackingScreen>
     final code = completionCode ?? validationCode;
 
     // Only show if we have a code AND the status suggests it's needed for confirmation or in progress
-    if (code == null || !['in_progress', 'awaiting_confirmation', 'waiting_client_confirmation', 'waiting_remaining_payment'].contains(_status)) {
+    if (code == null ||
+        ![
+          'in_progress',
+          'awaiting_confirmation',
+          'waiting_client_confirmation',
+          'waiting_remaining_payment',
+        ].contains(_status)) {
       return const SizedBox.shrink();
     }
 
@@ -675,7 +693,11 @@ class _TrackingScreenState extends State<TrackingScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(LucideIcons.shieldCheck, color: Colors.white, size: 24),
+              const Icon(
+                LucideIcons.shieldCheck,
+                color: Colors.white,
+                size: 24,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Código de Validação',
@@ -737,19 +759,26 @@ class _TrackingScreenState extends State<TrackingScreen>
           ),
           const SizedBox(height: 12),
           if (videoUrl != null) ...[
-            const Text('Vídeo do Serviço (Prova Material)', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text(
+              'Vídeo do Serviço (Prova Material)',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             ProofVideoPlayer(videoUrl: _api.getMediaUrl(videoUrl)),
             const SizedBox(height: 16),
           ],
           if (photoUrl != null) ...[
-            const Text('Foto do Serviço', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text(
+              'Foto do Serviço',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
                 imageUrl: _api.getMediaUrl(photoUrl),
-                placeholder: (context, url) => Container(height: 200, color: Colors.grey[200]),
+                placeholder: (context, url) =>
+                    Container(height: 200, color: Colors.grey[200]),
                 errorWidget: (context, url, error) => const Icon(Icons.error),
               ),
             ),
@@ -851,7 +880,9 @@ class _TrackingScreenState extends State<TrackingScreen>
                 backgroundColor: Colors.blue[600], // Premium Blue
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _handleConfirm,
             ),
@@ -966,7 +997,9 @@ class _TrackingScreenState extends State<TrackingScreen>
                 decoration: BoxDecoration(
                   color: AppTheme.primaryPurple.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.primaryPurple.withValues(alpha: 0.1)),
+                  border: Border.all(
+                    color: AppTheme.primaryPurple.withValues(alpha: 0.1),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -997,7 +1030,8 @@ class _TrackingScreenState extends State<TrackingScreen>
               const SizedBox(height: 20),
 
               // Distance and Time Card (only show if provider is assigned and we have data)
-              if (_provider != null && (_distanceKm != null || _estimatedMinutes != null))
+              if (_provider != null &&
+                  (_distanceKm != null || _estimatedMinutes != null))
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -1019,7 +1053,11 @@ class _TrackingScreenState extends State<TrackingScreen>
                       Expanded(
                         child: Column(
                           children: [
-                            Icon(LucideIcons.mapPin, color: Colors.blue[600], size: 24),
+                            Icon(
+                              LucideIcons.mapPin,
+                              color: Colors.blue[600],
+                              size: 24,
+                            ),
                             const SizedBox(height: 8),
                             const Text(
                               'Distância',
@@ -1031,7 +1069,9 @@ class _TrackingScreenState extends State<TrackingScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _distanceKm != null ? '${_distanceKm!.toStringAsFixed(2)} km' : '--',
+                              _distanceKm != null
+                                  ? '${_distanceKm!.toStringAsFixed(2)} km'
+                                  : '--',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -1041,16 +1081,16 @@ class _TrackingScreenState extends State<TrackingScreen>
                           ],
                         ),
                       ),
-                      Container(
-                        width: 1,
-                        height: 60,
-                        color: Colors.grey[300],
-                      ),
+                      Container(width: 1, height: 60, color: Colors.grey[300]),
                       // Time
                       Expanded(
                         child: Column(
                           children: [
-                            Icon(LucideIcons.clock, color: Colors.blue[600], size: 24),
+                            Icon(
+                              LucideIcons.clock,
+                              color: Colors.blue[600],
+                              size: 24,
+                            ),
                             const SizedBox(height: 8),
                             const Text(
                               'Tempo',
@@ -1062,7 +1102,9 @@ class _TrackingScreenState extends State<TrackingScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _estimatedMinutes != null ? '$_estimatedMinutes min' : '--',
+                              _estimatedMinutes != null
+                                  ? '$_estimatedMinutes min'
+                                  : '--',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -1087,7 +1129,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                     },
                   ),
                 )
-              else 
+              else
                 // Vertical Timeline implementation
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -1106,40 +1148,53 @@ class _TrackingScreenState extends State<TrackingScreen>
                     children: [
                       _buildVerticalTimelineItem(
                         label: 'Serviço solicitado',
-                        subtitle: 'Seu pedido foi recebido e está sendo processado',
+                        subtitle:
+                            'Seu pedido foi recebido e está sendo processado',
                         isActive: true,
                         isCompleted: true,
                         isFirst: true,
                       ),
                       _buildVerticalTimelineItem(
                         label: 'Prestador aceitou',
-                        subtitle: _isAccepted() ? 'Profissional confirmado e se deslocando' : 'Buscando o profissional mais próximo de você',
+                        subtitle: _isAccepted()
+                            ? 'Profissional confirmado e se deslocando'
+                            : 'Buscando o profissional mais próximo de você',
                         isActive: _isAccepted(),
                         isCompleted: _isAccepted(),
                       ),
                       _buildVerticalTimelineItem(
                         label: 'Entrada (30%) paga',
                         subtitle: 'Confirmado o sinal para reserva do horário',
-                        isActive: true, // Já que estamos nesta tela, o sinal foi pago
+                        isActive:
+                            true, // Já que estamos nesta tela, o sinal foi pago
                         isCompleted: true,
                       ),
                       _buildVerticalTimelineItem(
                         label: 'Pagamento restante',
-                        subtitle: _isRemainingPaid() 
-                            ? 'Pagamento final confirmado pela plataforma' 
-                            : (_isWaitingRemainingPayment() ? 'Aguardando pagamento do valor final' : 'A ser pago após a chegada do prestador'),
-                        isActive: _isWaitingRemainingPayment() || _isRemainingPaid(),
+                        subtitle: _isRemainingPaid()
+                            ? 'Pagamento final confirmado pela plataforma'
+                            : (_isWaitingRemainingPayment()
+                                  ? 'Aguardando pagamento do valor final'
+                                  : 'A ser pago após a chegada do prestador'),
+                        isActive:
+                            _isWaitingRemainingPayment() || _isRemainingPaid(),
                         isCompleted: _isRemainingPaid(),
                       ),
                       _buildVerticalTimelineItem(
                         label: 'Serviço em andamento',
-                        subtitle: _isInProgress() ? 'O profissional já iniciou os trabalhos no local' : 'O serviço iniciará após o pagamento final',
+                        subtitle: _isInProgress()
+                            ? 'O profissional já iniciou os trabalhos no local'
+                            : 'O serviço iniciará após o pagamento final',
                         isActive: _isInProgress(),
-                        isCompleted: _status == 'completed' || _status == 'awaiting_confirmation',
+                        isCompleted:
+                            _status == 'completed' ||
+                            _status == 'awaiting_confirmation',
                       ),
                       _buildVerticalTimelineItem(
                         label: 'Serviço concluído',
-                        subtitle: _isCompleted() ? 'Serviço entregue e finalizado com sucesso' : 'Seu serviço será concluído em breve',
+                        subtitle: _isCompleted()
+                            ? 'Serviço entregue e finalizado com sucesso'
+                            : 'Seu serviço será concluído em breve',
                         isActive: _isCompleted(),
                         isCompleted: _isCompleted(),
                         isLast: true,
@@ -1153,13 +1208,10 @@ class _TrackingScreenState extends State<TrackingScreen>
               const SizedBox(height: 8),
 
               // Resumo financeiro 30% + 70%
-              if (_service != null &&
-                  _service!['price_estimated'] != null) ...[
+              if (_service != null && _service!['price_estimated'] != null) ...[
                 _buildPaymentSummary(),
                 const SizedBox(height: 24),
               ],
-
-
 
               // Card do prestador ou mensagem de espera
               if (_provider != null)
@@ -1185,7 +1237,6 @@ class _TrackingScreenState extends State<TrackingScreen>
       ),
     );
   }
-
 
   bool _isAccepted() {
     return [
@@ -1220,8 +1271,8 @@ class _TrackingScreenState extends State<TrackingScreen>
   }
 
   bool _isRemainingPaid() {
-    return _service?['payment_remaining_status'] == 'paid' || 
-           ['in_progress', 'completed', 'awaiting_confirmation'].contains(_status);
+    return _service?['payment_remaining_status'] == 'paid' ||
+        ['in_progress', 'completed', 'awaiting_confirmation'].contains(_status);
   }
 
   Widget _buildStatusBanner() {
@@ -1229,10 +1280,14 @@ class _TrackingScreenState extends State<TrackingScreen>
     bool showBanner = false;
 
     final arrivedAt = _service?['arrived_at'];
-    final isWaiting = _status == 'awaiting_confirmation' || _status == 'waiting_client_confirmation';
+    final isWaiting =
+        _status == 'awaiting_confirmation' ||
+        _status == 'waiting_client_confirmation';
 
     if (_status == 'accepted') {
-      message = arrivedAt != null ? "Prestador chegou ao local!" : "Prestador a caminho do seu endereço";
+      message = arrivedAt != null
+          ? "Prestador chegou ao local!"
+          : "Prestador a caminho do seu endereço";
       showBanner = true;
     } else if (_status == 'waiting_remaining_payment') {
       message = "Aguardando pagamento para iniciar o serviço";
@@ -1260,11 +1315,17 @@ class _TrackingScreenState extends State<TrackingScreen>
       decoration: BoxDecoration(
         color: bannerBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: bannerColor.withValues(alpha: isWaiting ? 0.1 : 0.3)),
+        border: Border.all(
+          color: bannerColor.withValues(alpha: isWaiting ? 0.1 : 0.3),
+        ),
       ),
       child: Row(
         children: [
-          Icon(isWaiting ? LucideIcons.info : Icons.info_outline, color: bannerColor, size: 20),
+          Icon(
+            isWaiting ? LucideIcons.info : Icons.info_outline,
+            color: bannerColor,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -1302,20 +1363,35 @@ class _TrackingScreenState extends State<TrackingScreen>
                       ? AppTheme.primaryPurple
                       : (isActive ? Colors.white : Colors.grey[200]),
                   border: Border.all(
-                    color: isActive ? AppTheme.primaryPurple : Colors.grey[300]!,
+                    color: isActive
+                        ? AppTheme.primaryPurple
+                        : Colors.grey[300]!,
                     width: 2,
                   ),
                   shape: BoxShape.circle,
                 ),
                 child: isCompleted
                     ? const Icon(Icons.check, size: 14, color: Colors.white)
-                    : (isActive ? Center(child: Container(width: 8, height: 8, decoration: BoxDecoration(color: AppTheme.primaryPurple, shape: BoxShape.circle))) : null),
+                    : (isActive
+                          ? Center(
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryPurple,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            )
+                          : null),
               ),
               if (!isLast)
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: isCompleted ? AppTheme.primaryPurple : Colors.grey[200],
+                    color: isCompleted
+                        ? AppTheme.primaryPurple
+                        : Colors.grey[200],
                   ),
                 ),
             ],
@@ -1353,13 +1429,17 @@ class _TrackingScreenState extends State<TrackingScreen>
     final name = _provider?['name']?.toString() ?? 'Prestador';
     final displayName = name.isNotEmpty ? name : 'Prestador';
     final avatarUrl = _provider?['avatar_url']?.toString();
-    final rating = double.tryParse(_provider?['rating']?.toString() ?? '5.0') ?? 5.0;
-    final reviewsCount = int.tryParse(_provider?['reviews_count']?.toString() ?? '0') ?? 0;
+    final rating =
+        double.tryParse(_provider?['rating']?.toString() ?? '5.0') ?? 5.0;
+    final reviewsCount =
+        int.tryParse(_provider?['reviews_count']?.toString() ?? '0') ?? 0;
 
     return InkWell(
       onTap: () {
         final providerId = _provider?['id'];
-        final pIdInt = providerId is int ? providerId : int.tryParse(providerId?.toString() ?? '');
+        final pIdInt = providerId is int
+            ? providerId
+            : int.tryParse(providerId?.toString() ?? '');
         if (pIdInt != null) {
           context.push('/provider-profile', extra: pIdInt);
         }
@@ -1435,12 +1515,12 @@ class _TrackingScreenState extends State<TrackingScreen>
               final id = _service?['id']?.toString() ?? widget.serviceId;
               // Passa ID na ROTA e Metadados no EXTRA
               context.push(
-                '/chat/$id', 
+                '/chat/$id',
                 extra: {
-                   'serviceId': id,
-                   'otherName': displayName,
-                   'otherAvatar': avatarUrl,
-                }
+                  'serviceId': id,
+                  'otherName': displayName,
+                  'otherAvatar': avatarUrl,
+                },
               );
             },
             borderRadius: BorderRadius.circular(12),
@@ -1450,7 +1530,11 @@ class _TrackingScreenState extends State<TrackingScreen>
                 color: Colors.blue[50],
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.chat_bubble_outline, color: Colors.blue[600], size: 20),
+              child: Icon(
+                Icons.chat_bubble_outline,
+                color: Colors.blue[600],
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -1618,8 +1702,6 @@ class _TrackingScreenState extends State<TrackingScreen>
     );
   }
 
-
-
   String _getPaymentStatusMessage(String status) {
     switch (status) {
       case 'in_progress':
@@ -1629,10 +1711,9 @@ class _TrackingScreenState extends State<TrackingScreen>
       case 'on_way':
         return 'Prestador a caminho. O pagamento restante será solicitado na chegada do prestador.';
       case 'waiting_remaining_payment':
-         return 'Prestador chegou! Realize o pagamento do restante para iniciar o serviço.';
+        return 'Prestador chegou! Realize o pagamento do restante para iniciar o serviço.';
       default:
         return 'Você já pagou 30% na abertura do pedido. Os 70% restantes são liberados somente após a conclusão do serviço.';
     }
   }
-
 }

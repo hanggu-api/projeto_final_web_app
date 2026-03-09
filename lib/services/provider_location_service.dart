@@ -1,5 +1,6 @@
 // lib/services/provider_location_service.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -17,13 +18,13 @@ class ProviderLocationService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          print('❌ Permissão de localização negada');
+          debugPrint('❌ Permissão de localização negada');
           return null;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        print('❌ Permissão permanentemente negada');
+        debugPrint('❌ Permissão permanentemente negada');
         return null;
       }
 
@@ -39,11 +40,13 @@ class ProviderLocationService {
 
       return position;
     } catch (e) {
-      print('⚠️ Timeout/Erro no GPS, tentando última posição conhecida: $e');
+      debugPrint(
+        '⚠️ Timeout/Erro no GPS, tentando última posição conhecida: $e',
+      );
       try {
         return await Geolocator.getLastKnownPosition();
       } catch (e2) {
-        print('❌ Falha total na localização: $e2');
+        debugPrint('❌ Falha total na localização: $e2');
         return null;
       }
     }
@@ -64,7 +67,7 @@ class ProviderLocationService {
     ) {
       _locationController.add(position);
       onUpdate(position);
-    }, onError: (error) => print('❌ Erro no stream: $error'));
+    }, onError: (error) => debugPrint('❌ Erro no stream: $error'));
   }
 
   /// Para o streaming de localização

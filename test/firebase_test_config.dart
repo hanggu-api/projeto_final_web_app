@@ -8,36 +8,38 @@ Future<void> initializeFirebaseForTesting() async {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   // Setup method channel for Firebase initialization
-  const MethodChannel channel = MethodChannel('plugins.flutter.io/firebase_core');
-  
+  const MethodChannel channel = MethodChannel(
+    'plugins.flutter.io/firebase_core',
+  );
+
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
-    if (methodCall.method == 'Firebase#initializeCore') {
-      return [
-        {
-          'name': '[DEFAULT]',
-          'options': {
-            'apiKey': 'AIzaSyBpkfJqBqYvMZVKMx8VGbL0vZqZqZqZqZq',
-            'appId': '1:123456789:android:abcdef',
-            'messagingSenderId': '123456789',
-            'projectId': 'agencia-9e898',
-            'storageBucket': 'agencia-9e898.appspot.com',
-          },
-          'pluginConstants': {},
+        if (methodCall.method == 'Firebase#initializeCore') {
+          return [
+            {
+              'name': '[DEFAULT]',
+              'options': {
+                'apiKey': 'AIzaSyBpkfJqBqYvMZVKMx8VGbL0vZqZqZqZqZq',
+                'appId': '1:123456789:android:abcdef',
+                'messagingSenderId': '123456789',
+                'projectId': 'agencia-9e898',
+                'storageBucket': 'agencia-9e898.appspot.com',
+              },
+              'pluginConstants': {},
+            },
+          ];
         }
-      ];
-    }
 
-    if (methodCall.method == 'Firebase#initializeApp') {
-      return {
-        'name': methodCall.arguments['appName'],
-        'options': methodCall.arguments['options'],
-        'pluginConstants': {},
-      };
-    }
+        if (methodCall.method == 'Firebase#initializeApp') {
+          return {
+            'name': methodCall.arguments['appName'],
+            'options': methodCall.arguments['options'],
+            'pluginConstants': {},
+          };
+        }
 
-    return null;
-  });
+        return null;
+      });
 
   // Initialize Firebase
   try {

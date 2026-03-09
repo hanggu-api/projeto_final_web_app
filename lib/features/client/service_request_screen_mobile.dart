@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -35,7 +33,6 @@ class _ServiceRequestScreenMobileState
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final FocusNode _addressFocusNode = FocusNode();
-  bool _isLoading = false;
   bool _locationError = false;
   final _api = ApiService();
   final MapController _mapController = MapController();
@@ -43,7 +40,6 @@ class _ServiceRequestScreenMobileState
   double? _longitude;
   String? _address;
   bool _locationPickedByUser = false;
-  final List<Map<String, dynamic>> _suggestions = [];
   Timer? _debounce;
   Timer? _geoDebounce;
   final double _priceEstimated = 150.00;
@@ -69,14 +65,11 @@ class _ServiceRequestScreenMobileState
   // --- Real-time Providers State ---
   List<Map<String, dynamic>> _nearbyCandidates = [];
   bool _loadingCandidates = false;
-  int? _expandedProviderIndex;
-  int? _selectedProviderId;
   String? _selectedProfession;
 
   // Loaded from API
   Map<String, List<Map<String, dynamic>>> _professionsMap = {};
   Map<String, int> _professionNameIdMap = {};
-  bool _isLoadingProfessions = false;
 
   bool get _isFixed {
     final nameLower = (_aiProfessionName ?? '').toLowerCase();
@@ -106,7 +99,6 @@ class _ServiceRequestScreenMobileState
   }
 
   Future<void> _loadProfessions() async {
-    setState(() => _isLoadingProfessions = true);
     try {
       debugPrint('Fetching professions from API...');
 
@@ -129,8 +121,6 @@ class _ServiceRequestScreenMobileState
       }
     } catch (e) {
       debugPrint('Error loading professions: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingProfessions = false);
     }
   }
 
@@ -148,7 +138,6 @@ class _ServiceRequestScreenMobileState
   }
 
   Future<void> _submitService() async {
-    setState(() => _isLoading = true);
     try {
       await _api.loadToken();
 
@@ -177,7 +166,6 @@ class _ServiceRequestScreenMobileState
               duration: Duration(seconds: 5),
             ),
           );
-          setState(() => _isLoading = false);
           return;
         }
       }
@@ -258,8 +246,6 @@ class _ServiceRequestScreenMobileState
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -424,8 +410,10 @@ class _ServiceRequestScreenMobileState
       }
 
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
 
       setState(() {
@@ -467,10 +455,6 @@ class _ServiceRequestScreenMobileState
     } catch (_) {}
   }
 
-  Future<void> _searchAddress(String q) async {
-    // ... Implementation ...
-  }
-
   // --- AI Logic ---
   void _onDescriptionChanged(String v) {
     _aiDebounce?.cancel();
@@ -481,7 +465,6 @@ class _ServiceRequestScreenMobileState
     if (_descriptionController.text.length < 5) return;
     setState(() => _aiClassifying = true);
     try {
-      final body = {'text': _descriptionController.text};
       debugPrint(
         '[APP-AI-DEBUG] Enviando texto para IA: "${_descriptionController.text}"',
       );
@@ -516,13 +499,6 @@ class _ServiceRequestScreenMobileState
           }
         });
 
-        // CHECK FOR SWITCH TO FIXED
-        final nameLower = (_aiProfessionName ?? '').toLowerCase();
-        bool isFixed =
-            nameLower.contains('barbeiro') ||
-            nameLower.contains('cabel') ||
-            r['service_type'] == 'at_provider';
-
         // REMOVIDO: Switch automático. Agora o usuário clica em "Seguir para Agenda" no botão.
       }
     } catch (e) {
@@ -549,7 +525,6 @@ class _ServiceRequestScreenMobileState
       if (mounted) {
         setState(() {
           _nearbyCandidates = providers;
-          _expandedProviderIndex = null;
         });
       }
     } catch (e) {
@@ -558,15 +533,6 @@ class _ServiceRequestScreenMobileState
       if (mounted) setState(() => _loadingCandidates = false);
     }
   }
-
-  String _formatAddressData(Map<String, dynamic> addr) {
-    return ""; // Helper
-  }
-
-  // --- Media Handlers ---
-  Future<void> _handleImagesSelected(List<XFile> imgs) async {}
-  Future<void> _handleVideoSelected(XFile video) async {}
-  Future<void> _handleAudioSelected(PlatformFile file) async {}
 
   Widget _buildContent() {
     switch (_currentStep) {
@@ -1046,9 +1012,6 @@ class _ServiceRequestScreenMobileState
                                     onPressed: () {
                                       setState(() {
                                         _selectedProfession = _aiProfessionName;
-                                        _selectedProviderId = int.tryParse(
-                                          p['id'].toString(),
-                                        );
                                       });
 
                                       if (widget.onSwitchToFixed != null) {
@@ -1378,7 +1341,7 @@ class _ServiceRequestScreenMobileState
                           'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
                       subdomains: const ['a', 'b', 'c', 'd'],
                       userAgentPackageName: 'com.play101.app',
-                      tileSize: 512,
+                      tileDimension: 512,
                       zoomOffset: -1,
                       maxZoom: 22,
                     ),

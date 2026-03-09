@@ -11,7 +11,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
-import '../../core/config/supabase_config.dart';
 import 'widgets/uber_map_overlay.dart';
 import '../shared/chat_screen.dart';
 
@@ -23,7 +22,8 @@ import '../../services/data_gateway.dart';
 import '../../services/notification_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../utils/pix_generator.dart';
-import 'dart:math' show atan2, sin, cos, pi;
+import 'utils/navigation_math.dart';
+import 'utils/navigation_tuning.dart';
 import '../shared/chat/widgets/chat_quick_alert_modal.dart';
 
 class UberTrackingScreen extends StatefulWidget {
@@ -43,7 +43,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
   late AnimationController _pulseController;
 
   StreamSubscription<List<Map<String, dynamic>>>? _driverLocationSub;
-  StreamSubscription<Map<String, dynamic>>? _tripSub;
+  StreamSubscription<Map<String, dynamic>?>? _tripSub;
 
   mapbox.PolylineAnnotationManager? _polylineAnnotationManager;
   mapbox.PointAnnotationManager? _pointAnnotationManager;
@@ -53,8 +53,12 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
   ll.LatLng? _pickupLocation;
   ll.LatLng? _dropoffLocation;
   List<ll.LatLng> _pickupToDropoffPoints = [];
+  List<ll.LatLng> _driverToPickupPoints = [];
   String _currentRouteMode = 'none'; // 'to_pickup', 'to_dropoff'
   double _bearing = 0.0;
+  final bool _autoNavigationProfile = true;
+  NavigationProfile _navigationProfile = NavigationProfile.urban;
+  NavigationTuning _tuning = NavigationTuning.urban;
   // Inicializa com '' para evitar piscar o card "Procurando motoristas"
   // antes dos dados reais chegarem do Supabase
   String _status = '';
@@ -77,6 +81,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
   bool _isLoading = false;
   String? _pixPayload;
   bool _tripLoadError = false;
+  bool _missingTripHandled = false;
   bool _isTracking = true; // Auto-zoom ativado por padrão
 
   bool _showPulse = false;
@@ -88,6 +93,8 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
   bool _isChatAlertVisible = false;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
   int _chatMessageCount = 0;
+  final GlobalKey _panelContentKey = GlobalKey();
+  double _panelMeasuredHeight = 0;
 
   @override
   void initState() {
@@ -136,12 +143,16 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
       }
       final latest = rows.first;
       final latestId = latest['id'];
-      final latestIdInt = latestId is int ? latestId : int.tryParse('$latestId');
+      final latestIdInt = latestId is int
+          ? latestId
+          : int.tryParse('$latestId');
       if (latestIdInt == null) return;
       if (_lastHandledIncomingMessageId == latestIdInt) return;
 
       final senderId = latest['sender_id'];
-      if (_myUserId != null && senderId != null && '$senderId' == '$_myUserId') {
+      if (_myUserId != null &&
+          senderId != null &&
+          '$senderId' == '$_myUserId') {
         _lastHandledIncomingMessageId = latestIdInt;
         return;
       }
@@ -165,14 +176,18 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
           messageId: latestIdInt,
           senderName:
               _driverProfile?['full_name']?.toString() ?? 'Nova mensagem',
-          message: preview.length > 120 ? '${preview.substring(0, 120)}...' : preview,
+          message: preview.length > 120
+              ? '${preview.substring(0, 120)}...'
+              : preview,
         );
       }
     });
   }
 
   String _buildIncomingMessagePreview(dynamic row) {
-    final map = row is Map ? Map<String, dynamic>.from(row) : <String, dynamic>{};
+    final map = row is Map
+        ? Map<String, dynamic>.from(row)
+        : <String, dynamic>{};
     final type = (map['type'] ?? 'text').toString();
     final content = (map['content'] ?? '').toString().trim();
     if (content.isEmpty) return '';
@@ -194,57 +209,75 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
   }
 
   double _chatPanelHeight(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
     final deviceHeight =
-        MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top;
-    final minHeight = deviceHeight * 0.44;
-    final growth = (_chatMessageCount * 26.0).clamp(0.0, deviceHeight * 0.48);
-    return (minHeight + growth).clamp(minHeight, deviceHeight - 12);
+        media.size.height - media.padding.top - media.padding.bottom - keyboard;
+    // Chat precisa abrir grande o bastante para exibir mensagens + input dentro do card.
+    final maxHeight = (deviceHeight - 28).clamp(320.0, deviceHeight * 0.96);
+    final minHeight = (deviceHeight * 0.62).clamp(320.0, maxHeight);
+    final boundedCount = _chatMessageCount.clamp(0, 28);
+    final growth = (boundedCount * 20.0).clamp(0.0, maxHeight - minHeight);
+    final fallback = (minHeight + growth).clamp(minHeight, maxHeight);
+    if (_panelMeasuredHeight > 0) {
+      return _panelMeasuredHeight.clamp(minHeight, maxHeight);
+    }
+    return fallback;
   }
 
-  Widget _buildChatContextCompact() {
-    final withName = _driverProfile?['full_name']?.toString() ?? 'Motorista';
-    final pickup = _tripData?['pickup_address']?.toString() ?? '';
-    final dropoff = _tripData?['dropoff_address']?.toString() ?? '';
-    final summary = pickup.isNotEmpty && dropoff.isNotEmpty
-        ? '$pickup -> $dropoff'
-        : pickup;
+  double _collapsedPanelHeight(BuildContext context) {
+    final deviceHeight =
+        MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top;
+    // Altura mínima maior para sempre comportar ações (ex.: botão Chat) sem corte.
+    return (deviceHeight * 0.42).clamp(320.0, 520.0).toDouble();
+  }
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Conversa com $withName',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.manrope(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: Colors.black,
-            ),
-          ),
-          if (summary.isNotEmpty)
-            Text(
-              summary,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.manrope(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.black.withValues(alpha: 0.75),
-              ),
-            ),
-        ],
-      ),
+  double _inlineChatHeight(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    final deviceHeight = media.size.height - media.padding.top - keyboard;
+    final maxHeight = (deviceHeight - 80).clamp(
+      280.0,
+      (deviceHeight * 0.85).clamp(300.0, 620.0),
     );
+    final base = (deviceHeight * 0.34).clamp(240.0, maxHeight);
+    final boundedCount = _chatMessageCount.clamp(0, 26);
+    final growth = (boundedCount * 18.0).clamp(0.0, maxHeight - base);
+    return (base + growth).clamp(base, maxHeight);
+  }
+
+  Widget _buildTripPanelContent() {
+    if (_tripData == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_status == 'completed') {
+      return _buildPaymentSummary();
+    }
+    if (_status == 'searching' ||
+        _status == 'pending' ||
+        _tripData!['driver_id'] == null) {
+      return _buildSearchingState();
+    }
+    return _buildTripProgressContent();
+  }
+
+  void _schedulePanelMeasurement() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measurePanelHeight());
+  }
+
+  void _measurePanelHeight() {
+    if (!mounted) return;
+    final context = _panelContentKey.currentContext;
+    if (context == null) return;
+    final size = context.size?.height ?? 0;
+    if (size <= 0) return;
+    final total = size;
+    if ((_panelMeasuredHeight - total).abs() > 4) {
+      setState(() => _panelMeasuredHeight = total);
+    }
   }
 
   Future<void> _showIncomingChatAlert(int messageId, String message) async {
@@ -282,15 +315,47 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
     ) {
       if (snapshot.isNotEmpty && mounted) {
         final data = snapshot.first;
-        final newLocation = ll.LatLng(
+        final rawLocation = ll.LatLng(
           data['latitude'] ?? 0.0,
           data['longitude'] ?? 0.0,
         );
+        final newLocation = _snapLocationToActiveRoute(rawLocation);
 
         setState(() {
           if (_driverLocation != null && _driverLocation != newLocation) {
             _previousLocation = _driverLocation;
-            _bearing = _calculateBearing(_previousLocation!, newLocation);
+            final backendSpeed = _safeDouble(data['speed']) ?? 0.0;
+            _maybeSwitchNavigationProfile(backendSpeed);
+            final course = NavigationMath.courseBetween(
+              from: _previousLocation!,
+              to: newLocation,
+              minDistanceMeters: _tuning.courseMinDistanceMeters,
+            );
+            final backendHeading = _safeDouble(data['heading']);
+            final preferCourse =
+                backendSpeed >= _tuning.courseSpeedThresholdMps ||
+                course != null;
+            final targetBearing = preferCourse
+                ? (course ?? backendHeading)
+                : (backendHeading ?? course);
+
+            if (targetBearing != null) {
+              final alpha = backendSpeed >= 8.0
+                  ? _tuning.headingSmoothingFast
+                  : (backendSpeed >= 3.0
+                        ? _tuning.headingSmoothingCruise
+                        : _tuning.headingSmoothingLowSpeed);
+              _bearing = NavigationMath.lerpAngleDegrees(
+                _bearing,
+                targetBearing,
+                alpha,
+              );
+            }
+          } else if (_driverLocation == null) {
+            final initialHeading = _safeDouble(data['heading']);
+            if (initialHeading != null) {
+              _bearing = NavigationMath.normalizeDegrees(initialHeading);
+            }
           }
 
           // Se for a primeira vez recebendo local e já estivermos no modo to_pickup, busca a rota
@@ -311,7 +376,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
         _checkProximity();
 
         if (mounted && _driverLocation != null && _isTracking) {
-          _animatedMapMove(_driverLocation!, 17.5, -_bearing);
+          _animatedMapMove(_driverLocation!, 17.5, _bearing);
         }
       }
     });
@@ -319,7 +384,12 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
 
   void _startListening() {
     _tripSub = _uberService.watchTrip(widget.tripId).listen((data) {
-      if (data.isNotEmpty && mounted) {
+      if (data == null) {
+        _handleMissingTrip();
+        return;
+      }
+
+      if (mounted) {
         if (mounted) {
           final oldStatus = _status;
           _status = data['status'] ?? '';
@@ -409,6 +479,24 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
     });
   }
 
+  void _handleMissingTrip() {
+    if (!mounted || _missingTripHandled) return;
+    _missingTripHandled = true;
+    _stopWaitTimer();
+    _driverLocationSub?.cancel();
+    _tripSub?.cancel();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A corrida não existe mais. Voltando para a home.'),
+        ),
+      );
+      context.go('/home');
+    });
+  }
+
   Future<void> _drawRouteOnMapbox(List<ll.LatLng> points, Color color) async {
     if (_mapboxMap == null) return;
 
@@ -427,7 +515,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
 
     final polylineOptions = mapbox.PolylineAnnotationOptions(
       geometry: mapbox.LineString(coordinates: positions),
-      lineColor: color.value,
+      lineColor: color.toARGB32(),
       lineWidth: 5.0,
       lineJoin: mapbox.LineJoin.ROUND,
     );
@@ -447,7 +535,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
           ),
         ),
         zoom: 17.5,
-        bearing: -_bearing,
+        bearing: _bearing,
         pitch: kIsWeb ? 0.0 : 45.0,
       ),
       mapbox.MapAnimationOptions(duration: 1000),
@@ -476,10 +564,6 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
               _pickupLocation!.latitude,
             ),
           ),
-          // We can use a custom image here if we load it to the style, but for now we can
-          // just use standard text or a loaded icon if available in your Mapbox style.
-          // For now, let's use circle annotations or standard pins if available.
-          // Mapbox Flutter usually requires loading the image first. We will handle imagery soon if needed
           iconImage: 'marker-15', // a default mapbox style marker
           iconSize: 2.0,
         ),
@@ -545,6 +629,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
         if (points.last != pickup) points.add(pickup);
       }
       if (mounted) {
+        setState(() => _driverToPickupPoints = points);
         if (_mapboxMap != null) _drawRouteOnMapbox(points, Colors.green);
         _fitRoute(); // Enquadra quando a rota do motorista carrega
       }
@@ -555,7 +640,9 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
     final points = await MapService().getRoutePoints(start, end);
     if (mounted) {
       setState(() {
-        if (_currentRouteMode != 'to_pickup') {
+        if (_currentRouteMode == 'to_pickup') {
+          _driverToPickupPoints = points;
+        } else {
           _pickupToDropoffPoints = points;
         }
       });
@@ -627,11 +714,12 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
         if (p.longitude > maxLng) maxLng = p.longitude;
       }
 
-      final camera = await _mapboxMap!.cameraForCoordinates(
+      final camera = await _mapboxMap!.cameraForCoordinatesPadding(
         [
           mapbox.Point(coordinates: mapbox.Position(minLng, minLat)),
           mapbox.Point(coordinates: mapbox.Position(maxLng, maxLat)),
         ],
+        mapbox.CameraOptions(),
         mapbox.MbxEdgeInsets(
           top: 150.0,
           left: 50.0,
@@ -647,6 +735,66 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
     } catch (e) {
       debugPrint('Erro ao enquadrar rota Mapbox: $e');
     }
+  }
+
+  List<ll.LatLng> _activeRouteForSnap() {
+    if (_currentRouteMode == 'to_pickup' && _driverToPickupPoints.isNotEmpty) {
+      return _driverToPickupPoints;
+    }
+    return _pickupToDropoffPoints;
+  }
+
+  double _snapMaxDistanceMeters() {
+    return _navigationProfile == NavigationProfile.highway ? 55.0 : 35.0;
+  }
+
+  ll.LatLng _snapLocationToActiveRoute(ll.LatLng rawLocation) {
+    final route = _activeRouteForSnap();
+    if (route.length < 2) return rawLocation;
+
+    ll.LatLng? bestPoint;
+    double bestDistance = double.infinity;
+
+    for (int i = 0; i < route.length - 1; i++) {
+      final projected = _projectPointToSegment(
+        rawLocation,
+        route[i],
+        route[i + 1],
+      );
+      final dist = ll.Distance().as(
+        ll.LengthUnit.Meter,
+        rawLocation,
+        projected,
+      );
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        bestPoint = projected;
+      }
+    }
+
+    if (bestPoint == null || bestDistance > _snapMaxDistanceMeters()) {
+      return rawLocation;
+    }
+    return bestPoint;
+  }
+
+  ll.LatLng _projectPointToSegment(ll.LatLng p, ll.LatLng a, ll.LatLng b) {
+    final ax = a.longitude;
+    final ay = a.latitude;
+    final bx = b.longitude;
+    final by = b.latitude;
+    final px = p.longitude;
+    final py = p.latitude;
+
+    final abx = bx - ax;
+    final aby = by - ay;
+    final ab2 = abx * abx + aby * aby;
+    if (ab2 == 0) return a;
+
+    final apx = px - ax;
+    final apy = py - ay;
+    final t = ((apx * abx + apy * aby) / ab2).clamp(0.0, 1.0);
+    return ll.LatLng(ay + aby * t, ax + abx * t);
   }
 
   Future<void> _loadInitialMapCenter() async {
@@ -693,6 +841,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
           }
         } else {
           setState(() => _tripLoadError = true);
+          _handleMissingTrip();
         }
       }
     } catch (e) {
@@ -755,18 +904,34 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
     super.dispose();
   }
 
-  double _calculateBearing(ll.LatLng start, ll.LatLng end) {
-    double startLat = start.latitude * (pi / 180);
-    double startLng = start.longitude * (pi / 180);
-    double endLat = end.latitude * (pi / 180);
-    double endLng = end.longitude * (pi / 180);
+  double? _safeDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num && value.isFinite) return value.toDouble();
+    final parsed = double.tryParse(value.toString());
+    if (parsed == null || !parsed.isFinite) return null;
+    return parsed;
+  }
 
-    double dLng = endLng - startLng;
-    double y = sin(dLng) * cos(endLat);
-    double x =
-        cos(startLat) * sin(endLat) - sin(startLat) * cos(endLat) * cos(dLng);
-    double brng = atan2(y, x);
-    return (brng * (180 / pi) + 360) % 360;
+  void _maybeSwitchNavigationProfile(double speedMps) {
+    if (!_autoNavigationProfile) return;
+
+    if (_navigationProfile == NavigationProfile.urban &&
+        speedMps >= _tuning.highwayEnterSpeedMps) {
+      _setNavigationProfile(NavigationProfile.highway);
+      return;
+    }
+    if (_navigationProfile == NavigationProfile.highway &&
+        speedMps <= _tuning.highwayExitSpeedMps) {
+      _setNavigationProfile(NavigationProfile.urban);
+    }
+  }
+
+  void _setNavigationProfile(NavigationProfile profile) {
+    if (_navigationProfile == profile) return;
+    _navigationProfile = profile;
+    _tuning = profile == NavigationProfile.urban
+        ? NavigationTuning.urban
+        : NavigationTuning.highway;
   }
 
   Map<String, dynamic>? _tripData;
@@ -1013,34 +1178,39 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                         ),
                       ),
                       const SizedBox(height: 24),
-                      ...[
-                        'Motorista demorando muito',
-                        'Pedi por engano',
-                        'Encontrei outra opção',
-                        'Outro',
-                      ].map((reason) {
-                        return RadioListTile<String>(
-                          title: Text(
-                            reason,
-                            style: GoogleFonts.manrope(
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textDark,
-                            ),
-                          ),
-                          value: reason,
-                          groupValue: selectedReason,
-                          activeColor: AppTheme.primaryYellow,
-                          contentPadding: EdgeInsets.zero,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setModalState(() {
-                                selectedReason = value;
-                                isOther = selectedReason == 'Outro';
-                              });
-                            }
-                          },
-                        );
-                      }),
+                      RadioGroup<String>(
+                        groupValue: selectedReason,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setModalState(() {
+                            selectedReason = value;
+                            isOther = selectedReason == 'Outro';
+                          });
+                        },
+                        child: Column(
+                          children: [
+                            ...[
+                              'Motorista demorando muito',
+                              'Pedi por engano',
+                              'Encontrei outra opção',
+                              'Outro',
+                            ].map((reason) {
+                              return RadioListTile<String>(
+                                title: Text(
+                                  reason,
+                                  style: GoogleFonts.manrope(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textDark,
+                                  ),
+                                ),
+                                value: reason,
+                                activeColor: AppTheme.primaryYellow,
+                                contentPadding: EdgeInsets.zero,
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
                       if (isOther) ...[
                         const SizedBox(height: 16),
                         TextField(
@@ -1131,6 +1301,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
 
   @override
   Widget build(BuildContext context) {
+    _schedulePanelMeasurement();
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -1203,10 +1374,14 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
               ),
               children: [
                 TileLayer(
+                  // Web: usa Carto para evitar tela cinza caso o servidor OSM esteja bloqueado ou sobrecarregado.
                   urlTemplate:
-                      'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${SupabaseConfig.mapboxToken}',
-                  tileSize: 512,
+                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                  subdomains: const ['a', 'b', 'c', 'd'],
+                  userAgentPackageName: 'com.play101.app',
+                  tileDimension: 512,
                   zoomOffset: -1,
+                  maxZoom: 22,
                 ),
                 UberMapOverlay(
                   routePoints: _pickupToDropoffPoints,
@@ -1337,87 +1512,87 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
 
           Align(
             alignment: Alignment.bottomCenter,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              width: double.infinity,
-              height: _isChatOpen
-                  ? _chatPanelHeight(context)
-                  : null,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-                boxShadow: kIsWeb
-                    ? []
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, -5),
-                        ),
-                      ],
-              ),
-              child: Column(
-                mainAxisSize: _isChatOpen ? MainAxisSize.max : MainAxisSize.min,
-                children: [
-                  // Handle
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 12),
-                      width: 48,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+            child: Transform.translate(
+              offset: Offset(0, _isChatOpen ? -14 : -6),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                width: double.infinity,
+                height: _isChatOpen
+                    ? _chatPanelHeight(context)
+                    : _collapsedPanelHeight(context),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
                   ),
-                  if (_isChatOpen)
-                    Expanded(
-                      child: Column(
-                        children: [
-                          _buildChatContextCompact(),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: ChatScreen(
-                                serviceId: widget.tripId,
-                                otherName:
-                                    _driverProfile?['full_name'] ?? 'Motorista',
-                                otherAvatar: _driverProfile?['avatar_url'],
-                                isInline: true,
-                                onClose: () {
-                                  debugPrint(
-                                    '[UberTrackingScreen] Chat onClose called',
-                                  );
-                                  setState(() => _isChatOpen = false);
-                                },
-                              ),
-                            ),
+                  boxShadow: kIsWeb
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, -5),
                           ),
                         ],
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: _tripData == null
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 48),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                          : _status == 'completed'
-                          ? _buildPaymentSummary()
-                          : (_status == 'searching' ||
-                                _status == 'pending' ||
-                                _tripData!['driver_id'] == null)
-                          ? _buildSearchingState()
-                          : _buildTripProgressContent(),
+                ),
+                child: Column(
+                  key: _panelContentKey,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 12),
+                        width: 48,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                ],
+                      ),
+                    ),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          0,
+                          24,
+                          12 + MediaQuery.of(context).padding.bottom,
+                        ),
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [_buildTripPanelContent()],
+                        ),
+                      ),
+                    ),
+                    if (_isChatOpen) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: _inlineChatHeight(context),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ChatScreen(
+                            serviceId: widget.tripId,
+                            otherName:
+                                _driverProfile?['full_name'] ?? 'Motorista',
+                            otherAvatar: _driverProfile?['avatar_url'],
+                            isInline: true,
+                            onClose: () {
+                              debugPrint(
+                                '[UberTrackingScreen] Chat onClose called',
+                              );
+                              setState(() => _isChatOpen = false);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1474,7 +1649,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                 ? []
                 : [
                     BoxShadow(
-                      color: color.withOpacity(0.3),
+                      color: color.withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -1872,7 +2047,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                     ? []
                     : [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -1890,13 +2065,13 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
+              color: Colors.white.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(24),
               boxShadow: kIsWeb
                   ? []
                   : [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -1938,7 +2113,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                     ? []
                     : [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -1969,7 +2144,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
     final isArrived = _status == 'arrived';
     Color headerBgColor = Colors.transparent;
     Color headerTextColor = AppTheme.textDark;
-    Color iconBgColor = Colors.blue.withOpacity(0.1);
+    Color iconBgColor = Colors.blue.withValues(alpha: 0.1);
     Color iconColor = Colors.blueAccent;
     String timerText = '';
 
@@ -1980,13 +2155,13 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
       address = 'Buscando o melhor motorista para você';
       statusIcon = LucideIcons.search;
       iconColor = Colors.blueAccent;
-      iconBgColor = Colors.blue.withOpacity(0.1);
+      iconBgColor = Colors.blue.withValues(alpha: 0.1);
     } else if (_status == 'cancelled' || _status == 'no_drivers') {
       title = 'Motorista Indisponível';
       address = 'Tente novamente em alguns instantes';
       statusIcon = LucideIcons.alertCircle;
       iconColor = Colors.redAccent;
-      iconBgColor = Colors.red.withOpacity(0.1);
+      iconBgColor = Colors.red.withValues(alpha: 0.1);
     } else if (_status == 'driver_en_route' ||
         _status == 'accepted' ||
         _status == 'driver_found') {
@@ -2068,7 +2243,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                         style: GoogleFonts.manrope(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: headerTextColor.withOpacity(0.8),
+                          color: headerTextColor.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
@@ -2086,7 +2261,7 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                         ? []
                         : [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -2227,7 +2402,9 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                                 ? []
                                 : [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.05,
+                                      ),
                                       blurRadius: 4,
                                     ),
                                   ],
@@ -2324,8 +2501,8 @@ class _UberTrackingScreenState extends State<UberTrackingScreen>
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryYellow.withOpacity(
-                        0.2,
+                      color: AppTheme.primaryYellow.withValues(
+                        alpha: 0.2,
                       ), // Light yellow bg from mockup
                       shape: BoxShape.circle,
                     ),

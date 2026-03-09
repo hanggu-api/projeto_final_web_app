@@ -87,24 +87,32 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
     final String location = GoRouterState.of(context).uri.toString();
-    final bool isTripRoute =
+    final bool navBarBlocked =
         location.startsWith('/uber-tracking') ||
         location.startsWith('/uber-driver-trip');
+    final isNavBarVisible = ThemeService().isNavBarVisible && !navBarBlocked;
+    final bottomPadding = mediaQuery.viewPadding.bottom;
 
     return Scaffold(
       extendBody: true, // Garante que o conteúdo vá até o fundo real da tela
       body: Stack(
         children: [
-          // Conteúdo Principal
-          widget.child,
+          // Conteúdo Principal (compensando a altura da nav bar para não ficar oculto)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: (isNavBarVisible ? _navBarHeight : 0) + bottomPadding,
+            ),
+            child: widget.child,
+          ),
 
           // Barra de Navegação Flutuante (Estilo Stitch)
           Positioned(
             key: _navBarKey,
             left: 16,
             right: 16,
-            bottom: 24 + MediaQuery.of(context).padding.bottom,
+            bottom: 24 + bottomPadding,
             child: ListenableBuilder(
               listenable: ThemeService(),
               builder: (context, child) {
@@ -112,7 +120,7 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
 
                 // Oculta se o ThemeService mandar ou se estiver em uma rota de viagem
                 final isVisible =
-                    ThemeService().isNavBarVisible && !isTripRoute;
+                    ThemeService().isNavBarVisible && !navBarBlocked;
 
                 return AnimatedSlide(
                   duration: const Duration(milliseconds: 400),

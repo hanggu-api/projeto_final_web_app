@@ -17,14 +17,15 @@ class InAppCameraScreen extends StatefulWidget {
   State<InAppCameraScreen> createState() => _InAppCameraScreenState();
 }
 
-class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindingObserver {
+class _InAppCameraScreenState extends State<InAppCameraScreen>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   List<CameraDescription> _cameras = [];
   bool _isRecording = false;
   bool _isInitialized = false;
   int _selectedCameraIndex = 0;
   DateTime? _recordingStartedAt;
-  
+
   // Modes
   bool _isVideoMode = false;
   FlashMode _flashMode = FlashMode.off;
@@ -59,7 +60,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
     try {
       _cameras = await availableCameras();
       if (_cameras.isEmpty) return;
-      
+
       await _onNewCameraSelected(_cameras[_selectedCameraIndex]);
     } catch (e) {
       debugPrint('Error initializing camera: $e');
@@ -100,7 +101,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
       } else {
         newMode = FlashMode.off;
       }
-      
+
       await _controller!.setFlashMode(newMode);
       setState(() => _flashMode = newMode);
     } catch (e) {
@@ -116,29 +117,33 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
           allowMultiple: false,
         );
         if (result != null && result.files.isNotEmpty) {
-           final file = result.files.first;
-           // Convert PlatfromFile to XFile-like structure if needed, or stick to XFile
-           // ImagePicker returns XFile. Let's consistency use ImagePicker also for Web if possible
-           // But FilePicker is often better. For now let's return XFile compatible object.
-           // However, navigator pop expects XFile.
-           final xfile = XFile(file.name, bytes: file.bytes, length: file.size, name: file.name); // Path is fake on web
-           if (mounted) Navigator.pop(context, xfile);
+          final file = result.files.first;
+          // Convert PlatfromFile to XFile-like structure if needed, or stick to XFile
+          // ImagePicker returns XFile. Let's consistency use ImagePicker also for Web if possible
+          // But FilePicker is often better. For now let's return XFile compatible object.
+          // However, navigator pop expects XFile.
+          final xfile = XFile(
+            file.name,
+            bytes: file.bytes,
+            length: file.size,
+            name: file.name,
+          ); // Path is fake on web
+          if (mounted) Navigator.pop(context, xfile);
         }
       } else {
-         final ImagePicker picker = ImagePicker();
-         final XFile? media = _isVideoMode
-             ? await picker.pickVideo(source: ImageSource.gallery)
-             : await picker.pickImage(source: ImageSource.gallery);
-         
-         if (media != null && mounted) {
-           Navigator.pop(context, media);
-         }
+        final ImagePicker picker = ImagePicker();
+        final XFile? media = _isVideoMode
+            ? await picker.pickVideo(source: ImageSource.gallery)
+            : await picker.pickImage(source: ImageSource.gallery);
+
+        if (media != null && mounted) {
+          Navigator.pop(context, media);
+        }
       }
     } catch (e) {
       debugPrint('Error picking from gallery: $e');
     }
   }
-
 
   Future<void> _capture() async {
     if (!_isInitialized || _controller == null) return;
@@ -169,13 +174,15 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
         _recordingStartedAt = DateTime.now();
         _progress = 0.0;
       });
-      
+
       // Start timers
       _recordingTimer = Timer(_maxDuration, () {
         if (_isRecording) _stopRecording();
       });
-      
-      _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+
+      _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (
+        timer,
+      ) {
         if (!_isRecording) {
           timer.cancel();
           return;
@@ -186,7 +193,6 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
           if (_progress > 1.0) _progress = 1.0;
         });
       });
-
     } catch (e) {
       debugPrint('Error starting recording: $e');
     }
@@ -196,11 +202,13 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
     try {
       _recordingTimer?.cancel();
       _progressTimer?.cancel();
-      
+
       // Safety delay for very short videos
       final elapsed = DateTime.now().difference(_recordingStartedAt!);
       if (elapsed.inMilliseconds < 1000) {
-        await Future.delayed(Duration(milliseconds: 1000 - elapsed.inMilliseconds));
+        await Future.delayed(
+          Duration(milliseconds: 1000 - elapsed.inMilliseconds),
+        );
       }
 
       final file = await _controller!.stopVideoRecording();
@@ -228,10 +236,14 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
 
   IconData _getFlashIcon() {
     switch (_flashMode) {
-      case FlashMode.off: return Icons.flash_off;
-      case FlashMode.auto: return Icons.flash_auto;
-      case FlashMode.always: return Icons.flash_on;
-      default: return Icons.flash_off;
+      case FlashMode.off:
+        return Icons.flash_off;
+      case FlashMode.auto:
+        return Icons.flash_auto;
+      case FlashMode.always:
+        return Icons.flash_on;
+      default:
+        return Icons.flash_off;
     }
   }
 
@@ -251,40 +263,40 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
         children: [
           // 1. Camera Preview
           CameraPreview(_controller!),
-          
+
           // 2. Overlay Gradient (Top/Bottom) for visibility
           Positioned.fill(
-             child: Column(
-               children: [
-                 Container(
-                   height: 120,
-                   decoration: BoxDecoration(
-                     gradient: LinearGradient(
-                       begin: Alignment.topCenter,
-                       end: Alignment.bottomCenter,
-                       colors: [
-                         Colors.black.withValues(alpha: 0.6),
-                         Colors.transparent
-                       ]
-                     )
-                   ),
-                 ),
-                 const Spacer(),
-                 Container(
-                   height: 200,
-                   decoration: BoxDecoration(
-                     gradient: LinearGradient(
-                       begin: Alignment.bottomCenter,
-                       end: Alignment.topCenter,
-                       colors: [
-                         Colors.black.withValues(alpha: 0.8),
-                         Colors.transparent
-                       ]
-                     )
-                   ),
-                 ),
-               ],
-             ),
+            child: Column(
+              children: [
+                Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.6),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.8),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
 
           // 3. Top Controls (Close, Flash)
@@ -296,7 +308,11 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(LucideIcons.x, color: Colors.white, size: 28),
+                  icon: const Icon(
+                    LucideIcons.x,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
                 IconButton(
@@ -315,19 +331,29 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _formatDuration(DateTime.now().difference(_recordingStartedAt ?? DateTime.now())),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    _formatDuration(
+                      DateTime.now().difference(
+                        _recordingStartedAt ?? DateTime.now(),
+                      ),
+                    ),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
             ),
-
 
           // 5. Bottom Controls
           Positioned(
@@ -337,7 +363,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
             child: Column(
               children: [
                 // Mode Selector
-                 if (!_isRecording)
+                if (!_isRecording)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -346,31 +372,39 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
                       _buildModeButton('VÍDEO', _isVideoMode),
                     ],
                   ),
-                
-                 const SizedBox(height: 20),
 
-                 Row(
-                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                   children: [
-                     // Gallery
-                     IconButton(
-                       icon: const Icon(LucideIcons.image, color: Colors.white, size: 32),
-                       onPressed: _isRecording ? null : _pickFromGallery,
-                     ),
+                const SizedBox(height: 20),
 
-                     // Shutter Button
-                     GestureDetector(
-                       onTap: _capture,
-                       child: _buildShutterButton(),
-                     ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Gallery
+                    IconButton(
+                      icon: const Icon(
+                        LucideIcons.image,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                      onPressed: _isRecording ? null : _pickFromGallery,
+                    ),
 
-                     // Switch Camera
-                     IconButton(
-                       icon: const Icon(LucideIcons.refreshCcw, color: Colors.white, size: 32),
-                       onPressed: _isRecording ? null : _switchCamera,
-                     ),
-                   ],
-                 ),
+                    // Shutter Button
+                    GestureDetector(
+                      onTap: _capture,
+                      child: _buildShutterButton(),
+                    ),
+
+                    // Switch Camera
+                    IconButton(
+                      icon: const Icon(
+                        LucideIcons.refreshCcw,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                      onPressed: _isRecording ? null : _switchCamera,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -390,19 +424,19 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: isSelected ? BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(16)
-        ) : null,
+        decoration: isSelected
+            ? BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(16),
+              )
+            : null,
         child: Text(
           text,
           style: TextStyle(
             color: isSelected ? Colors.amberAccent : Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 14,
-            shadows: const [
-              Shadow(color: Colors.black, blurRadius: 4)
-            ]
+            shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
           ),
         ),
       ),
@@ -410,50 +444,50 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> with WidgetsBindi
   }
 
   Widget _buildShutterButton() {
-     if (_isRecording) {
-       return Stack(
-         alignment: Alignment.center,
-         children: [
-           SizedBox(
-             width: 80,
-             height: 80,
-             child: CircularProgressIndicator(
-               value: _progress,
-               strokeWidth: 4,
-               valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
-               backgroundColor: Colors.white24,
-             ),
-           ),
-           Container(
-             width: 30,
-             height: 30,
-             decoration: BoxDecoration(
-               color: Colors.red,
-               borderRadius: BorderRadius.circular(4),
-             ),
-           )
-         ],
-       );
-     }
+    if (_isRecording) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 80,
+            height: 80,
+            child: CircularProgressIndicator(
+              value: _progress,
+              strokeWidth: 4,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
+              backgroundColor: Colors.white24,
+            ),
+          ),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ],
+      );
+    }
 
-     return Container(
-       width: 72,
-       height: 72,
-       decoration: BoxDecoration(
-         shape: BoxShape.circle,
-         border: Border.all(color: Colors.white, width: 4),
-       ),
-       child: Center(
-         child: Container(
-           width: 60,
-           height: 60,
-           decoration: BoxDecoration(
-             color: _isVideoMode ? Colors.red : Colors.white,
-             shape: BoxShape.circle,
-           ),
-         ),
-       ),
-     );
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 4),
+      ),
+      child: Center(
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: _isVideoMode ? Colors.red : Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
   }
 
   String _formatDuration(Duration d) {

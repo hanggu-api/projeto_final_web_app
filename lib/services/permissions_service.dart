@@ -10,22 +10,22 @@ class PermissionsService {
 
   /// Mapa de status de permissões
   Map<String, String> _permissionsStatus = {};
-  
+
   /// Dados de telemetria do dispositivo
   Map<String, String> _deviceTelemetry = {};
 
   /// Verifica todas as permissões relevantes
   Future<Map<String, String>> checkAllPermissions() async {
     final permissions = <String, String>{};
-    
+
     // Permissão de Localização
     final locationStatus = await _checkLocationPermission();
     permissions['location_permission'] = locationStatus;
-    
+
     // Permissão de Notificação
     final notificationStatus = await _checkNotificationPermission();
     permissions['notification_permission'] = notificationStatus;
-    
+
     _permissionsStatus = permissions;
     return permissions;
   }
@@ -33,7 +33,7 @@ class PermissionsService {
   Future<String> _checkLocationPermission() async {
     final always = await Permission.locationAlways.status;
     final whenInUse = await Permission.locationWhenInUse.status;
-    
+
     if (always.isGranted) return 'Always';
     if (whenInUse.isGranted) return 'WhileInUse';
     return 'Denied';
@@ -48,7 +48,7 @@ class PermissionsService {
   Future<Map<String, String>> collectDeviceTelemetry() async {
     final telemetry = <String, String>{};
     final deviceInfo = DeviceInfoPlugin();
-    
+
     try {
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
@@ -59,7 +59,6 @@ class PermissionsService {
         telemetry['device_id'] = androidInfo.id; // Android ID
         telemetry['manufacturer'] = androidInfo.manufacturer;
         telemetry['app_version'] = androidInfo.version.sdkInt.toString();
-        
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
         telemetry['device_name'] = iosInfo.name;
@@ -69,15 +68,14 @@ class PermissionsService {
         telemetry['device_id'] = iosInfo.identifierForVendor ?? 'Unknown';
         telemetry['app_version'] = iosInfo.utsname.version;
       }
-      
+
       // Campos comuns
       telemetry['timestamp'] = DateTime.now().toIso8601String();
-      
     } catch (e) {
       debugPrint('❌ Erro ao coletar telemetria: $e');
       telemetry['error'] = e.toString();
     }
-    
+
     _deviceTelemetry = telemetry;
     return telemetry;
   }
@@ -90,10 +88,11 @@ class PermissionsService {
   }) async {
     final permissions = await checkAllPermissions();
     final telemetry = await collectDeviceTelemetry();
-    
+
     return {
       'token': fcmToken,
-      'platform': telemetry['device_platform'] ?? (Platform.isIOS ? 'ios' : 'android'),
+      'platform':
+          telemetry['device_platform'] ?? (Platform.isIOS ? 'ios' : 'android'),
       'latitude': latitude,
       'longitude': longitude,
       ...permissions,
@@ -101,7 +100,7 @@ class PermissionsService {
     };
   }
 
-  Map<String, String> get permissionsStatus => Map.unmodifiable(_permissionsStatus);
+  Map<String, String> get permissionsStatus =>
+      Map.unmodifiable(_permissionsStatus);
   Map<String, String> get deviceTelemetry => Map.unmodifiable(_deviceTelemetry);
-  
 }

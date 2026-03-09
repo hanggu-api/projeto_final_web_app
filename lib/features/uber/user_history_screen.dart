@@ -59,10 +59,12 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
         ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: AppTheme.primaryYellow))
+          ? Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+            )
           : _trips.isEmpty
-              ? _buildEmptyState()
-              : _buildHistoryList(),
+          ? _buildEmptyState()
+          : _buildHistoryList(),
     );
   }
 
@@ -84,10 +86,7 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
           const SizedBox(height: 8),
           Text(
             'Suas corridas concluídas aparecerão aqui.',
-            style: GoogleFonts.manrope(
-              fontSize: 14,
-              color: Colors.grey[400],
-            ),
+            style: GoogleFonts.manrope(fontSize: 14, color: Colors.grey[400]),
           ),
         ],
       ),
@@ -110,7 +109,8 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
   }
 
   Widget _buildTripCard(Map<String, dynamic> trip) {
-    final date = DateTime.tryParse(trip['requested_at'] ?? '') ?? DateTime.now();
+    final date =
+        DateTime.tryParse(trip['requested_at'] ?? '') ?? DateTime.now();
     final formattedDate = DateFormat('dd MMM, HH:mm', 'pt_BR').format(date);
     final status = trip['status'];
     final fare = (trip['fare_estimated'] ?? 0.0);
@@ -124,7 +124,7 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -147,11 +147,15 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: isCancelled ? Colors.red.withOpacity(0.1) : AppTheme.primaryYellow.withOpacity(0.1),
+                          color: isCancelled
+                              ? Colors.red.withValues(alpha: 0.1)
+                              : AppTheme.primaryYellow.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          isCancelled ? LucideIcons.xCircle : LucideIcons.checkCircle,
+                          isCancelled
+                              ? LucideIcons.xCircle
+                              : LucideIcons.checkCircle,
                           color: isCancelled ? Colors.red : Colors.green,
                           size: 16,
                         ),
@@ -191,9 +195,17 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
                 ],
               ),
               const Divider(height: 32),
-              _buildLocationRow(LucideIcons.mapPin, trip['pickup_address'] ?? 'Origem', Colors.blue),
+              _buildLocationRow(
+                LucideIcons.mapPin,
+                trip['pickup_address'] ?? 'Origem',
+                Colors.blue,
+              ),
               const SizedBox(height: 12),
-              _buildLocationRow(LucideIcons.navigation, trip['dropoff_address'] ?? 'Destino', Colors.orange),
+              _buildLocationRow(
+                LucideIcons.navigation,
+                trip['dropoff_address'] ?? 'Destino',
+                Colors.orange,
+              ),
               if (trip['rating'] != null) ...[
                 const Divider(height: 32),
                 Row(
@@ -208,7 +220,8 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
                         color: AppTheme.textDark,
                       ),
                     ),
-                    if (trip['rating_comment'] != null && trip['rating_comment'].toString().isNotEmpty) ...[
+                    if (trip['rating_comment'] != null &&
+                        trip['rating_comment'].toString().isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

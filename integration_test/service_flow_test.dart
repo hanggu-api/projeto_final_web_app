@@ -8,7 +8,9 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('Service Flow Integration Tests', () {
-    testWidgets('Complete service flow - Client perspective', (WidgetTester tester) async {
+    testWidgets('Complete service flow - Client perspective', (
+      WidgetTester tester,
+    ) async {
       // Start app
       app.main();
       await tester.pumpAndSettle();
@@ -17,8 +19,14 @@ void main() {
       await tester.tap(find.text('Entrar'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const ValueKey('email_field')), 'test-client@example.com');
-      await tester.enterText(find.byKey(const ValueKey('password_field')), 'test123');
+      await tester.enterText(
+        find.byKey(const ValueKey('email_field')),
+        'test-client@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('password_field')),
+        'test123',
+      );
       await tester.tap(find.text('Login'));
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
@@ -29,7 +37,10 @@ void main() {
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const ValueKey('description_field')), 'Teste automatizado - Instalação elétrica');
+      await tester.enterText(
+        find.byKey(const ValueKey('description_field')),
+        'Teste automatizado - Instalação elétrica',
+      );
       await tester.tap(find.text('Solicitar Serviço'));
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
@@ -69,7 +80,10 @@ void main() {
 
       // Test 9: Submit rating
       await tester.tap(find.byIcon(Icons.star).at(4)); // 5 stars
-      await tester.enterText(find.byKey(const ValueKey('review_comment')), 'Excelente serviço!');
+      await tester.enterText(
+        find.byKey(const ValueKey('review_comment')),
+        'Excelente serviço!',
+      );
       await tester.tap(find.text('Enviar Avaliação'));
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
@@ -86,8 +100,14 @@ void main() {
       await tester.tap(find.text('Entrar'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const ValueKey('email_field')), 'test-client@example.com');
-      await tester.enterText(find.byKey(const ValueKey('password_field')), 'test123');
+      await tester.enterText(
+        find.byKey(const ValueKey('email_field')),
+        'test-client@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('password_field')),
+        'test123',
+      );
       await tester.tap(find.text('Login'));
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
@@ -95,7 +115,10 @@ void main() {
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const ValueKey('description_field')), 'Teste de atualização em tempo real');
+      await tester.enterText(
+        find.byKey(const ValueKey('description_field')),
+        'Teste de atualização em tempo real',
+      );
       await tester.tap(find.text('Solicitar Serviço'));
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
@@ -109,10 +132,10 @@ void main() {
 
       // Wait for real-time update (should happen in < 5 seconds)
       final stopwatch = Stopwatch()..start();
-      
+
       while (stopwatch.elapsed.inSeconds < 10) {
         await tester.pump(const Duration(milliseconds: 500));
-        
+
         // Check if status changed
         if (find.textContaining('Prestador a Caminho').evaluate().isNotEmpty) {
           stopwatch.stop();
@@ -134,8 +157,14 @@ void main() {
       await tester.tap(find.text('Entrar'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const ValueKey('email_field')), 'test-provider@example.com');
-      await tester.enterText(find.byKey(const ValueKey('password_field')), 'test123');
+      await tester.enterText(
+        find.byKey(const ValueKey('email_field')),
+        'test-provider@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('password_field')),
+        'test123',
+      );
       await tester.tap(find.text('Login'));
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
@@ -160,8 +189,14 @@ void main() {
       await tester.tap(find.text('Entrar'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const ValueKey('email_field')), 'test-client@example.com');
-      await tester.enterText(find.byKey(const ValueKey('password_field')), 'test123');
+      await tester.enterText(
+        find.byKey(const ValueKey('email_field')),
+        'test-client@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('password_field')),
+        'test123',
+      );
       await tester.tap(find.text('Login'));
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
@@ -169,7 +204,10 @@ void main() {
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const ValueKey('description_field')), 'Teste de cancelamento');
+      await tester.enterText(
+        find.byKey(const ValueKey('description_field')),
+        'Teste de cancelamento',
+      );
       await tester.tap(find.text('Solicitar Serviço'));
       await tester.pumpAndSettle(const Duration(seconds: 5));
 

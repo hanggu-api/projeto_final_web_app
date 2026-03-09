@@ -164,10 +164,6 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _showRatingModal(String tripId) {
-    // Modal de avaliação (Widget externo ou inline)
-  }
-
   @override
   Widget build(BuildContext context) {
     final bottomNavHeight = MediaQuery.of(context).padding.bottom + 80;
@@ -294,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen>
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryBlue.withOpacity(0.2),
+              color: AppTheme.primaryBlue.withValues(alpha: 0.2),
               blurRadius: 20,
             ),
           ],

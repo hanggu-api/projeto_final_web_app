@@ -157,12 +157,14 @@ class CustomAlert {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: confirmColor ?? (isDestructive
-                          ? Colors.red
-                          : const Color(0xFFFFC107)),
-                      foregroundColor: confirmTextColor ?? (isDestructive
-                          ? Colors.white
-                          : Colors.black),
+                      backgroundColor:
+                          confirmColor ??
+                          (isDestructive
+                              ? Colors.red
+                              : const Color(0xFFFFC107)),
+                      foregroundColor:
+                          confirmTextColor ??
+                          (isDestructive ? Colors.white : Colors.black),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       elevation: 0,
                       shape: RoundedRectangleBorder(

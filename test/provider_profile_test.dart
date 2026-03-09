@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:service_101/features/provider/provider_profile_content.dart';
+import 'package:service_101/core/config/supabase_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
@@ -269,6 +270,15 @@ class _MockHttpClientRequest implements HttpClientRequest {
 }
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({
+      'user_role': 'provider',
+      'user_id': 123,
+      'auth_token': 'mock_token',
+    });
+    await SupabaseConfig.initialize();
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues({
       'user_role': 'provider',

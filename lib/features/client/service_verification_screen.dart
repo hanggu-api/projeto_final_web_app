@@ -44,9 +44,7 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_service == null) {
@@ -71,7 +69,9 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
           children: [
             // Header Info
             Text(
-              _service!['profession'] ?? _service!['category_name'] ?? 'Serviço',
+              _service!['profession'] ??
+                  _service!['category_name'] ??
+                  'Serviço',
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -88,11 +88,19 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
             const SizedBox(height: 16),
 
             // Proof Photo or Video
-            if (_service!['proof_photo'] != null && _service!['proof_photo'].toString().isNotEmpty)
+            if (_service!['proof_photo'] != null &&
+                _service!['proof_photo'].toString().isNotEmpty)
               FutureBuilder<String>(
-                future: _api.getMediaViewUrl(_service!['proof_photo'].toString()),
+                future: _api.getMediaViewUrl(
+                  _service!['proof_photo'].toString(),
+                ),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const SizedBox(height: 250, child: Center(child: CircularProgressIndicator()));
+                  if (!snapshot.hasData) {
+                    return const SizedBox(
+                      height: 250,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: CachedNetworkImage(
@@ -108,33 +116,45 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                       errorWidget: (context, url, error) => Container(
                         height: 250,
                         color: Colors.grey[200],
-                        child: const Center(child: Icon(Icons.broken_image, size: 48, color: Colors.grey)),
+                        child: const Center(
+                          child: Icon(
+                            Icons.broken_image,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
                     ),
                   );
-                }
+                },
               )
-            else if (_service!['proof_video'] != null && _service!['proof_video'].toString().isNotEmpty)
+            else if (_service!['proof_video'] != null &&
+                _service!['proof_video'].toString().isNotEmpty)
               FutureBuilder<String>(
-                future: _api.getMediaViewUrl(_service!['proof_video'].toString()),
+                future: _api.getMediaViewUrl(
+                  _service!['proof_video'].toString(),
+                ),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const SizedBox(height: 250, child: Center(child: CircularProgressIndicator()));
+                  if (!snapshot.hasData) {
+                    return const SizedBox(
+                      height: 250,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: SizedBox(
-                       height: 250,
-                       child: SimpleVideoPlayer(
-                         videoUrl: snapshot.data!,
-                       ),
+                      height: 250,
+                      child: SimpleVideoPlayer(videoUrl: snapshot.data!),
                     ),
                   );
-                }
+                },
               )
             else
               const Text('Nenhuma foto ou vídeo anexado.'),
 
             const SizedBox(height: 32),
-            
+
             const Text(
               'Descrição do serviço realizado:',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
@@ -157,7 +177,10 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('CONFIRMAR SERVIÇO', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'CONFIRMAR SERVIÇO',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -166,7 +189,7 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                       Navigator.push(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => RefundRequestScreen(
@@ -176,7 +199,9 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                         ),
                       );
                     },
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange,
+                    ),
                     child: const Text('ABRIR RECLAMAÇÃO'),
                   ),
                 ),
@@ -194,7 +219,9 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                         ),
                       );
                     },
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
                     child: const Text('PEDIR DEVOLUÇÃO'),
                   ),
                 ),
@@ -208,7 +235,7 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
 
   Future<void> _showRatingDialog() async {
     int rating = 0;
-    
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -242,12 +269,12 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                 child: const Text('Cancelar'),
               ),
               ElevatedButton(
-                onPressed: rating > 0 
-                  ? () {
-                      Navigator.pop(context);
-                      _confirmService(rating);
-                    }
-                  : null,
+                onPressed: rating > 0
+                    ? () {
+                        Navigator.pop(context);
+                        _confirmService(rating);
+                      }
+                    : null,
                 child: const Text('Enviar e Finalizar'),
               ),
             ],
@@ -269,9 +296,9 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao confirmar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao confirmar: $e')));
       }
     }
   }

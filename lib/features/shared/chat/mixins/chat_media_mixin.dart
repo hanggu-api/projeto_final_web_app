@@ -24,13 +24,29 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
     try {
       if (kIsWeb) {
         if (bytes != null) {
-          return await api.uploadToCloud(bytes, filename: filename, serviceId: serviceId, type: 'chat');
+          return await api.uploadToCloud(
+            bytes,
+            filename: filename,
+            serviceId: serviceId,
+            type: 'chat',
+          );
         }
       } else {
         if (path != null) {
-          return await api.uploadMediaFromPath(path, filename: filename, serviceId: serviceId, type: 'chat', mimeType: mimeType);
+          return await api.uploadMediaFromPath(
+            path,
+            filename: filename,
+            serviceId: serviceId,
+            type: 'chat',
+            mimeType: mimeType,
+          );
         } else if (bytes != null) {
-          return await api.uploadToCloud(bytes, filename: filename, serviceId: serviceId, type: 'chat');
+          return await api.uploadToCloud(
+            bytes,
+            filename: filename,
+            serviceId: serviceId,
+            type: 'chat',
+          );
         }
       }
       return null;
@@ -40,11 +56,20 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
     }
   }
 
-  Future<void> openUnifiedCamera(String serviceId, VoidCallback onScroll) async {
+  Future<void> openUnifiedCamera(
+    String serviceId,
+    VoidCallback onScroll, {
+    bool initialVideoMode = false,
+  }) async {
     try {
-      final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const InAppCameraScreen()));
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => InAppCameraScreen(initialVideoMode: initialVideoMode),
+        ),
+      );
       if (result == null) return;
-      
+
       String path = '';
       Uint8List? bytes;
       String name = '';
@@ -59,21 +84,37 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
       }
 
       if (isVideo) {
-        await uploadAndSendVideo(path: path, bytes: bytes, filename: name, serviceId: serviceId, onScroll: onScroll);
+        await uploadAndSendVideo(
+          path: path,
+          bytes: bytes,
+          filename: name,
+          serviceId: serviceId,
+          onScroll: onScroll,
+        );
       } else {
-        await processImageUpload(XFile(path, bytes: bytes, name: name), serviceId: serviceId, onScroll: onScroll);
+        await processImageUpload(
+          XFile(path, bytes: bytes, name: name),
+          serviceId: serviceId,
+          onScroll: onScroll,
+        );
       }
     } catch (e) {
       debugPrint('Error in unified camera: $e');
     }
   }
 
-  Future<void> uploadAndSendVideo({required String path, Uint8List? bytes, required String filename, required String serviceId, required VoidCallback onScroll}) async {
+  Future<void> uploadAndSendVideo({
+    required String path,
+    Uint8List? bytes,
+    required String filename,
+    required String serviceId,
+    required VoidCallback onScroll,
+  }) async {
     final tempId = 'temp_vid_${DateTime.now().millisecondsSinceEpoch}';
     final optimisticMsg = {
       'id': tempId,
       'content': path,
-      'type': 'video', 
+      'type': 'video',
       'created_at': DateTime.now().toIso8601String(),
       'sender_id': myUserId,
       'status': 'sending',
@@ -83,15 +124,23 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
 
     setState(() {
       pendingMessages.add(optimisticMsg);
+      isUploading = true;
+      uploadingType = 'vídeo';
     });
     onScroll();
 
     try {
-      final url = await uploadToStorage(bytes: bytes, path: path, filename: filename, mimeType: 'video/mp4', serviceId: serviceId);
+      final url = await uploadToStorage(
+        bytes: bytes,
+        path: path,
+        filename: filename,
+        mimeType: 'video/mp4',
+        serviceId: serviceId,
+      );
       if (url == null) throw Exception('Upload falhou');
 
       await DataGateway().sendChatMessage(serviceId, url, 'video');
-      
+
       if (mounted) {
         setState(() {
           final index = pendingMessages.indexWhere((m) => m['id'] == tempId);
@@ -104,17 +153,30 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
     } catch (e) {
       if (mounted) {
         setState(() => pendingMessages.removeWhere((m) => m['id'] == tempId));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao enviar vídeo: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao enviar vídeo: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUploading = false;
+          uploadingType = '';
+        });
       }
     }
   }
 
-  Future<void> processImageUpload(XFile f, {required String serviceId, required VoidCallback onScroll}) async {
+  Future<void> processImageUpload(
+    XFile f, {
+    required String serviceId,
+    required VoidCallback onScroll,
+  }) async {
     final tempId = 'temp_img_${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
       pendingMessages.add({
         'id': tempId,
-        'content': f.path, 
+        'content': f.path,
         'type': 'image',
         'created_at': DateTime.now().toIso8601String(),
         'sender_id': myUserId,
@@ -122,6 +184,8 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
         'is_optimistic': true,
         'localContent': f,
       });
+      isUploading = true;
+      uploadingType = 'imagem';
     });
     onScroll();
 
@@ -129,9 +193,19 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
       String? url;
       if (kIsWeb) {
         final b = await f.readAsBytes();
-        url = await uploadToStorage(bytes: b, filename: f.name, mimeType: 'image/webp', serviceId: serviceId);
+        url = await uploadToStorage(
+          bytes: b,
+          filename: f.name,
+          mimeType: 'image/webp',
+          serviceId: serviceId,
+        );
       } else {
-        url = await uploadToStorage(path: f.path, filename: f.name, mimeType: 'image/jpeg', serviceId: serviceId);
+        url = await uploadToStorage(
+          path: f.path,
+          filename: f.name,
+          mimeType: 'image/jpeg',
+          serviceId: serviceId,
+        );
       }
 
       if (url != null) {
@@ -149,7 +223,16 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
     } catch (e) {
       if (mounted) {
         setState(() => pendingMessages.removeWhere((m) => m['id'] == tempId));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao enviar imagem: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao enviar imagem: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUploading = false;
+          uploadingType = '';
+        });
       }
     }
   }
@@ -159,7 +242,11 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
       if (!isRecording) {
         final has = await rec.hasPermission();
         if (!has) {
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permissão de microfone negada')));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Permissão de microfone negada')),
+            );
+          }
           return;
         }
         final config = const RecordConfig();
@@ -168,46 +255,55 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
           await rec.start(config, path: path);
         } else {
           final dir = await getTemporaryDirectory();
-          final path = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+          final path =
+              '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
           await rec.start(config, path: path);
         }
         setState(() {
           isRecording = true;
           recordStartAt = DateTime.now();
           recordTicker?.cancel();
-          recordTicker = Timer.periodic(const Duration(seconds: 1), (_) { if (mounted) setState(() {}); });
+          recordTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+            if (mounted) setState(() {});
+          });
         });
       } else {
         final elapsed = DateTime.now().difference(recordStartAt!);
-        if (elapsed.inMilliseconds < 800) await Future.delayed(Duration(milliseconds: 800 - elapsed.inMilliseconds));
-        
+        if (elapsed.inMilliseconds < 800) {
+          await Future.delayed(
+            Duration(milliseconds: 800 - elapsed.inMilliseconds),
+          );
+        }
+
         final path = await rec.stop();
         setState(() {
           isRecording = false;
           recordTicker?.cancel();
         });
         if (path == null) return;
-        
+
         final tempId = 'temp_audio_${DateTime.now().millisecondsSinceEpoch}';
         setState(() {
           pendingMessages.add({
             'id': tempId,
-            'content': path, 
+            'content': path,
             'type': 'audio',
             'created_at': DateTime.now().toIso8601String(),
             'sender_id': myUserId,
             'status': 'sending',
             'is_optimistic': true,
-            'localContent': path, 
+            'localContent': path,
           });
+          isUploading = true;
+          uploadingType = 'áudio';
         });
         onScroll();
-        
+
         try {
           String mime = 'audio/mpeg';
           String filename = path.split('/').last;
           Uint8List? bytes;
-          
+
           if (kIsWeb) {
             mime = 'audio/webm';
             filename = 'audio.webm';
@@ -215,17 +311,28 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
           } else {
             if (path.endsWith('.m4a')) {
               mime = 'audio/x-m4a';
-            } else if (path.endsWith('.aac')) mime = 'audio/aac';
-            else if (path.endsWith('.wav')) mime = 'audio/wav';
+            } else if (path.endsWith('.aac')) {
+              mime = 'audio/aac';
+            } else if (path.endsWith('.wav')) {
+              mime = 'audio/wav';
+            }
           }
-          
-          final url = await uploadToStorage(path: path, bytes: bytes, filename: filename, mimeType: mime, serviceId: serviceId);
+
+          final url = await uploadToStorage(
+            path: path,
+            bytes: bytes,
+            filename: filename,
+            mimeType: mime,
+            serviceId: serviceId,
+          );
           if (url == null) throw Exception('Upload falhou');
-          
+
           await DataGateway().sendChatMessage(serviceId, url, 'audio');
           if (mounted) {
             setState(() {
-              final index = pendingMessages.indexWhere((m) => m['id'] == tempId);
+              final index = pendingMessages.indexWhere(
+                (m) => m['id'] == tempId,
+              );
               if (index != -1) {
                 pendingMessages[index]['content'] = url;
                 pendingMessages[index]['status'] = 'sent';
@@ -234,13 +341,28 @@ mixin ChatMediaMixin<T extends StatefulWidget> on State<T>, ChatStateMixin<T> {
           }
         } catch (e) {
           if (mounted) {
-            setState(() => pendingMessages.removeWhere((m) => m['id'] == tempId));
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro de gravação: $e')));
+            setState(
+              () => pendingMessages.removeWhere((m) => m['id'] == tempId),
+            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Erro de gravação: $e')));
+          }
+        } finally {
+          if (mounted) {
+            setState(() {
+              isUploading = false;
+              uploadingType = '';
+            });
           }
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro de gravação: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro de gravação: $e')));
+      }
     }
   }
 }

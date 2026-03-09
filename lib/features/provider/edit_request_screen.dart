@@ -17,7 +17,7 @@ class _EditRequestScreenState extends State<EditRequestScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  
+
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
@@ -46,7 +46,8 @@ class _EditRequestScreenState extends State<EditRequestScreen> {
       if (mounted) {
         setState(() {
           _descriptionController.text = service['description'] ?? '';
-          _priceController.text = (service['price_estimated'] ?? 0.0).toString();
+          _priceController.text = (service['price_estimated'] ?? 0.0)
+              .toString();
           _isLoading = false;
         });
       }
@@ -66,8 +67,9 @@ class _EditRequestScreenState extends State<EditRequestScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final newPrice = double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0.0;
-      
+      final newPrice =
+          double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0.0;
+
       await _api.requestServiceEdit(
         serviceId: widget.serviceId,
         newDescription: _descriptionController.text,
@@ -119,7 +121,10 @@ class _EditRequestScreenState extends State<EditRequestScreen> {
           children: [
             const Icon(LucideIcons.alertCircle, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Erro ao carregar dados:\n$_error', textAlign: TextAlign.center),
+            Text(
+              'Erro ao carregar dados:\n$_error',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadServiceDetails,
@@ -142,7 +147,7 @@ class _EditRequestScreenState extends State<EditRequestScreen> {
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 24),
-            
+
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
@@ -159,10 +164,12 @@ class _EditRequestScreenState extends State<EditRequestScreen> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             TextFormField(
               controller: _priceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Valor Sugerido (R\$)',
                 border: OutlineInputBorder(),
@@ -180,7 +187,7 @@ class _EditRequestScreenState extends State<EditRequestScreen> {
               },
             ),
             const SizedBox(height: 32),
-            
+
             SizedBox(
               height: 50,
               child: ElevatedButton(

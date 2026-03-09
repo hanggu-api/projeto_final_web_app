@@ -14,15 +14,17 @@ class NotificationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Firestore uses 'read' (boolean) and 'created_at' (ISO String)
-    final bool isRead = notification['read'] == true || notification['is_read'] == true;
+    final bool isRead =
+        notification['read'] == true || notification['is_read'] == true;
     final String title = notification['title'] ?? 'Notificação';
     final String body = notification['body'] ?? '';
-    final String timeStr = notification['created_at'] ?? notification['sent_at'] ?? '';
-    
+    final String timeStr =
+        notification['created_at'] ?? notification['sent_at'] ?? '';
+
     DateTime? sentAt;
     try {
       if (timeStr.isNotEmpty) {
-          sentAt = DateTime.parse(timeStr).toLocal();
+        sentAt = DateTime.parse(timeStr).toLocal();
       }
     } catch (_) {}
 
@@ -42,9 +44,13 @@ class NotificationItem extends StatelessWidget {
               // Icon Indicator
               CircleAvatar(
                 radius: 20,
-                backgroundColor: isRead ? Colors.grey.shade200 : Colors.blue.shade100,
+                backgroundColor: isRead
+                    ? Colors.grey.shade200
+                    : Colors.blue.shade100,
                 child: Icon(
-                  isRead ? Icons.notifications_none : Icons.notifications_active,
+                  isRead
+                      ? Icons.notifications_none
+                      : Icons.notifications_active,
                   color: isRead ? Colors.grey : Colors.blue,
                   size: 20,
                 ),
@@ -56,30 +62,37 @@ class NotificationItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                            Expanded(child: Text(
-                              title,
-                              style: TextStyle(
-                                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            )),
-                             if (sentAt != null) 
-                                Text(
-                                    DateFormat('dd/MM HH:mm').format(sentAt),
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                                ),
-                        ]
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontWeight: isRead
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (sentAt != null)
+                          Text(
+                            DateFormat('dd/MM HH:mm').format(sentAt),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       body,
                       style: TextStyle(
-                          color: Colors.grey.shade800,
-                          fontSize: 13
+                        color: Colors.grey.shade800,
+                        fontSize: 13,
                       ),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,

@@ -156,10 +156,8 @@ class ThemeService extends ChangeNotifier {
         primary: config.primary,
         secondary: config.secondary,
         surface: config.surface,
-        background: config.background,
         error: config.error,
         onSurface: config.textPrimary,
-        onBackground: config.textPrimary,
       ),
       scaffoldBackgroundColor: config.background,
       appBarTheme: AppBarTheme(

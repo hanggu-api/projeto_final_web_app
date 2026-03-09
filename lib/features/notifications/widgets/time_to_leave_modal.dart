@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -15,10 +14,10 @@ class TimeToLeaveModal extends StatefulWidget {
   State<TimeToLeaveModal> createState() => _TimeToLeaveModalState();
 }
 
-class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerProviderStateMixin {
+class _TimeToLeaveModalState extends State<TimeToLeaveModal>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isPlaying = true;
 
   @override
   void initState() {
@@ -47,9 +46,6 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
 
   void _stopAlarm() {
     _audioPlayer.stop();
-    setState(() {
-      _isPlaying = false;
-    });
   }
 
   void _openMaps() async {
@@ -57,10 +53,10 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
     final lat = widget.data['lat'];
     final lng = widget.data['lng'];
     if (lat != null && lng != null) {
-        await NavigationHelper.openNavigation(
-          latitude: double.tryParse(lat.toString()) ?? 0,
-          longitude: double.tryParse(lng.toString()) ?? 0,
-        );
+      await NavigationHelper.openNavigation(
+        latitude: double.tryParse(lat.toString()) ?? 0,
+        longitude: double.tryParse(lng.toString()) ?? 0,
+      );
     }
     if (mounted) Navigator.of(context).pop();
   }
@@ -84,7 +80,7 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
               color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
-            )
+            ),
           ],
         ),
         child: Column(
@@ -97,10 +93,14 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
                 color: AppTheme.primaryYellow.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.directions_car, size: 48, color: AppTheme.textBrown),
+              child: Icon(
+                Icons.directions_car,
+                size: 48,
+                color: AppTheme.textBrown,
+              ),
             ),
             const SizedBox(height: 20),
-            
+
             // Title
             Text(
               'HORA DE SAIR!',
@@ -108,24 +108,24 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textBrown,
-                letterSpacing: 1.1
+                letterSpacing: 1.1,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            
+
             // Description
             Text(
               'Para garantir seu atendimento com 3 min de antecedência, saia agora.',
               style: GoogleFonts.outfit(
                 fontSize: 15,
                 color: Colors.black87,
-                height: 1.4
+                height: 1.4,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            
+
             // Action Buttons
             Row(
               children: [
@@ -139,7 +139,9 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryYellow,
                         foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         elevation: 0,
                         padding: EdgeInsets.zero,
                       ),
@@ -161,7 +163,7 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
                   ),
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Cheguei ao local (Secondary Action)
                 Expanded(
                   flex: 3,
@@ -175,7 +177,9 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade700,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         elevation: 0,
                         padding: EdgeInsets.zero,
                       ),
@@ -191,9 +195,9 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal> with SingleTickerPr
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Tertiary Action
             TextButton(
               onPressed: () {

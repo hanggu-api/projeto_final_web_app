@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -52,9 +51,12 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _selectedPlatform,
-              items: ['Instagram', 'TikTok', 'Google Ads', 'Facebook']
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
+              items: [
+                'Instagram',
+                'TikTok',
+                'Google Ads',
+                'Facebook',
+              ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: (v) => setState(() => _selectedPlatform = v!),
               decoration: const InputDecoration(
                 labelText: 'Plataforma Principal',
@@ -62,8 +64,8 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
               ),
             ),
             const SizedBox(height: 16),
-             const TextField(
-               maxLines: 4,
+            const TextField(
+              maxLines: 4,
               decoration: InputDecoration(
                 labelText: 'Instruções extras para a IA',
                 hintText: 'Foque em promoção de 50% off...',
@@ -85,7 +87,10 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
                         SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         ),
                         SizedBox(width: 12),
                         Text('Gerando com IA...'),

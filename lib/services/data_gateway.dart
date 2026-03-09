@@ -14,7 +14,6 @@ class DataGateway {
   final ApiService _api = ApiService();
   // --- Caches de Stream para evitar múltiplas instâncias ---
   final Map<String, Stream<Map<String, dynamic>>> _serviceStreams = {};
-  final Map<String, Stream<List<dynamic>>> _chatStreams = {};
   final Map<String, Stream<List<Map<String, dynamic>>>> _notificationStreams =
       {};
 
@@ -108,8 +107,9 @@ class DataGateway {
                       .stream(primaryKey: ['id'])
                       .eq('id', serviceId)
                       .map((snapshot) {
-                        if (snapshot.isEmpty)
+                        if (snapshot.isEmpty) {
                           return {'status': 'deleted', 'id': serviceId};
+                        }
                         final tripData = snapshot.first;
                         return {
                           ...tripData,
@@ -140,34 +140,23 @@ class DataGateway {
 
   /// Retorna um Stream de mensagens do chat diretamente do Supabase.
   /// Tabela: chat_messages
+  /// Sempre cria um stream novo para garantir snapshot inicial ao reabrir/recarregar.
   Stream<List<dynamic>> watchChat(String serviceId) {
-    if (_chatStreams.containsKey(serviceId)) {
-      debugPrint(
-        '♻️ [DataGateway] Reutilizando watchChat (Supabase) ativo para $serviceId',
-      );
-      return _chatStreams[serviceId]!;
-    }
+    debugPrint('🔥 [DataGateway] Iniciando NOVO watchChat (Supabase) para $serviceId');
 
-    debugPrint(
-      '🔥 [DataGateway] Iniciando NOVO watchChat (Supabase) para $serviceId',
-    );
-
-    final Stream<List<dynamic>> stream = Supabase.instance.client
+    return Supabase.instance.client
         .from('chat_messages')
         .stream(primaryKey: ['id'])
         .eq('service_id', serviceId)
         .order('sent_at', ascending: false) // Mais recentes primeiro
+        .limit(200)
         .map((snapshot) {
           return snapshot.map((data) => data).toList();
         })
         .handleError((e) {
           debugPrint('⚠️ [DataGateway] Erro no stream do chat: $e');
           return <dynamic>[];
-        })
-        .asBroadcastStream();
-
-    _chatStreams[serviceId] = stream;
-    return stream;
+        });
   }
 
   /// Retorna um Stream de notificações do usuário do Supabase.
@@ -274,8 +263,6 @@ class DataGateway {
   void closeAndRemoveStream(String type, String id) {
     if (type == 'service') {
       _serviceStreams.remove(id);
-    } else if (type == 'chat') {
-      _chatStreams.remove(id);
     } else if (type == 'notification') {
       _notificationStreams.remove(id);
     }
@@ -284,7 +271,6 @@ class DataGateway {
   void reset() {
     _api.clearToken();
     _serviceStreams.clear();
-    _chatStreams.clear();
     _notificationStreams.clear();
   }
 }

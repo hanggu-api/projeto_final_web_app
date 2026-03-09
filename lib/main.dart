@@ -31,6 +31,7 @@ import 'features/activity/activity_screen.dart';
 import 'features/client/service_discovery_screen.dart';
 
 import 'features/common/review_screen.dart';
+import 'features/dev/face_validation_test_screen.dart';
 import 'features/dev/simulation_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/provider/edit_request_screen.dart';
@@ -400,7 +401,9 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFD700), // AppTheme.primaryYellow
+      backgroundColor: const Color(
+        0xFFFDE500,
+      ), // Mesma cor de fundo do logo.png
       body: Stack(
         children: [
           Center(
@@ -508,8 +511,9 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
     final loggingIn = state.matchedLocation == '/login';
     final registering = state.matchedLocation == '/register';
     final simulating = state.matchedLocation == '/simulation';
+    final faceTesting = state.matchedLocation == '/face-validation-test';
 
-    if (!logged && !loggingIn && !registering && !simulating) {
+    if (!logged && !loggingIn && !registering && !simulating && !faceTesting) {
       return '/login';
     }
 
@@ -601,9 +605,14 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           path: '/uber-driver',
           builder: (context, state) {
             final extra = state.extra as Map<String, dynamic>?;
+            final initialTripOffer = extra?['initialTripOffer'];
+            final initialTripOfferMap = initialTripOffer is Map
+                ? Map<String, dynamic>.from(initialTripOffer)
+                : null;
             return DriverHomeScreen(
               cancellationMessage: extra?['cancellationMessage'],
               cancellationFee: (extra?['cancellationFee'] as num?)?.toDouble(),
+              initialTripOffer: initialTripOfferMap,
             );
           },
         ),
@@ -785,6 +794,10 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
     GoRoute(
       path: '/simulation',
       builder: (context, state) => const SimulationScreen(),
+    ),
+    GoRoute(
+      path: '/face-validation-test',
+      builder: (context, state) => const FaceValidationTestScreen(),
     ),
     GoRoute(
       path: '/agency',

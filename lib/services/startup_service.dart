@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_service.dart';
+import 'awesome_notification_service.dart';
 import 'notification_service.dart';
 import 'remote_config_service.dart';
 import 'theme_service.dart';
@@ -35,6 +36,7 @@ class StartupService {
 
       // 3. Notification Service (Apenas init básico, sem sync pesado)
       await NotificationService().init(navigatorKey);
+      await AwesomeNotificationService.instance.initialize();
 
       _isCriticalInitialized = true;
     } catch (e) {

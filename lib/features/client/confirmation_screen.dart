@@ -47,7 +47,10 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Confirmação', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Confirmação',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Theme.of(context).primaryColor,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -87,13 +90,20 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                     const SizedBox(height: 40),
                     const Text(
                       'Pedido Confirmado!',
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     const Text(
                       'Seu pagamento foi aprovado e seu pedido já está visível para os prestadores.',
-                      style: TextStyle(color: Colors.black87, fontSize: 16, height: 1.5),
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const Spacer(),
@@ -115,7 +125,13 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                         ),
                         elevation: 4,
                       ),
-                      child: const Text('Acompanhar serviço', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Acompanhar serviço',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextButton(
@@ -123,7 +139,10 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                         _timer?.cancel();
                         context.go('/home');
                       },
-                      child: const Text('Voltar para o início', style: TextStyle(color: Colors.black54)),
+                      child: const Text(
+                        'Voltar para o início',
+                        style: TextStyle(color: Colors.black54),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(

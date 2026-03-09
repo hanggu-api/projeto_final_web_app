@@ -88,7 +88,11 @@ class _CameraCaptureModalState extends State<CameraCaptureModal> {
                 children: [
                   const Text(
                     'Tirar Foto',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white),
@@ -97,19 +101,26 @@ class _CameraCaptureModalState extends State<CameraCaptureModal> {
                 ],
               ),
             ),
-            
+
             // Camera Preview
             Expanded(
               child: _error != null
-                  ? Center(child: Text(_error!, style: const TextStyle(color: Colors.white)))
+                  ? Center(
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    )
                   : _isInitialized && _controller != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: CameraPreview(_controller!),
-                        )
-                      : const Center(child: CircularProgressIndicator(color: Colors.white)),
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CameraPreview(_controller!),
+                    )
+                  : const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
             ),
-            
+
             // Footer / Capture Button
             Padding(
               padding: const EdgeInsets.all(24),

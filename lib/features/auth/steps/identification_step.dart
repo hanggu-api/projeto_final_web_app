@@ -13,7 +13,8 @@ class IdentificationStep extends StatefulWidget {
   final TextEditingController phoneController;
   final TextEditingController emailController;
   final TextEditingController passwordController;
-  final Function(bool isValidating, Map<String, String?> errors) onValidationChanged;
+  final Function(bool isValidating, Map<String, String?> errors)
+  onValidationChanged;
 
   const IdentificationStep({
     super.key,
@@ -38,7 +39,7 @@ class _IdentificationStepState extends State<IdentificationStep> {
 
   void _onFieldChanged(String field, String value) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    
+
     // Clear error while typing or if empty
     if (value.isEmpty) {
       setState(() {
@@ -50,12 +51,20 @@ class _IdentificationStepState extends State<IdentificationStep> {
     }
 
     _debounce = Timer(const Duration(milliseconds: 600), () async {
-      final cleanValue = field == 'email' ? value.trim() : value.replaceAll(RegExp(r'\D'), '');
-      
+      final cleanValue = field == 'email'
+          ? value.trim()
+          : value.replaceAll(RegExp(r'\D'), '');
+
       // Basic format check before API call
-      if (field == 'email' && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(cleanValue)) return;
+      if (field == 'email' &&
+          !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(cleanValue)) {
+        return;
+      }
       if (field == 'phone' && cleanValue.length < 10) return;
-      if (field == 'doc' && (cleanValue.length != 11 && cleanValue.length != 14)) return;
+      if (field == 'doc' &&
+          (cleanValue.length != 11 && cleanValue.length != 14)) {
+        return;
+      }
 
       setState(() => _isValidating[field] = true);
       _notifyParent();
@@ -71,7 +80,8 @@ class _IdentificationStepState extends State<IdentificationStep> {
           setState(() {
             _isValidating[field] = false;
             if (result['exists'] == true) {
-              _fieldErrors[field] = 'Este ${field == 'doc' ? 'CPF/CNPJ' : field} já está cadastrado';
+              _fieldErrors[field] =
+                  'Este ${field == 'doc' ? 'CPF/CNPJ' : field} já está cadastrado';
             } else {
               _fieldErrors[field] = null;
             }
@@ -120,9 +130,13 @@ class _IdentificationStepState extends State<IdentificationStep> {
             // BUSINESS INFO
             TextFormField(
               controller: widget.businessNameController,
-              decoration: AppTheme.inputDecoration('Nome do Estabelecimento', Icons.store),
-              validator: (v) =>
-                  v?.isEmpty == true ? 'Informe o nome do estabelecimento' : null,
+              decoration: AppTheme.inputDecoration(
+                'Nome do Estabelecimento',
+                Icons.store,
+              ),
+              validator: (v) => v?.isEmpty == true
+                  ? 'Informe o nome do estabelecimento'
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -131,12 +145,25 @@ class _IdentificationStepState extends State<IdentificationStep> {
                 Expanded(
                   child: TextFormField(
                     controller: widget.docController,
-                    decoration: AppTheme.inputDecoration('CPF ou CNPJ', Icons.badge).copyWith(
-                      suffixIcon: _isValidating['doc'] == true 
-                        ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))) 
-                        : null,
-                      errorText: _fieldErrors['doc'],
-                    ),
+                    decoration:
+                        AppTheme.inputDecoration(
+                          'CPF ou CNPJ',
+                          Icons.badge,
+                        ).copyWith(
+                          suffixIcon: _isValidating['doc'] == true
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                          errorText: _fieldErrors['doc'],
+                        ),
                     keyboardType: TextInputType.number,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
@@ -149,7 +176,9 @@ class _IdentificationStepState extends State<IdentificationStep> {
                       if (digits.length != 11 && digits.length != 14) {
                         return 'Inválido';
                       }
-                      if (_fieldErrors['doc'] != null) return _fieldErrors['doc'];
+                      if (_fieldErrors['doc'] != null) {
+                        return _fieldErrors['doc'];
+                      }
                       return null;
                     },
                   ),
@@ -160,12 +189,23 @@ class _IdentificationStepState extends State<IdentificationStep> {
 
             TextFormField(
               controller: widget.phoneController,
-              decoration: AppTheme.inputDecoration('Telefone / WhatsApp', Icons.phone).copyWith(
-                suffixIcon: _isValidating['phone'] == true 
-                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))) 
-                  : null,
-                errorText: _fieldErrors['phone'],
-              ),
+              decoration:
+                  AppTheme.inputDecoration(
+                    'Telefone / WhatsApp',
+                    Icons.phone,
+                  ).copyWith(
+                    suffixIcon: _isValidating['phone'] == true
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                    errorText: _fieldErrors['phone'],
+                  ),
               keyboardType: TextInputType.phone,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -192,24 +232,39 @@ class _IdentificationStepState extends State<IdentificationStep> {
 
             TextFormField(
               controller: widget.nameController,
-              decoration: AppTheme.inputDecoration('Nome do Responsável', Icons.person),
+              decoration: AppTheme.inputDecoration(
+                'Nome do Responsável',
+                Icons.person,
+              ),
               validator: (v) => v?.isEmpty == true ? 'Obrigatório' : null,
             ),
             const SizedBox(height: 16),
 
             TextFormField(
               controller: widget.emailController,
-              decoration: AppTheme.inputDecoration('E-mail', Icons.email).copyWith(
-                suffixIcon: _isValidating['email'] == true 
-                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))) 
-                  : null,
-                errorText: _fieldErrors['email'],
-              ),
+              decoration: AppTheme.inputDecoration('E-mail', Icons.email)
+                  .copyWith(
+                    suffixIcon: _isValidating['email'] == true
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                    errorText: _fieldErrors['email'],
+                  ),
               keyboardType: TextInputType.emailAddress,
               onChanged: (v) => _onFieldChanged('email', v),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Obrigatório';
-                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) return 'Inválido';
+                if (!RegExp(
+                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                ).hasMatch(v.trim())) {
+                  return 'Inválido';
+                }
                 if (_fieldErrors['email'] != null) return _fieldErrors['email'];
                 return null;
               },

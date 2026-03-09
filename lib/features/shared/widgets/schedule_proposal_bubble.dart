@@ -87,14 +87,21 @@ class ScheduleProposalBubble extends StatelessWidget {
                       )
                     : const Text(
                         'Confirmar',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),
           ] else
             Text(
               'Aguardando confirmação do cliente...',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
             ),
         ],
       ),

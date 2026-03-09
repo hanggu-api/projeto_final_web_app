@@ -8,7 +8,7 @@ class DataSafety {
       if (value.trim().isEmpty) return defaultValue;
       String s = value.trim().replaceAll(',', '.');
       // Remove symbols like 'R$' or whitespace if mixed in
-      s = s.replaceAll(RegExp(r'[^0-9\.-]'), ''); 
+      s = s.replaceAll(RegExp(r'[^0-9\.-]'), '');
       return double.tryParse(s) ?? defaultValue;
     }
     return defaultValue;

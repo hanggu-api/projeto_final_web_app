@@ -24,7 +24,10 @@ class MyServicesScreen extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(LucideIcons.chevronLeft, color: Colors.black),
+                    icon: const Icon(
+                      LucideIcons.chevronLeft,
+                      color: Colors.black,
+                    ),
                     onPressed: () => context.pop(),
                   ),
                   const Text(

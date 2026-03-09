@@ -12,7 +12,8 @@ class ActivityScreen extends StatefulWidget {
   State<ActivityScreen> createState() => _ActivityScreenState();
 }
 
-class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProviderStateMixin {
+class _ActivityScreenState extends State<ActivityScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ApiService _api = ApiService();
   bool _isLoading = true;
@@ -60,7 +61,10 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           indicatorWeight: 3,
           labelColor: AppTheme.textDark,
           unselectedLabelColor: AppTheme.textMuted,
-          labelStyle: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 14),
+          labelStyle: GoogleFonts.manrope(
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+          ),
           tabs: const [
             Tab(text: 'Próximas'),
             Tab(text: 'Anteriores'),
@@ -83,9 +87,13 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
     final filtered = _services.where((s) {
       final status = s['status']?.toString().toLowerCase();
       if (isPast) {
-        return status == 'completed' || status == 'cancelled' || status == 'finished';
+        return status == 'completed' ||
+            status == 'cancelled' ||
+            status == 'finished';
       }
-      return status != 'completed' && status != 'cancelled' && status != 'finished';
+      return status != 'completed' &&
+          status != 'cancelled' &&
+          status != 'finished';
     }).toList();
 
     if (filtered.isEmpty) {
@@ -96,7 +104,9 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
             Icon(LucideIcons.history, size: 48, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             Text(
-              isPast ? 'Nenhuma atividade recente' : 'Sem agendamentos próximos',
+              isPast
+                  ? 'Nenhuma atividade recente'
+                  : 'Sem agendamentos próximos',
               style: GoogleFonts.manrope(
                 color: AppTheme.textMuted,
                 fontWeight: FontWeight.w600,
@@ -119,11 +129,17 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
 
   Widget _buildActivityCard(Map<String, dynamic> item) {
     final date = DateTime.tryParse(item['created_at'] ?? '');
-    final formattedDate = date != null ? DateFormat('dd/MM/yyyy • HH:mm').format(date) : '';
+    final formattedDate = date != null
+        ? DateFormat('dd/MM/yyyy • HH:mm').format(date)
+        : '';
     final status = item['status']?.toString().toUpperCase() ?? 'PENDENTE';
-    
+
     Color statusColor = Colors.orange;
-    if (status.contains('OK') || status.contains('CONCLUÍDO') || status.contains('FINISHED')) statusColor = Colors.green;
+    if (status.contains('OK') ||
+        status.contains('CONCLUÍDO') ||
+        status.contains('FINISHED')) {
+      statusColor = Colors.green;
+    }
     if (status.contains('CANCEL')) statusColor = Colors.red;
 
     return Container(
@@ -134,7 +150,11 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Row(
@@ -147,7 +167,9 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
               borderRadius: BorderRadius.circular(15),
             ),
             child: Icon(
-              item['service_type'] == 'uber' ? LucideIcons.car : LucideIcons.wrench,
+              item['service_type'] == 'uber'
+                  ? LucideIcons.car
+                  : LucideIcons.wrench,
               color: AppTheme.textDark,
               size: 24,
             ),

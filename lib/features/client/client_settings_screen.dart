@@ -70,24 +70,24 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
     try {
       if (kIsWeb) {
         final result = await _mediaService.pickImageWeb();
-        if (result != null && result.files.isNotEmpty && result.files.first.bytes != null) {
-           setState(() => _isUploadingAvatar = true);
-           final file = result.files.first;
-           final mime = file.extension != null ? 'image/${file.extension}' : 'image/jpeg';
-           
-           await _mediaService.uploadAvatarBytes(
-             file.bytes!,
-             file.name,
-             mime,
-           );
-           
-           if (mounted) {
+        if (result != null &&
+            result.files.isNotEmpty &&
+            result.files.first.bytes != null) {
+          setState(() => _isUploadingAvatar = true);
+          final file = result.files.first;
+          final mime = file.extension != null
+              ? 'image/${file.extension}'
+              : 'image/jpeg';
+
+          await _mediaService.uploadAvatarBytes(file.bytes!, file.name, mime);
+
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Foto de perfil atualizada!')),
             );
             await _loadProfile();
             setState(() => _isUploadingAvatar = false);
-           }
+          }
         }
         return;
       }
@@ -96,13 +96,13 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
       if (file != null) {
         setState(() => _isUploadingAvatar = true);
         final bytes = await file.readAsBytes();
-        
+
         await _mediaService.uploadAvatarBytes(
           bytes,
           file.name,
           file.mimeType ?? 'image/jpeg',
         );
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Foto de perfil atualizada!')),
@@ -168,7 +168,10 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                           children: [
                             GestureDetector(
                               onTap: () => context.pop(),
-                              child: const Icon(LucideIcons.chevronLeft, color: AppTheme.textDark),
+                              child: const Icon(
+                                LucideIcons.chevronLeft,
+                                color: AppTheme.textDark,
+                              ),
                             ),
                             Text(
                               'Profile',
@@ -178,11 +181,15 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                                 color: AppTheme.textDark,
                               ),
                             ),
-                            const Icon(LucideIcons.settings, color: AppTheme.textDark, size: 20),
+                            const Icon(
+                              LucideIcons.settings,
+                              color: AppTheme.textDark,
+                              size: 20,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 32),
-                        
+
                         // Avatar Section
                         Stack(
                           alignment: Alignment.bottomRight,
@@ -190,27 +197,36 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryYellow.withValues(alpha: 0.2),
+                                color: AppTheme.primaryYellow.withValues(
+                                  alpha: 0.2,
+                                ),
                                 shape: BoxShape.circle,
                               ),
                               child: CircleAvatar(
                                 radius: 56,
                                 backgroundColor: AppTheme.backgroundLight,
-                                backgroundImage: _user!['avatar_url'] != null && !_isUploadingAvatar
-                                    ? CachedNetworkImageProvider(_user!['avatar_url'])
+                                backgroundImage:
+                                    _user!['avatar_url'] != null &&
+                                        !_isUploadingAvatar
+                                    ? CachedNetworkImageProvider(
+                                        _user!['avatar_url'],
+                                      )
                                     : null,
                                 child: _isUploadingAvatar
-                                    ? const CircularProgressIndicator(strokeWidth: 2)
+                                    ? const CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      )
                                     : (_user!['avatar_url'] == null
-                                        ? Text(
-                                            (_user!['name'] ?? 'U')[0].toUpperCase(),
-                                            style: GoogleFonts.manrope(
-                                              fontSize: 40,
-                                              color: AppTheme.textDark,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          )
-                                        : null),
+                                          ? Text(
+                                              (_user!['name'] ?? 'U')[0]
+                                                  .toUpperCase(),
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 40,
+                                                color: AppTheme.textDark,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            )
+                                          : null),
                               ),
                             ),
                             GestureDetector(
@@ -220,14 +236,21 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                                 decoration: BoxDecoration(
                                   color: AppTheme.primaryYellow,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
                                 ),
-                                child: const Icon(LucideIcons.edit2, color: AppTheme.textDark, size: 14),
+                                child: const Icon(
+                                  LucideIcons.edit2,
+                                  color: AppTheme.textDark,
+                                  size: 14,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 20),
                         Text(
                           _user!['name'] ?? 'Usuário',
@@ -264,7 +287,7 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                             color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
-                          )
+                          ),
                         ],
                       ),
                       child: Row(
@@ -298,14 +321,22 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                             icon: const Icon(LucideIcons.plusCircle, size: 18),
                             label: Text(
                               'ADICIONAR',
-                              style: GoogleFonts.manrope(fontWeight: FontWeight.w900, fontSize: 12),
+                              style: GoogleFonts.manrope(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primaryYellow,
                               foregroundColor: AppTheme.textDark,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
                           ),
                         ],
@@ -405,12 +436,14 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                         ),
                         style: TextButton.styleFrom(
                           backgroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
                   Text(
                     'Version 1.0.42 (Production)',
@@ -439,7 +472,11 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          border: isLast ? null : Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+          border: isLast
+              ? null
+              : Border(
+                  bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                ),
         ),
         child: Row(
           children: [
@@ -462,7 +499,11 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                 ),
               ),
             ),
-            Icon(LucideIcons.chevronRight, size: 18, color: Colors.grey.shade300),
+            Icon(
+              LucideIcons.chevronRight,
+              size: 18,
+              color: Colors.grey.shade300,
+            ),
           ],
         ),
       ),
@@ -543,11 +584,15 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           children: [
             Text(
               'Editar Perfil',
-              style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.textDark),
+              style: GoogleFonts.manrope(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.textDark,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            
+
             _buildField(
               controller: _nameController,
               label: 'NOME COMPLETO',
@@ -567,7 +612,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               icon: LucideIcons.phone,
               keyboardType: TextInputType.phone,
             ),
-            
+
             const SizedBox(height: 40),
             SizedBox(
               height: 56,
@@ -576,12 +621,27 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.textDark,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   elevation: 0,
                 ),
-                child: _isSaving 
-                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                    : Text('SALVAR ALTERAÇÕES', style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16)),
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        'SALVAR ALTERAÇÕES',
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -601,21 +661,42 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       children: [
         Text(
           label,
-          style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.textMuted, letterSpacing: 1),
+          style: GoogleFonts.manrope(
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.textMuted,
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.textDark),
+          style: GoogleFonts.manrope(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            color: AppTheme.textDark,
+          ),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 20, color: AppTheme.textDark),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppTheme.primaryYellow, width: 2)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: AppTheme.primaryYellow, width: 2),
+            ),
             filled: true,
             fillColor: Colors.grey.shade50,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
           validator: (v) => v?.isNotEmpty == true ? null : 'Campo obrigatório',
         ),

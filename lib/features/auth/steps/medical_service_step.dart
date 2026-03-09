@@ -73,9 +73,10 @@ class _MedicalServiceStepState extends State<MedicalServiceStep> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _priceController,
-              decoration: AppTheme.inputDecoration('Valor da Consulta', Icons.attach_money).copyWith(
-                hintText: r'R$ 0,00',
-              ),
+              decoration: AppTheme.inputDecoration(
+                'Valor da Consulta',
+                Icons.attach_money,
+              ).copyWith(hintText: r'R$ 0,00'),
               keyboardType: TextInputType.number,
               inputFormatters: [CurrencyInputFormatter()],
               onChanged: (_) => _update(),
@@ -100,32 +101,34 @@ class _MedicalServiceStepState extends State<MedicalServiceStep> {
                 ),
                 child: Column(
                   children: [
-                    RadioListTile<bool>(
-                      activeColor: Colors.green,
-                      title: const Text('Com retorno (30 dias)'),
-                      subtitle: const Text(
-                        'O paciente tem direito a um retorno gratuito em até 30 dias.',
-                      ),
-                      value: true,
+                    RadioGroup<bool>(
                       groupValue: _hasReturn,
                       onChanged: (val) {
-                        setState(() => _hasReturn = val!);
+                        if (val == null) return;
+                        setState(() => _hasReturn = val);
                         _update();
                       },
-                    ),
-                    const Divider(height: 1),
-                    RadioListTile<bool>(
-                      activeColor: Colors.green,
-                      title: const Text('Sem retorno'),
-                      subtitle: const Text(
-                        'Cada consulta é cobrada individualmente.',
+                      child: Column(
+                        children: [
+                          RadioListTile<bool>(
+                            activeColor: Colors.green,
+                            title: const Text('Com retorno (30 dias)'),
+                            subtitle: const Text(
+                              'O paciente tem direito a um retorno gratuito em até 30 dias.',
+                            ),
+                            value: true,
+                          ),
+                          const Divider(height: 1),
+                          RadioListTile<bool>(
+                            activeColor: Colors.green,
+                            title: const Text('Sem retorno'),
+                            subtitle: const Text(
+                              'Cada consulta é cobrada individualmente.',
+                            ),
+                            value: false,
+                          ),
+                        ],
                       ),
-                      value: false,
-                      groupValue: _hasReturn,
-                      onChanged: (val) {
-                        setState(() => _hasReturn = val!);
-                        _update();
-                      },
                     ),
                   ],
                 ),

@@ -101,10 +101,8 @@ class _ScheduledNotificationModalState
   Future<void> _loadRoute() async {
     try {
       final s = _serviceData!;
-      final destLat =
-          double.tryParse(s['latitude']?.toString() ?? '0') ?? 0;
-      final destLng =
-          double.tryParse(s['longitude']?.toString() ?? '0') ?? 0;
+      final destLat = double.tryParse(s['latitude']?.toString() ?? '0') ?? 0;
+      final destLng = double.tryParse(s['longitude']?.toString() ?? '0') ?? 0;
 
       double provLat =
           double.tryParse(s['provider_lat']?.toString() ?? '0') ?? 0;
@@ -142,8 +140,7 @@ class _ScheduledNotificationModalState
         final data = json.decode(response.body);
         if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
           final route = data['routes'][0];
-          final coordinates =
-              (route['geometry']['coordinates'] as List);
+          final coordinates = (route['geometry']['coordinates'] as List);
           final points = coordinates
               .map((c) => LatLng(c[1].toDouble(), c[0].toDouble()))
               .toList();
@@ -197,7 +194,10 @@ class _ScheduledNotificationModalState
       // Sprint 2: Usar Supabase SDK em vez do backend legado
       await Supabase.instance.client
           .from('service_requests_new')
-          .update({'status': 'accepted', 'accepted_at': DateTime.now().toIso8601String()})
+          .update({
+            'status': 'accepted',
+            'accepted_at': DateTime.now().toIso8601String(),
+          })
           .eq('id', widget.serviceId);
 
       NotificationService().stopPersistentNotification(widget.serviceId);
@@ -214,9 +214,9 @@ class _ScheduledNotificationModalState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao confirmar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao confirmar: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoadingAction = false);
@@ -271,7 +271,11 @@ class _ScheduledNotificationModalState
             Row(
               children: [
                 if (subtitleIcon != null) ...[
-                  Icon(subtitleIcon, size: 11, color: textColor.withValues(alpha: 0.6)),
+                  Icon(
+                    subtitleIcon,
+                    size: 11,
+                    color: textColor.withValues(alpha: 0.6),
+                  ),
                   const SizedBox(width: 4),
                 ],
                 Text(
@@ -313,8 +317,15 @@ class _ScheduledNotificationModalState
     final hasMap = lat != 0 && lon != 0;
 
     final double netAmount =
-        double.tryParse(s['provider_amount']?.toString() ?? s['price']?.toString() ?? '0') ?? 0;
-    final String description = s['description'] ?? s['profession'] ?? s['category_name'] ?? 'Serviço Agendado';
+        double.tryParse(
+          s['provider_amount']?.toString() ?? s['price']?.toString() ?? '0',
+        ) ??
+        0;
+    final String description =
+        s['description'] ??
+        s['profession'] ??
+        s['category_name'] ??
+        'Serviço Agendado';
     final String address = s['address'] ?? 'Endereço não informado';
 
     return PopScope(
@@ -420,9 +431,9 @@ class _ScheduledNotificationModalState
                                       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
                                   subdomains: const ['a', 'b', 'c', 'd'],
                                   userAgentPackageName: 'com.play101.app',
-                    tileSize: 512,
-                    zoomOffset: -1,
-                    maxZoom: 22,
+                                  tileDimension: 512,
+                                  zoomOffset: -1,
+                                  maxZoom: 22,
                                 ),
                                 PolylineLayer(
                                   polylines: [
@@ -532,8 +543,10 @@ class _ScheduledNotificationModalState
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(LucideIcons.checkCircle2,
-                                  color: Colors.white),
+                              : const Icon(
+                                  LucideIcons.checkCircle2,
+                                  color: Colors.white,
+                                ),
                           label: Text(
                             _isLoadingAction
                                 ? 'CONFIRMANDO...'
@@ -565,4 +578,3 @@ class _ScheduledNotificationModalState
     );
   }
 }
-

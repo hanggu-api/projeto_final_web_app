@@ -50,7 +50,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     if (_isFixedLocation) {
       return const ProviderHomeFixed();
     }
-    
+
     return ProviderHomeMobile(
       loadOnInit: widget.loadOnInit,
       connectRealtime: widget.connectRealtime,

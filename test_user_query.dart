@@ -1,16 +1,19 @@
-import 'package:supabase/supabase.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
-  dotenv.testLoad(fileInput: File('.env').readAsStringSync());
-  final supa = SupabaseClient(dotenv.env['SUPABASE_URL']!, dotenv.env['SUPABASE_ANON_KEY']!);
-  
-  print('Trying to fetch user 85 without auth token (Anon User)...');
+  await dotenv.load(fileName: '.env');
+  final supa = SupabaseClient(
+    dotenv.env['SUPABASE_URL']!,
+    dotenv.env['SUPABASE_ANON_KEY']!,
+  );
+
+  debugPrint('Trying to fetch user 85 without auth token (Anon User)...');
   try {
     final res = await supa.from('users').select('*').eq('id', 85).maybeSingle();
-    print('Result Anon: $res');
+    debugPrint('Result Anon: $res');
   } catch (e) {
-    print('Error Anon: $e');
+    debugPrint('Error Anon: $e');
   }
 }

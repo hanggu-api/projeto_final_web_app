@@ -296,9 +296,10 @@ class _ProfessionStepState extends State<ProfessionStep> {
         TextField(
           key: const Key('profession_search_field'),
           controller: _searchController,
-          decoration: AppTheme.inputDecoration('Buscar profissão...', Icons.search).copyWith(
-            helperText: 'Digite pelo menos 3 letras para buscar',
-          ),
+          decoration: AppTheme.inputDecoration(
+            'Buscar profissão...',
+            Icons.search,
+          ).copyWith(helperText: 'Digite pelo menos 3 letras para buscar'),
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -350,9 +351,7 @@ class _ProfessionStepState extends State<ProfessionStep> {
                           : null,
                       onTap: () => widget.onSelect(profession),
                       selected: isSelected,
-                      tileColor: isSelected
-                          ? Colors.blue.withAlpha(20)
-                          : null,
+                      tileColor: isSelected ? Colors.blue.withAlpha(20) : null,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
