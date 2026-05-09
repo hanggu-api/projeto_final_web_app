@@ -1,5 +1,32 @@
 # RELATORIO DEV
 
+## 2026-05-09 - Cadastro volta a mostrar icones das etapas no topo
+
+### Alterações Realizadas
+
+- Ajustado `lib/features/auth/register_screen.dart` para restaurar o trilho de etapas com icones no topo do cadastro.
+- Cada etapa agora exibe um icone e rotulo curto, com destaque visual para etapa atual e check para etapas concluidas.
+- Mantida a barra fina de progresso abaixo dos icones para indicar o avanço geral do fluxo.
+
+### Efeito prático
+
+- O usuario volta a enxergar em qual etapa do cadastro esta, como na versao boa lembrada.
+- O fluxo de prestador continua começando por prova de vida, mas agora com indicador visual de etapas no topo.
+
+### Arquivos Impactados
+
+- `lib/features/auth/register_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/register_screen.dart`
+  - `flutter analyze --no-pub lib/features/auth/register_screen.dart`
+- Resultado:
+  - arquivo Dart formatado;
+  - `No issues found!`
+
 ## 2026-05-09 - Prova de vida do cadastro volta ao modo normal completo
 
 ### Alterações Realizadas

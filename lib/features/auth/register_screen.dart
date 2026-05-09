@@ -489,6 +489,117 @@ class _RegisterScreenState extends State<RegisterScreen>
     return steps;
   }
 
+  IconData _stepIcon(Widget step) {
+    if (step is FacialLivenessStep) return LucideIcons.scanFace;
+    if (step is ProfessionStep) return LucideIcons.briefcase;
+    if (step is BasicInfoStep) return LucideIcons.user;
+    if (step is ScheduleStep) return LucideIcons.calendarDays;
+    if (step is LocationStep) return LucideIcons.mapPin;
+    if (step is SelectServicesStep) return LucideIcons.listChecks;
+    if (step is IdentificationStep) return LucideIcons.badgeCheck;
+    if (step is MedicalServiceStep) return LucideIcons.stethoscope;
+    return LucideIcons.circle;
+  }
+
+  String _stepLabel(Widget step) {
+    if (step is FacialLivenessStep) return 'Vida';
+    if (step is ProfessionStep) return 'Profissão';
+    if (step is BasicInfoStep) return 'Dados';
+    if (step is ScheduleStep) return 'Agenda';
+    if (step is LocationStep) return 'Local';
+    if (step is SelectServicesStep) return 'Serviços';
+    if (step is IdentificationStep) return 'Empresa';
+    if (step is MedicalServiceStep) return 'Atendimento';
+    return 'Etapa';
+  }
+
+  Widget _buildStepIndicator(List<Widget> steps) {
+    return Container(
+      color: AppTheme.primaryYellow,
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            for (var index = 0; index < steps.length; index++) ...[
+              _buildStepIndicatorItem(
+                icon: _stepIcon(steps[index]),
+                label: _stepLabel(steps[index]),
+                isActive: index == _currentStep,
+                isCompleted: index < _currentStep,
+              ),
+              if (index < steps.length - 1)
+                Container(
+                  width: 24,
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  color: index < _currentStep
+                      ? AppTheme.textDark
+                      : AppTheme.textDark.withOpacity(0.16),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepIndicatorItem({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required bool isCompleted,
+  }) {
+    final foreground = isActive || isCompleted
+        ? Colors.white
+        : AppTheme.textDark;
+    final background = isActive || isCompleted
+        ? AppTheme.textDark
+        : Colors.white.withOpacity(0.42);
+
+    return SizedBox(
+      width: 66,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: isActive ? 36 : 32,
+            height: isActive ? 36 : 32,
+            decoration: BoxDecoration(
+              color: background,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isActive
+                    ? AppTheme.textDark
+                    : AppTheme.textDark.withOpacity(0.18),
+                width: isActive ? 2 : 1,
+              ),
+            ),
+            child: Icon(
+              isCompleted ? LucideIcons.check : icon,
+              size: isActive ? 18 : 16,
+              color: foreground,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+              color: AppTheme.textDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _nextPage() {
     final total = _steps.length;
     if (_currentStep >= total - 1) return;
@@ -642,11 +753,18 @@ class _RegisterScreenState extends State<RegisterScreen>
                 _currentStep > 0 ? _prevPage() : Navigator.of(context).pop(),
           ),
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.black.withOpacity(0.05),
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textDark),
+            preferredSize: const Size.fromHeight(82),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildStepIndicator(steps),
+                LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  backgroundColor: Colors.black.withOpacity(0.05),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textDark),
+                ),
+              ],
             ),
           ),
         ),
