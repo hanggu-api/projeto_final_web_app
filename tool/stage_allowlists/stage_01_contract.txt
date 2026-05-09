@@ -1,0 +1,6 @@
+lib/core/contracts/
+test/core/contracts/
+docs/SERVICE_FLOW_CANONICAL_CONTRACT.md
+docs/SERVICE_FLOW_STAGE_CHECKLIST.md
+docs/MULTI_AI_EXECUTION_MAP.md
+RELATORIO_DEV.md

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:service_101/features/provider/provider_profile_content.dart';
-import 'package:service_101/core/config/supabase_config.dart';
+import 'package:service_101/services/realtime_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
@@ -272,12 +272,19 @@ class _MockHttpClientRequest implements HttpClientRequest {
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    // Evita subscriptions/canais do Supabase Realtime em widget tests.
+    RealtimeService.mockMode = true;
     SharedPreferences.setMockInitialValues({
       'user_role': 'provider',
       'user_id': 123,
       'auth_token': 'mock_token',
     });
-    await SupabaseConfig.initialize();
+    // Não inicializar Supabase aqui: alguns clientes Realtime criam timers (10s)
+    // que causam falha "timersPending" ao final dos widget tests.
+  });
+
+  tearDownAll(() {
+    RealtimeService.mockMode = false;
   });
   setUp(() {
     SharedPreferences.setMockInitialValues({
@@ -292,18 +299,9 @@ void main() {
     HttpOverrides.global = null;
   });
 
-  testWidgets('ProviderProfileContent renders and shows delete dialog', (
+  testWidgets('ProviderProfileContent renders and shows account actions', (
     WidgetTester tester,
   ) async {
-    // We need to inject the mock, but ApiService is usually instantiated inside the widget or via GetIt.
-    // In this app, it's instantiated inside.
-    // Ideally we would depend on dependency injection.
-    // Since we can't easily mock the internal instance without refactoring,
-    // we will test the UI presence of the "Excluir" button in the dialog logic
-    // or just the generic rendering if possible.
-
-    // Actually, checking for the "Excluir Conta" text is good enough for a "smoke test".
-
     // Setup Router
     final router = GoRouter(
       routes: [
@@ -322,7 +320,9 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
 
     // Wait for future builder (if any)
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
 
     // Verify vital info
     // "Meu Perfil" is usually the title in the screen using this content.
@@ -331,20 +331,21 @@ void main() {
     expect(find.text('Nome'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
 
-    // Scroll down to find Delete Account button
-    await tester.scrollUntilVisible(find.text('Excluir Conta'), 500);
-    expect(find.text('Excluir Conta'), findsOneWidget);
-
-    // Tap it
-    await tester.tap(find.text('Excluir Conta'));
+    // Scroll down to the current account action actually exposed by the screen.
+    final logoutFinder = find.text('SAIR DA CONTA');
+    await tester.dragUntilVisible(
+      logoutFinder,
+      find.byType(Scrollable).first,
+      const Offset(0, -300),
+    );
     await tester.pumpAndSettle();
+    expect(find.text('DESEMPENHO', skipOffstage: false), findsOneWidget);
+    expect(logoutFinder, findsOneWidget);
 
-    // Verify Dialog
-    expect(find.text('Tem certeza?'), findsOneWidget);
-    expect(find.text('Essa ação não pode ser desfeita.'), findsOneWidget);
-    expect(find.text('Excluir'), findsOneWidget); // Verify button exists
-
-    // We do NOT tap 'Excluir' because ApiService is not mocked and it would throw exception.
-    // Verifying the dialog presence confirms the UI flow is wired up.
+    // Deixa timers curtos completarem para evitar falha "timersPending" no teardown.
+    await tester.pump(const Duration(milliseconds: 600));
+    // Força dispose da árvore e mais um pump.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 }

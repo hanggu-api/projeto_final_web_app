@@ -1,15 +1,18 @@
 import 'dart:convert';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/fixed_schedule_gate.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
+import '../../integrations/supabase/auth/supabase_auth_repository.dart';
+
 import 'steps/basic_info_step.dart';
 import 'steps/identification_step.dart';
 import 'steps/location_step.dart';
@@ -17,8 +20,7 @@ import 'steps/medical_service_step.dart';
 import 'steps/profession_step.dart';
 import 'steps/schedule_step.dart';
 import 'steps/select_services_step.dart';
-import 'steps/vehicle_selection_step.dart';
-import 'steps/vehicle_details_step.dart';
+import 'steps/facial_liveness_step.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String? initialRole;
@@ -28,7 +30,8 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends State<RegisterScreen>
+    with WidgetsBindingObserver {
   final PageController _pageController = PageController();
   int _currentStep = 0;
   bool _isLoading = false;
@@ -38,18 +41,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Data
   Map<String, dynamic>? _selectedProfession;
   bool _isClient = false;
-  bool _isDriver = false;
-  int? _selectedVehicleTypeId;
-  Map<String, dynamic> _vehicleDetails = {};
+  String? _subRole;
+  Map<String, dynamic> _verificationData = {};
 
-  // Standard/Medical Flow Controllers
+  // Controllers
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _docController = TextEditingController();
   final _phoneController = TextEditingController();
-
-  // Barber/Business Flow Controllers
+  final _birthDateController = TextEditingController();
+  final _botBirthDateController = TextEditingController();
+  final _botMotherNameController = TextEditingController();
   final _businessNameController = TextEditingController();
   final _addressController = TextEditingController();
   double? _latitude;
@@ -59,25 +63,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _locationFormKey = GlobalKey<FormState>();
   final _identificationFormKey = GlobalKey<FormState>();
 
+  bool _basicInfoStepValid = false;
+
   Map<int, Map<String, dynamic>> _schedule = {};
   List<Map<String, dynamic>> _customServices = [];
 
-  // Medical specific
   double? _medicalPrice;
   bool? _medicalHasReturn;
+
+  String _effectiveProviderSubRole() {
+    if (_isClient) return 'seeker';
+
+    final forceFixedProvider =
+        (_selectedProfession != null &&
+            isCanonicalFixedServiceRecord(_selectedProfession!)) ||
+        ({'salon', 'beauty', 'fixed'}.contains(
+          (_selectedProfession?['service_type'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase(),
+        ));
+    if (forceFixedProvider) return 'fixed';
+
+    final current = (_subRole ?? '').trim().toLowerCase();
+    return current == 'fixed' ? 'fixed' : 'mobile';
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Define o papel inicial imediatamente para evitar build incorreto
+    // Se não houver initialRole, o padrão será 'provider' (false) até que o loadState decida.
     if (widget.initialRole == 'client') {
       _isClient = true;
-      _isDriver = false;
     } else if (widget.initialRole == 'provider') {
       _isClient = false;
-      _isDriver = false;
-    } else if (widget.initialRole == 'driver') {
-      _isClient = false;
-      _isDriver = true;
     }
 
     _loadState();
@@ -85,26 +107,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _docController.dispose();
     _phoneController.dispose();
+    _birthDateController.dispose();
+    _botBirthDateController.dispose();
+    _botMotherNameController.dispose();
     _businessNameController.dispose();
     _addressController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _saveState();
+    }
+  }
+
+  static const _secureStorage = FlutterSecureStorage();
+
   Future<void> _saveState() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('register_step', _currentStep);
     await prefs.setBool('register_is_client', _isClient);
-    await prefs.setBool('register_is_driver', _isDriver);
-
-    if (_selectedVehicleTypeId != null) {
-      await prefs.setInt('register_vehicle_type_id', _selectedVehicleTypeId!);
-    }
+    await prefs.setString('register_sub_role', _subRole ?? '');
+    await prefs.setString('register_birth_date', _birthDateController.text);
 
     if (_selectedProfession != null) {
       await prefs.setString(
@@ -117,7 +152,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     await prefs.setString('register_name', _nameController.text);
     await prefs.setString('register_email', _emailController.text);
-    await prefs.setString('register_password', _passwordController.text);
+    await _secureStorage.write(
+      key: 'register_password',
+      value: _passwordController.text,
+    );
     await prefs.setString('register_doc', _docController.text);
     await prefs.setString('register_phone', _phoneController.text);
 
@@ -131,30 +169,61 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final scheduleJson = _schedule.map((k, v) => MapEntry(k.toString(), v));
     await prefs.setString('register_schedule', jsonEncode(scheduleJson));
-
     await prefs.setString('register_services', jsonEncode(_customServices));
+    await prefs.setString(
+      'register_verification_data',
+      jsonEncode(_verificationData),
+    );
+
+    if (_medicalPrice != null)
+      await prefs.setDouble('register_medical_price', _medicalPrice!);
+    if (_medicalHasReturn != null)
+      await prefs.setBool('register_medical_return', _medicalHasReturn!);
   }
 
   Future<void> _loadState() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 
+    final bool? savedIsClient = prefs.getBool('register_is_client');
+
+    // O initialRole do widget sempre tem prioridade sobre o cache.
+    // Isso garante que clicar em "Prestador" nunca abre o fluxo de "Cliente" e vice-versa.
+    if (widget.initialRole != null) {
+      final bool targetIsClient = widget.initialRole == 'client';
+      if (savedIsClient != null && targetIsClient != savedIsClient) {
+        // Cache de um fluxo diferente — reseta tudo
+        debugPrint(
+          '🔄 Role alterado (${savedIsClient ? "client" : "provider"} → ${targetIsClient ? "client" : "provider"}). Resetando fluxo.',
+        );
+        await _clearState();
+        if (mounted) {
+          setState(() {
+            _isClient = targetIsClient;
+            _currentStep = 0;
+          });
+        }
+        return;
+      }
+      // Mesmo role ou sem cache: usa sempre o initialRole para garantir sincronia
+      if (mounted) {
+        setState(() {
+          _isClient = targetIsClient;
+        });
+      }
+    } else if (savedIsClient != null) {
+      // Se não há initialRole vindo da navegação, usa o que está no cache
+      if (mounted) {
+        setState(() {
+          _isClient = savedIsClient;
+        });
+      }
+    }
+
     setState(() {
       _currentStep = prefs.getInt('register_step') ?? 0;
-
-      if (widget.initialRole != null) {
-        _isClient = widget.initialRole == 'client';
-        _isDriver = widget.initialRole == 'driver';
-        if (_isClient != (prefs.getBool('register_is_client') ?? false) ||
-            _isDriver != (prefs.getBool('register_is_driver') ?? false)) {
-          _currentStep = 0;
-        }
-      } else {
-        _isClient = prefs.getBool('register_is_client') ?? false;
-        _isDriver = prefs.getBool('register_is_driver') ?? false;
-      }
-
-      _selectedVehicleTypeId = prefs.getInt('register_vehicle_type_id');
+      _subRole = prefs.getString('register_sub_role');
+      _birthDateController.text = prefs.getString('register_birth_date') ?? '';
 
       final profString = prefs.getString('register_profession');
       if (profString != null) {
@@ -163,10 +232,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       _nameController.text = prefs.getString('register_name') ?? '';
       _emailController.text = prefs.getString('register_email') ?? '';
-      _passwordController.text = prefs.getString('register_password') ?? '';
       _docController.text = prefs.getString('register_doc') ?? '';
       _phoneController.text = prefs.getString('register_phone') ?? '';
-
       _businessNameController.text =
           prefs.getString('register_business_name') ?? '';
       _addressController.text = prefs.getString('register_address') ?? '';
@@ -184,7 +251,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final List<dynamic> decoded = jsonDecode(servicesString);
         _customServices = decoded.cast<Map<String, dynamic>>();
       }
+
+      final verificationString = prefs.getString('register_verification_data');
+      if (verificationString != null && verificationString.trim().isNotEmpty) {
+        _verificationData = Map<String, dynamic>.from(
+          jsonDecode(verificationString),
+        );
+      }
+
+      _medicalPrice = prefs.getDouble('register_medical_price');
+      _medicalHasReturn = prefs.getBool('register_medical_return');
     });
+
+    final savedPassword = await _secureStorage.read(key: 'register_password');
+    if (savedPassword != null && mounted) {
+      _passwordController.text = savedPassword;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_pageController.hasClients) {
@@ -195,204 +277,207 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _clearState() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('register_step');
-    await prefs.remove('register_is_client');
-    await prefs.remove('register_profession');
-    await prefs.remove('register_name');
-    await prefs.remove('register_email');
-    await prefs.remove('register_password');
-    await prefs.remove('register_doc');
-    await prefs.remove('register_phone');
-    await prefs.remove('register_business_name');
-    await prefs.remove('register_address');
-    await prefs.remove('register_lat');
-    await prefs.remove('register_lng');
-    await prefs.remove('register_schedule');
-    await prefs.remove('register_services');
-    await prefs.remove('register_medical_price');
-    await prefs.remove('register_medical_return');
+    final keys = [
+      'register_step',
+      'register_is_client',
+      'register_profession',
+      'register_name',
+      'register_email',
+      'register_doc',
+      'register_phone',
+      'register_business_name',
+      'register_address',
+      'register_lat',
+      'register_lng',
+      'register_schedule',
+      'register_services',
+      'register_medical_price',
+      'register_medical_return',
+      'register_sub_role',
+      'register_birth_date',
+      'register_verification_data',
+    ];
+    for (var key in keys) {
+      await prefs.remove(key);
+    }
+    await _secureStorage.delete(key: 'register_password');
   }
 
   List<Widget> get _steps {
     final steps = <Widget>[];
 
-    if (!_isClient && !_isDriver) {
+    if (!_isClient) {
+      steps.add(
+        FacialLivenessStep(
+          verificationData: _verificationData,
+          onSubmit: _submit,
+          onChanged: (data) {
+            setState(() => _verificationData = data);
+            _saveState();
+          },
+        ),
+      );
+
       steps.add(
         ProfessionStep(
           selectedProfession: _selectedProfession,
           onSelect: (prof) {
             setState(() {
-              _selectedProfession = prof;
-              _isClient = false;
+              _selectedProfession = {
+                ...prof,
+                'id': prof['id']?.toString(),
+                'name': prof['name']?.toString() ?? '',
+                'service_type': prof['service_type']?.toString() ?? 'standard',
+              };
             });
+            _saveState();
+            _nextPage();
           },
         ),
       );
     }
 
-    bool isSalonFlow = false;
-    if (_selectedProfession != null) {
-      final profName =
-          _selectedProfession?['name'].toString().toLowerCase() ?? '';
-      final profType =
-          _selectedProfession?['service_type']?.toString().toLowerCase() ?? '';
+    // INFORMAÇÕES BÁSICAS (Comum a todos)
+    steps.add(
+      BasicInfoStep(
+        formKey: _basicInfoFormKey,
+        nameController: _nameController,
+        emailController: _emailController,
+        passwordController: _passwordController,
+        confirmPasswordController: _confirmPasswordController,
+        docController: _docController,
+        phoneController: _phoneController,
+        botBirthDateController: _botBirthDateController,
+        botMotherNameController: _botMotherNameController,
+        birthDateController: _birthDateController,
+        role: _isClient ? 'client' : 'provider',
+        subRole: _subRole,
+        onSubRoleChanged: (val) {
+          setState(() => _subRole = val);
+          _saveState();
+        },
+        onValidationChanged: (isValidating, errors) {
+          setState(() {
+            _isValidatingData = isValidating;
+            _fieldValidationErrors.addAll(errors);
+            _basicInfoStepValid = errors['__basic_info_step_valid'] == 'true';
+          });
+        },
+      ),
+    );
 
-      isSalonFlow =
-          profName.contains('barbeiro') ||
-          profName.contains('barbearia') ||
-          profName.contains('cabeleireiro') ||
-          profName.contains('manicure') ||
-          profName.contains('esteticista') ||
-          profType == 'salon' ||
-          profType == 'beauty';
-    }
-
-    if (isSalonFlow && !_isClient) {
-      steps.add(
-        ScheduleStep(
-          schedule: _schedule,
-          onChanged: (schedule) {
-            setState(() => _schedule = schedule);
-            _saveState();
-          },
-        ),
-      );
-
-      steps.add(
-        LocationStep(
-          formKey: _locationFormKey,
-          addressController: _addressController,
-          initialLat: _latitude,
-          initialLng: _longitude,
-          onLocationChanged: (lat, lng) {
-            setState(() {
-              _latitude = lat;
-              _longitude = lng;
-            });
-            _saveState();
-          },
-        ),
-      );
-
-      steps.add(
-        SelectServicesStep(
-          selectedServices: _customServices,
-          professionId: _selectedProfession!['id'],
-          professionName: _selectedProfession!['name'],
-          onChanged: (services) {
-            setState(() => _customServices = services);
-            _saveState();
-          },
-        ),
-      );
-
-      steps.add(
-        IdentificationStep(
-          formKey: _identificationFormKey,
-          businessNameController: _businessNameController,
-          nameController: _nameController,
-          docController: _docController,
-          phoneController: _phoneController,
-          emailController: _emailController,
-          passwordController: _passwordController,
-          onValidationChanged: (isValidating, errors) {
-            setState(() {
-              _isValidatingData = isValidating;
-              _fieldValidationErrors.addAll(errors);
-            });
-          },
-        ),
-      );
-    } else {
-      if (_isDriver) {
-        steps.add(
-          VehicleSelectionStep(
-            selectedVehicleTypeId: _selectedVehicleTypeId,
-            onSelect: (id) {
-              setState(() => _selectedVehicleTypeId = id);
-              _saveState();
-            },
-          ),
-        );
-
-        steps.add(
-          VehicleDetailsStep(
-            isMoto: _selectedVehicleTypeId == 3,
-            vehicleDetails: _vehicleDetails,
-            onChanged: (details) {
-              setState(() => _vehicleDetails = details);
-              _saveState();
-            },
-          ),
-        );
+    // Passos adicionais apenas para PRESTADOR
+    if (!_isClient) {
+      bool isSalonFlow = false;
+      if (_selectedProfession != null) {
+        final profType =
+            _selectedProfession?['service_type']?.toString().toLowerCase() ??
+            '';
+        isSalonFlow =
+            profType == 'salon' ||
+            profType == 'beauty' ||
+            isCanonicalFixedServiceRecord(_selectedProfession!);
       }
 
-      steps.add(
-        BasicInfoStep(
-          formKey: _basicInfoFormKey,
-          nameController: _nameController,
-          emailController: _emailController,
-          passwordController: _passwordController,
-          docController: _docController,
-          phoneController: _phoneController,
-          role: _isDriver ? 'driver' : (_isClient ? 'client' : 'provider'),
-          onRoleToggle: () {},
-          onValidationChanged: (isValidating, errors) {
-            setState(() {
-              _isValidatingData = isValidating;
-              _fieldValidationErrors.addAll(errors);
-            });
-          },
-        ),
-      );
+      if (isSalonFlow) {
+        steps.add(
+          ScheduleStep(
+            schedule: _schedule,
+            onChanged: (s) {
+              setState(() => _schedule = s);
+              _saveState();
+            },
+          ),
+        );
+        steps.add(
+          LocationStep(
+            formKey: _locationFormKey,
+            addressController: _addressController,
+            isMobileProvider: _effectiveProviderSubRole() == 'mobile',
+            initialLat: _latitude,
+            initialLng: _longitude,
+            onLocationChanged: (lat, lng) {
+              setState(() {
+                _latitude = lat;
+                _longitude = lng;
+              });
+              _saveState();
+            },
+          ),
+        );
+        steps.add(
+          SelectServicesStep(
+            selectedServices: _customServices,
+            professionId: _selectedProfession!['id'],
+            professionName: _selectedProfession!['name'],
+            onChanged: (s) {
+              setState(() => _customServices = s);
+              _saveState();
+            },
+          ),
+        );
+        steps.add(
+          IdentificationStep(
+            formKey: _identificationFormKey,
+            businessNameController: _businessNameController,
+            nameController: _nameController,
+            docController: _docController,
+            phoneController: _phoneController,
+            emailController: _emailController,
+            passwordController: _passwordController,
+            confirmPasswordController: _confirmPasswordController,
+            onValidationChanged: (isValidating, errors) {
+              setState(() {
+                _isValidatingData = isValidating;
+                _fieldValidationErrors.addAll(errors);
+              });
+            },
+          ),
+        );
+      } else if (_selectedProfession != null) {
+        steps.add(
+          LocationStep(
+            formKey: _locationFormKey,
+            addressController: _addressController,
+            isMobileProvider: _effectiveProviderSubRole() == 'mobile',
+            initialLat: _latitude,
+            initialLng: _longitude,
+            onLocationChanged: (lat, lng) {
+              setState(() {
+                _latitude = lat;
+                _longitude = lng;
+              });
+              _saveState();
+            },
+          ),
+        );
 
-      if (!_isClient && !_isDriver && _selectedProfession != null) {
         final type = _selectedProfession!['service_type'] ?? 'standard';
-
-        if (type == 'salon' || type == 'standard' || type == 'construction') {
-          steps.add(
-            SelectServicesStep(
-              selectedServices: _customServices,
-              professionId: _selectedProfession!['id'],
-              professionName: _selectedProfession!['name'],
-              onChanged: (services) {
-                setState(() => _customServices = services);
-                _saveState();
-              },
-            ),
-          );
-        }
-
         if (type == 'medical') {
-          final profName =
-              _selectedProfession?['name'].toString().toLowerCase() ?? '';
-          final isDoctor =
-              !profName.contains('psicólogo') &&
-              !profName.contains('psicologo') &&
-              !profName.contains('terapeuta');
-
           steps.add(
             MedicalServiceStep(
-              isDoctor: isDoctor,
+              isDoctor: !(_selectedProfession?['name'] ?? '')
+                  .toString()
+                  .toLowerCase()
+                  .contains('psicolo'),
               initialPrice: _medicalPrice,
               initialHasReturn: _medicalHasReturn,
-              onChanged: (price, hasReturn) {
+              onChanged: (p, r) {
                 setState(() {
-                  _medicalPrice = price;
-                  _medicalHasReturn = hasReturn;
+                  _medicalPrice = p;
+                  _medicalHasReturn = r;
                 });
                 _saveState();
               },
             ),
           );
         }
-
         if (type == 'salon' || type == 'medical' || type == 'standard') {
           steps.add(
             ScheduleStep(
               schedule: _schedule,
-              onChanged: (schedule) {
-                setState(() => _schedule = schedule);
+              onChanged: (s) {
+                setState(() => _schedule = s);
                 _saveState();
               },
             ),
@@ -405,180 +490,117 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _nextPage() {
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    final total = _steps.length;
+    if (_currentStep >= total - 1) return;
     setState(() => _currentStep++);
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        _currentStep,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
     _saveState();
   }
 
   void _prevPage() {
-    _pageController.previousPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (_currentStep <= 0) return;
     setState(() => _currentStep--);
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        _currentStep,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
     _saveState();
   }
 
+  String? _birthDateIso() {
+    final raw = _birthDateController.text.trim();
+    if (raw.isEmpty) return null;
+    final parts = raw.split('/');
+    if (parts.length == 3)
+      return '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
+    return null;
+  }
+
   Future<void> _submit() async {
-    if (_passwordController.text.length < 6) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('A senha deve ter pelo menos 6 caracteres.'),
-          ),
-        );
-      }
+    if (_botBirthDateController.text.trim().isNotEmpty ||
+        _botMotherNameController.text.trim().isNotEmpty)
       return;
-    }
+    if (_confirmPasswordController.text != _passwordController.text) return;
+    if (!_isClient && _verificationData['liveness_validated'] != true) return;
 
     setState(() => _isLoading = true);
     try {
       final api = ApiService();
-
-      String role = 'client';
-      if (_isDriver) {
-        role = 'driver';
-      } else if (!_isClient) {
-        role = 'provider';
-      }
-
-      final professionName = (_isClient || _isDriver)
-          ? null
-          : _selectedProfession?['name'];
+      String role = _isClient ? 'client' : 'provider';
+      final professionName = _isClient ? null : _selectedProfession?['name'];
       final docClean = _docController.text.replaceAll(RegExp(r'\D'), '');
 
-      final authResponse = await Supabase.instance.client.auth.signUp(
+      await SupabaseAuthRepository().signUpOrSignIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        data: {'full_name': _nameController.text.trim(), 'role': role},
+        fullName: _nameController.text.trim(),
+        role: role,
       );
-
-      final session = authResponse.session;
-      if (session == null && authResponse.user != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Por favor, confirme seu email para continuar.'),
-            ),
-          );
-        }
-        return;
-      }
-
-      if (session == null) throw Exception('Falha ao obter token do Supabase');
+      if (!mounted) return;
 
       await api.register(
-        token: session.accessToken,
+        token: '',
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
         role: role,
+        subRole: _effectiveProviderSubRole(),
         documentValue: docClean,
         documentType: docClean.length > 11 ? 'cnpj' : 'cpf',
+        birthDate: _birthDateIso(),
         professions: professionName != null ? [professionName] : null,
         commercialName: _businessNameController.text.isNotEmpty
             ? _businessNameController.text
             : null,
-        address: _addressController.text.isNotEmpty
-            ? _addressController.text
-            : null,
-        latitude: _latitude,
-        longitude: _longitude,
-        vehicleTypeId: _selectedVehicleTypeId,
-        vehicleBrand: _vehicleDetails['brand'],
-        vehicleModel: _vehicleDetails['model'],
-        vehicleYear: _vehicleDetails['year'],
-        vehicleColor: _vehicleDetails['color'],
-        vehicleColorHex: _vehicleDetails['color_hex'],
-        vehiclePlate: _vehicleDetails['plate'],
-        pixKey: _vehicleDetails['pix_key'],
+        address: _addressController.text.trim().isNotEmpty
+            ? _addressController.text.trim()
+            : (role == 'provider' ? 'Imperatriz - MA' : null),
+        latitude: _latitude ?? (role == 'provider' ? -5.5265 : null),
+        longitude: _longitude ?? (role == 'provider' ? -47.4761 : null),
+        metadata: _verificationData,
       );
+      if (!mounted) return;
 
       if (!_isClient) {
-        final List<Future> setupActions = [];
-
-        final type = _selectedProfession?['service_type'];
-        if (type == 'medical' && _customServices.isEmpty) {
-          final profName =
-              _selectedProfession?['name'].toString().toLowerCase() ?? '';
-          final isPsychologist =
-              profName.contains('psicólogo') ||
-              profName.contains('psicologo') ||
-              profName.contains('terapeuta');
-          final duration = isPsychologist ? 45 : 30;
-
-          _customServices.add({
-            'name': 'Consulta',
-            'description': 'Consulta com especialista',
-            'price': _medicalPrice ?? 0.0,
-            'duration': duration,
-            'has_return': _medicalHasReturn ?? false,
-          });
-        }
-
-        if (_schedule.isNotEmpty) {
-          setupActions.add(api.saveProviderSchedule(_schedule.values.toList()));
-        }
-
+        if (_schedule.isNotEmpty)
+          await api.saveProviderSchedule(_schedule.values.toList());
+        if (!mounted) return;
         if (_customServices.isNotEmpty) {
-          for (final service in _customServices) {
-            setupActions.add(api.saveProviderService(service));
-          }
-        }
-
-        if (setupActions.isNotEmpty) {
-          await Future.wait(setupActions).catchError((e) {
-            debugPrint('Non-critical setup error: $e');
-            return [];
-          });
+          for (final s in _customServices) await api.saveProviderService(s);
+          if (!mounted) return;
         }
       }
 
-      if (mounted) {
-        await _clearState();
-        _redirectUserBasedOnRole();
-      }
+      if (!mounted) return;
+      await _clearState();
+      if (!mounted) return;
+      await _redirectUserBasedOnRole();
     } catch (e) {
-      if (mounted) {
-        final errorMsg = e.toString();
-        if (errorMsg.contains('already exists') ||
-            errorMsg.contains('já existe')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Este email ou documento já está cadastrado.'),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Erro: $errorMsg')));
-        }
+      if (mounted && context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('Erro ao concluir cadastro.')),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _redirectUserBasedOnRole() {
+  Future<void> _redirectUserBasedOnRole() async {
     if (!mounted) return;
-
     final api = ApiService();
-    final role = api.role;
-    debugPrint('🚀 [Register] Redirecionando usuário com role: $role');
-
-    if (role == 'driver') {
+    if (api.role == 'provider') {
       ThemeService().setProviderMode(true);
-      context.go('/uber-driver');
-    } else if (role == 'provider') {
-      ThemeService().setProviderMode(true);
-      if (api.isMedical) {
-        context.go('/medical-home');
-      } else {
-        context.go('/provider-home');
-      }
+      context.go(api.isMedical ? '/medical-home' : '/provider-home');
     } else {
       ThemeService().setProviderMode(false);
       context.go('/home');
@@ -588,21 +610,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final steps = _steps;
-
-    if (_currentStep >= steps.length) {
-      _currentStep = steps.length - 1;
-    }
+    if (_currentStep >= steps.length) _currentStep = steps.length - 1;
 
     final isLastStep = _currentStep == steps.length - 1;
+    final isProfessionStep = steps[_currentStep] is ProfessionStep;
     final progress = (_currentStep + 1) / steps.length;
 
     return PopScope(
       canPop: _currentStep == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_currentStep > 0) {
-          _prevPage();
-        }
+        if (_currentStep > 0) _prevPage();
       },
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -618,22 +636,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               fontSize: 18,
             ),
           ),
-          iconTheme: IconThemeData(color: AppTheme.textDark),
           leading: IconButton(
             icon: const Icon(LucideIcons.arrowLeft, size: 20),
-            onPressed: () {
-              if (_currentStep > 0) {
-                _prevPage();
-              } else {
-                Navigator.of(context).pop();
-              }
-            },
+            onPressed: () =>
+                _currentStep > 0 ? _prevPage() : Navigator.of(context).pop(),
           ),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(4),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.black.withValues(alpha: 0.05),
+              backgroundColor: Colors.black.withOpacity(0.05),
               valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textDark),
             ),
           ),
@@ -648,146 +660,67 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: steps,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed:
-                            (_isLoading ||
-                                _isValidatingData ||
-                                _fieldValidationErrors.values.any(
-                                  (e) => e != null,
-                                ))
-                            ? null
-                            : () {
-                                if (steps[_currentStep] is BasicInfoStep) {
-                                  if (_basicInfoFormKey.currentState != null &&
-                                      !_basicInfoFormKey.currentState!
-                                          .validate()) {
-                                    return;
-                                  }
-                                }
-                                if (steps[_currentStep] is LocationStep) {
-                                  if (_locationFormKey.currentState != null &&
-                                      !_locationFormKey.currentState!
-                                          .validate()) {
-                                    return;
-                                  }
-                                }
-                                if (steps[_currentStep] is IdentificationStep) {
-                                  if (_identificationFormKey.currentState !=
-                                          null &&
-                                      !_identificationFormKey.currentState!
-                                          .validate()) {
-                                    return;
-                                  }
-                                }
-
-                                if (steps[_currentStep] is ProfessionStep &&
-                                    _selectedProfession == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Selecione sua profissão.'),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                if (steps[_currentStep]
-                                        is VehicleSelectionStep &&
-                                    _selectedVehicleTypeId == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Selecione o tipo de veículo.',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                if (steps[_currentStep] is VehicleDetailsStep) {
-                                  final brand = _vehicleDetails['brand'];
-                                  final model = _vehicleDetails['model'];
-                                  final color = _vehicleDetails['color'];
-                                  final plate = _vehicleDetails['plate'];
-                                  if (brand == null ||
-                                      model == null ||
-                                      color == null ||
-                                      plate == null ||
-                                      plate.isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Preencha os dados do veículo.',
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                }
-
-                                if (steps[_currentStep] is SelectServicesStep &&
-                                    _customServices.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Selecione pelo menos um serviço.',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                if (isLastStep) {
-                                  _submit();
-                                } else {
-                                  _nextPage();
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryYellow,
-                          foregroundColor: AppTheme.textDark,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isLoading || _isValidatingData
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                isLastStep ? 'CONCLUIR CADASTRO' : 'PRÓXIMO',
-                                style: GoogleFonts.manrope(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                ),
-                              ),
+              if (!isProfessionStep &&
+                  steps[_currentStep] is! FacialLivenessStep)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
                       ),
+                    ],
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: (_isLoading || _isValidatingData)
+                          ? null
+                          : () {
+                              final s = steps[_currentStep];
+                              if (s is BasicInfoStep) {
+                                if (!(_basicInfoFormKey.currentState
+                                        ?.validate() ??
+                                    false))
+                                  return;
+                                if (!_basicInfoStepValid) return;
+                              }
+                              if (isLastStep)
+                                _submit();
+                              else
+                                _nextPage();
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.textDark,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              isLastStep ? 'CONCLUIR CADASTRO' : 'PRÓXIMO',
+                              style: GoogleFonts.manrope(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),

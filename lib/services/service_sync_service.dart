@@ -25,17 +25,27 @@ class ServiceSyncService {
       return _watches[serviceId]!.controller.stream;
     }
 
-    // Criar novo watch
-    final controller = StreamController<Map<String, dynamic>>.broadcast();
-    final watch = _ServiceWatch(serviceId: serviceId, controller: controller);
+    // Criar novo watch (auto-cleanup quando não houver listeners)
+    late final _ServiceWatch watch;
+    final controller = StreamController<Map<String, dynamic>>.broadcast(
+      onListen: () {
+        // Iniciar Firebase listener
+        _startFirebaseListener(serviceId, watch);
+        // Iniciar polling fallback
+        _startPollingFallback(serviceId, watch);
+      },
+      onCancel: () {
+        // Se não houver mais listeners, parar polling/listeners e remover do cache
+        // (evita chamadas infinitas ao /rest/v1/service_requests)
+        if (!watch.controller.hasListener) {
+          stopWatching(serviceId);
+        }
+      },
+    );
+
+    watch = _ServiceWatch(serviceId: serviceId, controller: controller);
 
     _watches[serviceId] = watch;
-
-    // Iniciar Firebase listener
-    _startFirebaseListener(serviceId, watch);
-
-    // Iniciar polling fallback
-    _startPollingFallback(serviceId, watch);
 
     return controller.stream;
   }
@@ -100,7 +110,7 @@ class ServiceSyncService {
       try {
         // Fase 6: Usar Supabase SDK em vez da REST API legada
         final response = await Supabase.instance.client
-            .from('service_requests_new')
+            .from('service_requests')
             .select()
             .eq('id', serviceId)
             .maybeSingle();
@@ -127,7 +137,7 @@ class ServiceSyncService {
     try {
       // Fase 6: Usar Supabase SDK em vez da REST API legada
       final response = await Supabase.instance.client
-          .from('service_requests_new')
+          .from('service_requests')
           .select()
           .eq('id', serviceId)
           .maybeSingle();

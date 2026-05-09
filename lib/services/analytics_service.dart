@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/config/supabase_config.dart';
 import 'api_service.dart';
 
 class AnalyticsService {
@@ -35,7 +35,7 @@ class AnalyticsService {
 
   /// Registra um evento genérico na fila interna (Fire and forget)
   void logEvent(String actionType, {Map<String, dynamic>? details}) {
-    int? userId;
+    String? userId;
     try {
       final apiId = ApiService().userId;
       userId = apiId;
@@ -59,7 +59,11 @@ class AnalyticsService {
 
   Future<void> _processQueue() async {
     if (_isProcessing || _queue.isEmpty) return;
-    _isProcessing = true;
+    if (!SupabaseConfig.isInitialized) {
+      debugPrint('⚠️ [AnalyticsService] Skip processQueue: Supabase not initialized');
+      _isProcessing = false;
+      return;
+    }
 
     try {
       final api = ApiService();
@@ -71,13 +75,8 @@ class AnalyticsService {
       final batch = List<Map<String, dynamic>>.from(_queue);
       _queue.clear();
 
-      // Usa o SDK do Supabase para evitar o erro 401 (Token gerenciado pelo SDK)
       try {
-        await Supabase.instance.client.functions.invoke(
-          'analytics',
-          body: batch,
-          method: HttpMethod.post,
-        );
+        await api.invokeEdgeFunction('analytics', {'events': batch});
       } catch (e) {
         debugPrint('⚠️ [AnalyticsService] SDK error: $e');
         // Devolve para a fila se falhou

@@ -1,43 +1,45 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:io' show Platform;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'features/agency/screens/agency_home_screen.dart';
 import 'features/agency/screens/agency_onboarding_screen.dart';
+
 import 'features/agency/screens/agency_public_profile_screen.dart';
 import 'features/agency/screens/create_campaign_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/auth/cupertino_login_screen.dart';
+import 'features/auth/cpf_completion_screen.dart';
 import 'features/client/client_settings_screen.dart';
 import 'features/client/confirmation_screen.dart';
 import 'features/client/my_services_screen.dart';
+import 'features/client/mobile_provider_search_page.dart';
 import 'features/client/payment_screen.dart';
-import 'features/client/service_request_screen.dart';
 import 'features/client/refund_request_screen.dart';
 import 'features/client/scheduled_service_screen.dart';
 import 'features/client/service_verification_screen.dart';
-import 'features/client/tracking_screen.dart';
+import 'features/client/service_tracking_page.dart';
 import 'features/activity/activity_screen.dart';
-import 'features/client/service_discovery_screen.dart';
 
 import 'features/common/review_screen.dart';
 import 'features/dev/face_validation_test_screen.dart';
-import 'features/dev/simulation_screen.dart';
+import 'features/dev/genkit_test_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/home/home_explore_screen.dart';
+import 'core/theme/app_theme.dart';
+import 'features/home/home_search_screen.dart';
+import 'features/payment/models/pix_payment_contract.dart';
+import 'features/payment/screens/pix_payment_screen.dart';
 import 'features/provider/edit_request_screen.dart';
 import 'features/provider/finish_service_screen.dart';
 import 'features/provider/medical_home_screen.dart';
 import 'features/provider/provider_home_screen.dart';
+import 'features/provider/provider_active_service_mobile_screen.dart';
 import 'features/profile/provider_profile_screen.dart';
 import 'features/provider/provider_schedule_settings_screen.dart';
 import 'features/provider/provider_profile_content.dart';
@@ -45,146 +47,91 @@ import 'features/shared/chat_list_screen.dart';
 import 'features/provider/service_details_screen_fixed.dart';
 import 'features/shared/chat_screen.dart';
 import 'features/shared/notification_screen.dart';
+import 'features/shared/help_screen.dart';
+import 'features/shared/security_screen.dart';
+import 'features/shared/general_settings_screen.dart';
 import 'features/shared/warranty_screen.dart';
-import 'features/uber/uber_request_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'features/uber/uber_tracking_screen.dart';
-import 'features/uber/driver_home_screen.dart';
-import 'features/uber/driver_trip_screen.dart';
-import 'features/uber/driver_earnings_screen.dart';
-import 'features/uber/driver_settings_screen.dart';
-import 'features/uber/user_history_screen.dart';
-import 'firebase_options.dart';
+// import 'features/transport_central/central_tracking_screen.dart'; // Removido pois foi migrado para TrackingPage
+// O tracking agora usa TrackingPage de features/tracking/tracking_page.dart
+// Limpeza Uber finalizada
+import 'features/auth/change_password_screen.dart';
+import 'features/payment/screens/card_registration_screen.dart';
+import 'features/payment/screens/payment_methods_screen.dart';
 import 'services/api_service.dart';
-import 'services/startup_service.dart';
 import 'services/theme_service.dart';
-import 'services/analytics_service.dart';
-import 'services/uber_service.dart';
-import 'services/remote_config_service.dart';
-import 'services/app_config_service.dart';
+import 'services/global_startup_manager.dart';
 import 'widgets/scaffold_with_nav_bar.dart';
+import 'core/navigation/app_navigation_policy.dart';
+import 'core/navigation/app_redirect_resolver.dart';
+import 'core/bootstrap/app_bootstrap_coordinator.dart';
+import 'core/bootstrap/app_environment.dart';
 import 'core/utils/logger.dart';
-import 'core/config/supabase_config.dart';
+import 'core/utils/fixed_schedule_gate.dart';
+import 'core/utils/mobile_client_navigation_gate.dart';
+import 'core/constants/trip_statuses.dart';
+import 'features/client/service_request_screen_mobile.dart';
+import 'features/client/home_prestador_fixo.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+const String _kLastClientActiveServiceId = 'last_client_active_service_id';
 
-void main() async {
-  debugPrint = customDebugPrint;
-  usePathUrlStrategy();
-  WidgetsFlutterBinding.ensureInitialized();
-  try {
-    // Inicializa variáveis de ambiente e Supabase primeiro
-    try {
-      await SupabaseConfig.initialize();
+bool isCanonicalFixedService(Map<String, dynamic> service) {
+  return isCanonicalFixedServiceRecord(service);
+}
 
-      // Inicializa o token do Mapbox para o SDK oficial
-      try {
-        final mapboxToken = SupabaseConfig.mapboxToken;
-        if (mapboxToken.isNotEmpty) {
-          mapbox.MapboxOptions.setAccessToken(mapboxToken);
-          debugPrint('✅ [Main] Mapbox Access Token initialized');
-        }
-      } catch (e) {
-        debugPrint('⚠️ [Main] Mapbox init error: $e');
-      }
+bool isFixedScheduledFlowReady(Map<String, dynamic> service) {
+  logFixedScheduleGateDecision('redirect', service);
+  return evaluateFixedScheduleGate(service).shouldStayOnScheduledScreen;
+}
 
-      await AppConfigService().preload();
-      debugPrint('✅ [Main] Supabase & AppConfig initialized');
-    } catch (e) {
-      debugPrint('⚠️ [Main] Supabase init failed (missing .env or keys): $e');
-    }
+bool shouldProviderStayOnHomeForService(Map<String, dynamic> service) {
+  final status = normalizeServiceStatus(service['status']?.toString());
+  return ServiceStatusSets.providerConcluding.contains(status);
+}
 
-    // Firebase é opcional em plataformas Desktop não configuradas
-    if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
-      try {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-        debugPrint('✅ [Main] Firebase initialized');
-      } catch (e) {
-        debugPrint('⚠️ [Main] Firebase init failed: $e');
-      }
-    } else {
-      debugPrint('ℹ️ [Main] Firebase skipped on this platform');
-    }
-
-    await AnalyticsService().initSession();
-    AnalyticsService().logEvent(
-      'APP_OPENED',
-      details: {'platform': kIsWeb ? 'web' : 'mobile'},
-    );
-
-    await initializeDateFormatting('pt_BR', null);
-
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      // Initialize Analytics to log app open and prevent "library missing" warning
-      try {
-        await FirebaseAnalytics.instance.logEvent(name: 'app_open');
-      } catch (e) {
-        // Ignore analytics errors in debug/dev
-        debugPrint('Firebase Analytics error: $e');
-      }
-    }
-
-    // Initialize background service
-    // if (!kIsWeb) {
-    //   await initializeBackgroundService();
-    // }
-
-    // Configurar Crashlytics
-    if (!kIsWeb) {
-      // Pass all uncaught "fatal" errors from the framework to Crashlytics
-      FlutterError.onError =
-          FirebaseCrashlytics.instance.recordFlutterFatalError;
-
-      // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-      PlatformDispatcher.instance.onError = (error, stack) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-        return true;
-      };
-    }
-  } catch (e) {
-    debugPrint('Initialization error: $e');
+String _providerRouteForService(Map<String, dynamic> service) {
+  final id = service['id']?.toString() ?? '';
+  if (id.isEmpty) return '/provider-home';
+  if (shouldProviderStayOnHomeForService(service)) {
+    return '/provider-home';
   }
+  final isFixed = isCanonicalFixedService(service);
+  return isFixed ? '/provider-home' : '/provider-active/$id';
+}
 
-  // Debug: Show errors on screen
-  ErrorWidget.builder = (FlutterErrorDetails details) {
-    return MaterialApp(
-      home: Scaffold(
-        backgroundColor: Colors.red.shade100,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 48),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Erro na Aplicação',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red.shade900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    details.exceptionAsString(),
-                    style: const TextStyle(color: Colors.black87),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  };
+AppNavigationPolicy _buildNavigationPolicy(ApiService api) {
+  return AppNavigationPolicy(
+    api: api,
+    isFixedService: isCanonicalFixedService,
+    isFixedScheduledFlowReady: isFixedScheduledFlowReady,
+    providerRouteForService: _providerRouteForService,
+    resolveClientActiveServiceRoute: resolveClientActiveServiceRoute,
+  );
+}
 
+void main() {
+  runZonedGuarded(
+    () async {
+      await _mainImpl();
+    },
+    (error, stack) {
+      if (AppLogger.shouldEmitRaw(error.toString(), category: 'ZONE_ERROR')) {
+        debugPrint('❌ [ZONE] $error');
+        debugPrint('🧵 [ZONE_STACK] $stack');
+      }
+    },
+    zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, line) {
+        if (AppLogger.shouldEmitRaw(line, category: 'PRINT')) {
+          parent.print(zone, line);
+        }
+      },
+    ),
+  );
+}
+
+Future<void> _mainImpl() async {
+  await AppEnvironment.prepareRuntime();
   runApp(const ProviderScope(child: AppBootstrapper()));
 }
 
@@ -196,6 +143,8 @@ class AppBootstrapper extends StatefulWidget {
 }
 
 class _AppBootstrapperState extends State<AppBootstrapper> {
+  final AppBootstrapCoordinator _bootstrapCoordinator =
+      AppBootstrapCoordinator();
   bool _initialized = false;
   String? _error;
   String _initialLocation = '/login';
@@ -207,141 +156,28 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
   }
 
   Future<void> _init() async {
-    String step = 'start';
-    try {
-      step = 'ApiService()';
-      final api = ApiService();
+    final api = ApiService();
+    final result = await _bootstrapCoordinator.initialize(
+      api: api,
+      navigatorKey: navigatorKey,
+      navigationPolicyBuilder: _buildNavigationPolicy,
+    );
 
-      step = 'api.loadToken()';
-      await api.loadToken();
+    if (!mounted) return;
 
-      step = 'StartupService.initializeCritical()';
-      await StartupService().initializeCritical(navigatorKey);
-
-      step = 'ThemeService.loadTheme()';
-      try {
-        debugPrint('🎨 [Main] Initializing Remote Theme via ThemeService...');
-        await ThemeService().loadTheme();
-        debugPrint('✅ [Main] Remote Theme synced successfully');
-      } catch (e) {
-        debugPrint('⚠️ [Main] Error loading remote theme: $e');
-      }
-
-      step = 'RemoteConfigService.init()';
-      try {
-        await RemoteConfigService.init();
-      } catch (e) {
-        debugPrint('⚠️ [Main] Error loading remote config: $e');
-      }
-
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      step = 'Supabase.auth.currentUser';
-      var currentUser = Supabase.instance.client.auth.currentUser;
-      final prefs = await SharedPreferences.getInstance();
-      var role = prefs.getString('user_role');
-
-      if (currentUser == null && role != null) {
-        debugPrint(
-          '⏳ [Main] Usuário logado mas sessão ainda não restaurada. Aguardando...',
-        );
-        await Future.delayed(const Duration(milliseconds: 800));
-        currentUser = Supabase.instance.client.auth.currentUser;
-        if (currentUser == null) {
-          await api.loadToken();
-        }
-      }
-
-      step = 'setState(_initialized)';
-      if (mounted) {
-        // 1. Definir rota inicial baseada no role
-        if (currentUser == null || role == null) {
-          _initialLocation = '/login';
-        } else if (role == 'driver') {
-          ThemeService().setProviderMode(true);
-          _initialLocation = '/uber-driver';
-        } else if (role == 'provider') {
-          ThemeService().setProviderMode(true);
-          _initialLocation = api.isMedical ? '/medical-home' : '/provider-home';
-        } else {
-          ThemeService().setProviderMode(false);
-          _initialLocation = '/home';
-        }
-
-        // 2. Garantir que api.userId está populado antes de verificar viagem ativa
-        if (currentUser != null && role != null && role != 'provider') {
-          if (api.userId == null) {
-            try {
-              step = 'loginWithFirebase (sync userId)';
-              final token =
-                  Supabase.instance.client.auth.currentSession?.accessToken;
-              if (token != null) await api.loginWithFirebase(token);
-            } catch (e) {
-              debugPrint('⚠️ [Main] Erro ao popular userId: $e');
-            }
-          }
-
-          // 3. Verificar viagem ativa
-          if (api.userId != null) {
-            step = 'UberService.getActiveTrip';
-            try {
-              if (role == 'driver') {
-                final activeDriverTrip = await UberService()
-                    .getActiveTripForDriver(api.userId!);
-                if (activeDriverTrip != null) {
-                  debugPrint(
-                    '✅ [Main] Viagem ativa motorista: ${activeDriverTrip['id']}',
-                  );
-                  _initialLocation =
-                      '/uber-driver-trip/${activeDriverTrip['id']}';
-                }
-              } else {
-                final activeClientTrip = await UberService()
-                    .getActiveTripForClient(api.userId!);
-                if (activeClientTrip != null) {
-                  debugPrint(
-                    '✅ [Main] Viagem ativa cliente: ${activeClientTrip['id']}',
-                  );
-                  _initialLocation = '/uber-tracking/${activeClientTrip['id']}';
-                } else {
-                  debugPrint(
-                    'ℹ️ [Main] Nenhuma viagem ativa para userId=${api.userId}',
-                  );
-                }
-              }
-            } catch (e) {
-              debugPrint('⚠️ [Main] Erro ao buscar viagem ativa no boot: $e');
-            }
-          } else {
-            debugPrint(
-              '⚠️ [Main] api.userId ainda null. Verificação de viagem ignorada.',
-            );
-          }
-        }
-
-        if (mounted) {
-          setState(() {
-            _initialized = true;
-          });
-        }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          step = 'postFrameInitialization';
-          await StartupService().postFrameInitialization();
-
-          step = 'initializeBackground';
-          await StartupService().initializeBackground();
-        });
-      }
-    } catch (e, stack) {
-      final msg = '❌ STEP: $step\n\n$e\n\n--- Stack Trace ---\n$stack';
-      debugPrint('Erro fatal ao inicializar app: $msg');
-      if (mounted) {
-        setState(() {
-          _error = msg;
-        });
-      }
+    if (!result.isSuccess) {
+      setState(() {
+        _error = result.error;
+      });
+      return;
     }
+
+    setState(() {
+      _initialLocation = result.initialLocation;
+      _initialized = true;
+    });
+
+    _bootstrapCoordinator.schedulePostFrameBootstrap();
   }
 
   @override
@@ -401,9 +237,7 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFFDE500,
-      ), // Mesma cor de fundo do logo.png
+      backgroundColor: AppTheme.primaryYellow,
       body: Stack(
         children: [
           Center(
@@ -451,7 +285,7 @@ class SplashScreen extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2,
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: Colors.black.withOpacity(0.5),
                 ),
               ),
             ),
@@ -507,68 +341,83 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
   initialLocation: initialLocation,
   redirect: (context, state) async {
     final api = ApiService();
-    final logged = api.isLoggedIn;
-    final loggingIn = state.matchedLocation == '/login';
-    final registering = state.matchedLocation == '/register';
-    final simulating = state.matchedLocation == '/simulation';
-    final faceTesting = state.matchedLocation == '/face-validation-test';
+    final prefs = await SharedPreferences.getInstance();
+    Future<Map<String, dynamic>?>? activeServiceFuture;
 
-    if (!logged && !loggingIn && !registering && !simulating && !faceTesting) {
-      return '/login';
+    Future<Map<String, dynamic>?> resolveActiveService() {
+      final isStartupFastPath =
+          GlobalStartupManager.instance.isStartingUp.value &&
+          (state.matchedLocation == initialLocation ||
+              state.matchedLocation == '/' ||
+              state.matchedLocation == '/home' ||
+              state.matchedLocation == '/provider-home');
+      if (isStartupFastPath) {
+        return Future<Map<String, dynamic>?>.value(
+          api.tracking.activeServiceSnapshot,
+        );
+      }
+      return activeServiceFuture ??= api.tracking.getActiveServiceSnapshot();
     }
 
-    if (logged && loggingIn) {
-      if (api.role == 'driver') {
-        ThemeService().setProviderMode(true);
-        return '/uber-driver';
+    Future<String?> resolveProviderActiveRoute() async {
+      if (api.role != 'provider' || api.isMedical) {
+        return null;
       }
-      if (api.role == 'provider') {
-        ThemeService().setProviderMode(true);
-        return api.isMedical ? '/medical-home' : '/provider-home';
-      }
-      ThemeService().setProviderMode(false);
-      return '/home';
-    }
-
-    // Verificação de viagem ativa ao entrar na Home ou Driver Home
-    if (logged &&
-        (state.matchedLocation == '/home' ||
-            state.matchedLocation == '/uber-driver' ||
-            state.matchedLocation == '/')) {
       try {
-        if (api.role == 'driver') {
-          final activeTrip = await UberService().getActiveTripForDriver(
-            api.userId!,
-          );
-          if (activeTrip != null) {
-            return '/uber-driver-trip/${activeTrip['id']}';
+        final activeService = await resolveActiveService();
+        if (activeService != null) {
+          final serviceId = activeService['id']?.toString();
+          if (serviceId != null && serviceId.isNotEmpty) {
+            await prefs.setString(_kLastClientActiveServiceId, serviceId);
           }
-        } else if (api.role == 'client') {
-          final activeTrip = await UberService().getActiveTripForClient(
-            api.userId!,
-          );
-          if (activeTrip != null) return '/uber-tracking/${activeTrip['id']}';
+          return _providerRouteForService(activeService);
         }
       } catch (e) {
-        debugPrint('⚠️ [Redirect] Erro ao buscar viagem ativa: $e');
+        debugPrint(
+          '⚠️ [Redirect] Falha ao resolver serviço ativo do prestador: $e',
+        );
       }
+      return null;
     }
 
-    // Motorista logado acessando rota errada → redirecionar para /uber-driver
-    if (logged && api.role == 'driver' && state.matchedLocation == '/home') {
-      ThemeService().setProviderMode(true);
-      return '/uber-driver';
+    final resolver = AppRedirectResolver(
+      policy: _buildNavigationPolicy(api),
+      snapshot: AppRedirectSnapshot(matchedLocation: state.matchedLocation),
+      findActiveService: resolveActiveService,
+      resolveProviderActiveRoute: resolveProviderActiveRoute,
+    );
+    final resolved = await resolver.resolve();
+    if (resolved != null) {
+      return resolved;
     }
 
-    // Se estiver na raiz (/), redireciona para home ou login
-    if (state.matchedLocation == '/') {
-      return logged ? '/home' : '/login';
+    if (api.isLoggedIn && api.role == 'client') {
+      final activeService = await resolveActiveService();
+      final serviceId = activeService?['id']?.toString();
+      if (serviceId != null && serviceId.isNotEmpty) {
+        await prefs.setString(_kLastClientActiveServiceId, serviceId);
+      } else {
+        await prefs.remove(_kLastClientActiveServiceId);
+      }
+
+      final canUseCachedRoute =
+          state.matchedLocation == '/' || state.matchedLocation == '/home';
+      if (canUseCachedRoute) {
+        final cachedServiceId = prefs.getString(_kLastClientActiveServiceId);
+        if (cachedServiceId != null && cachedServiceId.isNotEmpty) {
+          return '/service-tracking/$cachedServiceId';
+        }
+      }
     }
 
     return null;
   },
   routes: [
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: '/cpf-completion',
+      builder: (context, state) => const CpfCompletionScreen(),
+    ),
     GoRoute(
       path: '/register',
       builder: (context, state) {
@@ -585,53 +434,78 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
         GoRoute(
-          path: '/servicos',
-          builder: (context, state) => const ServiceDiscoveryScreen(),
-        ),
-        GoRoute(
-          path: '/uber-request',
-          builder: (context, state) => const UberRequestScreen(),
-        ),
-        GoRoute(
-          path: '/uber-tracking/:tripId',
-          builder: (context, state) =>
-              UberTrackingScreen(tripId: state.pathParameters['tripId'] ?? ''),
-        ),
-        GoRoute(
-          path: '/uber-history',
-          builder: (context, state) => const UserHistoryScreen(),
-        ),
-        GoRoute(
-          path: '/uber-driver',
+          path: '/home-search',
           builder: (context, state) {
-            final extra = state.extra as Map<String, dynamic>?;
-            final initialTripOffer = extra?['initialTripOffer'];
-            final initialTripOfferMap = initialTripOffer is Map
-                ? Map<String, dynamic>.from(initialTripOffer)
-                : null;
-            return DriverHomeScreen(
-              cancellationMessage: extra?['cancellationMessage'],
-              cancellationFee: (extra?['cancellationFee'] as num?)?.toDouble(),
-              initialTripOffer: initialTripOfferMap,
+            final extra = state.extra;
+            final data = extra is Map<String, dynamic>
+                ? extra
+                : <String, dynamic>{};
+            return HomeSearchScreen(
+              initialQuery: (data['query'] ?? '').toString(),
+              initialProfessionName: data['profession_name']?.toString(),
             );
           },
         ),
         GoRoute(
-          path: '/uber-driver-trip/:tripId',
+          path: '/home-explore',
+          builder: (context, state) => const HomeExploreScreen(),
+        ),
+        GoRoute(
+          path: '/servicos',
+          builder: (context, state) => ServiceRequestScreenMobile(
+            onSwitchToFixed: (data) {
+              context.push('/beauty-booking', extra: data);
+            },
+            initialData: state.extra is Map<String, dynamic>
+                ? state.extra as Map<String, dynamic>
+                : null,
+          ),
+        ),
+        GoRoute(
+          path: '/beauty-booking',
+          builder: (context, state) => ServiceRequestScreenFixed(
+            initialData: state.extra is Map<String, dynamic>
+                ? state.extra as Map<String, dynamic>
+                : null,
+          ),
+        ),
+        GoRoute(
+          path: '/pix-payment',
           builder: (context, state) =>
-              DriverTripScreen(tripId: state.pathParameters['tripId'] ?? ''),
+              PixPaymentScreen(args: PixPaymentArgs.fromUnknown(state.extra)),
         ),
         GoRoute(
-          path: '/uber-driver-earnings',
-          builder: (context, state) => const DriverEarningsScreen(),
+          path: '/service-tracking/:serviceId',
+          builder: (context, state) => ServiceTrackingPage(
+            serviceId: state.pathParameters['serviceId'] ?? '',
+            scope: ServiceDataScope.mobileOnly,
+          ),
         ),
         GoRoute(
-          path: '/driver-settings',
-          builder: (context, state) => const DriverSettingsScreen(),
+          path: '/payment-onboarding',
+          builder: (context, state) => const ProviderScheduleSettingsScreen(),
+        ),
+        GoRoute(
+          path: '/mercado-pago-onboarding',
+          builder: (context, state) => const ProviderScheduleSettingsScreen(),
+        ),
+
+        GoRoute(
+          path: '/change-password',
+          builder: (context, state) => const ChangePasswordScreen(),
         ),
         GoRoute(
           path: '/chats',
           builder: (context, state) => const ChatListScreen(),
+        ),
+        GoRoute(path: '/help', builder: (context, state) => const HelpScreen()),
+        GoRoute(
+          path: '/security',
+          builder: (context, state) => const SecurityScreen(),
+        ),
+        GoRoute(
+          path: '/general-settings',
+          builder: (context, state) => const GeneralSettingsScreen(),
         ),
         GoRoute(
           path: '/activity',
@@ -644,11 +518,22 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         ),
         GoRoute(
           path: '/provider-settings',
-          builder: (context, state) => const ClientSettingsScreen(),
+          builder: (context, state) => const ProviderProfileContent(),
+        ),
+        GoRoute(
+          path: '/driver-settings',
+          builder: (context, state) => const ProviderProfileContent(),
         ),
         GoRoute(
           path: '/tracking/:serviceId',
-          builder: (context, state) => TrackingScreen(
+          builder: (context, state) => ServiceTrackingPage(
+            serviceId: state.pathParameters['serviceId'] ?? '',
+            scope: ServiceDataScope.mobileOnly,
+          ),
+        ),
+        GoRoute(
+          path: '/service-busca-prestador-movel/:serviceId',
+          builder: (context, state) => MobileProviderSearchPage(
             serviceId: state.pathParameters['serviceId'] ?? '',
           ),
         ),
@@ -663,20 +548,40 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           builder: (context, state) => const ProviderHomeScreen(),
         ),
         GoRoute(
+          path: '/provider-active/:serviceId',
+          builder: (context, state) => ProviderActiveServiceMobileScreen(
+            serviceId: state.pathParameters['serviceId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/provider-schedule',
+          builder: (context, state) => const ProviderScheduleSettingsScreen(),
+        ),
+        GoRoute(
           path: '/medical-home',
           builder: (context, state) => const MedicalHomeScreen(),
         ),
         GoRoute(
           path: '/provider-profile',
           builder: (context, state) {
-            final providerId = state.extra as int? ?? 0;
+            final api = ApiService();
+            final raw = state.extra;
+            int providerId = 0;
+            if (raw is int) {
+              providerId = raw;
+            } else if (raw is String) {
+              providerId = int.tryParse(raw) ?? 0;
+            } else if (raw is Map && raw['id'] != null) {
+              providerId = int.tryParse(raw['id'].toString()) ?? 0;
+            } else {
+              providerId = int.tryParse(api.userId ?? '') ?? 0;
+            }
             return ProviderProfileScreen(providerId: providerId);
           },
         ),
         GoRoute(
           path: '/my-provider-profile',
-          builder: (context, state) =>
-              const Scaffold(body: ProviderProfileContent()),
+          builder: (context, state) => const ProviderProfileContent(),
         ),
         GoRoute(
           path: '/my-services',
@@ -694,7 +599,12 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         ),
         GoRoute(
           path: '/confirmation',
-          builder: (context, state) => const ConfirmationScreen(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return ConfirmationScreen(
+              serviceId: extra?['serviceId']?.toString(),
+            );
+          },
         ),
         GoRoute(
           path: '/warranty',
@@ -713,9 +623,9 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
             if (serviceId == null) return '/home';
 
             if (api.role == 'provider') {
-              return '/provider-service-details/$serviceId';
+              return '/provider-home';
             } else {
-              return '/tracking/$serviceId';
+              return '/service-tracking/$serviceId';
             }
           },
         ),
@@ -744,28 +654,25 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           ),
         ),
         GoRoute(
+          path: '/payment-methods',
+          builder: (context, state) => const PaymentMethodsScreen(),
+        ),
+        GoRoute(
+          path: '/card-registration',
+          builder: (context, state) => const CardRegistrationScreen(),
+        ),
+        GoRoute(
           path: '/refund-request',
           builder: (context, state) {
             final extra = state.extra as Map<String, dynamic>? ?? {};
             return RefundRequestScreen(
               serviceId: extra['id']?.toString() ?? '',
               title: extra['title']?.toString() ?? 'Solicitar Devolução',
+              claimType: extra['claimType']?.toString() ?? 'complaint',
             );
           },
         ),
       ],
-    ),
-    GoRoute(
-      path: '/create-service',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return ServiceRequestScreen(
-          initialProviderId: extra?['providerId'],
-          initialService: extra?['service'],
-          initialProvider: extra?['provider'],
-          initialPrompt: extra?['initialPrompt'],
-        );
-      },
     ),
     GoRoute(
       path: '/service-edit-request',
@@ -788,33 +695,55 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           serviceId: serviceId.isNotEmpty ? serviceId : extraServiceId,
           otherName: extraMap?['otherName'],
           otherAvatar: extraMap?['otherAvatar'],
+          initialParticipants: (extraMap?['participants'] as List? ?? const [])
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(),
+          participantContextLabelOverride: extraMap?['participantContextLabel']
+              ?.toString(),
         );
       },
     ),
+    if (kDebugMode)
+      GoRoute(
+        path: '/face-validation-test',
+        builder: (context, state) => const FaceValidationTestScreen(),
+      ),
+    if (kDebugMode)
+      GoRoute(
+        path: '/genkit-test',
+        builder: (context, state) => const GenkitTestScreen(),
+      ),
     GoRoute(
-      path: '/simulation',
-      builder: (context, state) => const SimulationScreen(),
-    ),
-    GoRoute(
-      path: '/face-validation-test',
-      builder: (context, state) => const FaceValidationTestScreen(),
-    ),
-    GoRoute(
-      path: '/agency',
+      path: '/admin',
       builder: (context, state) => const AgencyHomeScreen(),
     ),
     GoRoute(
-      path: '/agency/onboarding',
-      builder: (context, state) => const AgencyOnboardingScreen(),
-    ),
-    GoRoute(
-      path: '/agency/create-campaign',
+      path: '/admin/create-campaign',
       builder: (context, state) => const CreateCampaignScreen(),
     ),
     GoRoute(
-      path: '/agency/profile/:id',
+      path: '/admin/onboarding',
+      builder: (context, state) => const AgencyOnboardingScreen(),
+    ),
+    GoRoute(
+      path: '/admin/profile/:id',
       builder: (context, state) =>
           AgencyPublicProfileScreen(userId: state.pathParameters['id'] ?? 'me'),
+    ),
+    GoRoute(path: '/agency', redirect: (context, state) => '/admin'),
+    GoRoute(
+      path: '/agency/create-campaign',
+      redirect: (context, state) => '/admin/create-campaign',
+    ),
+    GoRoute(
+      path: '/agency/onboarding',
+      redirect: (context, state) => '/admin/onboarding',
+    ),
+    GoRoute(
+      path: '/agency/profile/:id',
+      redirect: (context, state) =>
+          '/admin/profile/${state.pathParameters['id'] ?? 'me'}',
     ),
     GoRoute(
       path: '/review/:serviceId',

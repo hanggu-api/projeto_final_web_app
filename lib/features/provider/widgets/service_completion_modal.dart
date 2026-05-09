@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../widgets/app_dialog_actions.dart';
+
 class ServiceCompletionModal extends StatefulWidget {
   final Future<void> Function(String code, XFile photo) onComplete;
 
@@ -124,11 +126,9 @@ class _ServiceCompletionModalState extends State<ServiceCompletionModal> {
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
+        AppDialogCancelAction(onPressed: () => Navigator.pop(context)),
+        AppDialogPrimaryAction(
+          label: 'Concluir',
           onPressed: _isFormValid
               ? () async {
                   setState(() {
@@ -149,16 +149,7 @@ class _ServiceCompletionModalState extends State<ServiceCompletionModal> {
                   }
                 }
               : null,
-          child: _submitting
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Text('Concluir'),
+          isLoading: _submitting,
         ),
       ],
     );

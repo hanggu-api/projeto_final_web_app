@@ -13,6 +13,7 @@ class IdentificationStep extends StatefulWidget {
   final TextEditingController phoneController;
   final TextEditingController emailController;
   final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
   final Function(bool isValidating, Map<String, String?> errors)
   onValidationChanged;
 
@@ -25,6 +26,7 @@ class IdentificationStep extends StatefulWidget {
     required this.phoneController,
     required this.emailController,
     required this.passwordController,
+    required this.confirmPasswordController,
     required this.onValidationChanged,
   });
 
@@ -79,7 +81,10 @@ class _IdentificationStepState extends State<IdentificationStep> {
         if (mounted) {
           setState(() {
             _isValidating[field] = false;
-            if (result['exists'] == true) {
+            if (field == 'doc') {
+              // Permite CPF/CNPJ duplicado no cadastro
+              _fieldErrors[field] = null;
+            } else if (result['exists'] == true) {
               _fieldErrors[field] =
                   'Este ${field == 'doc' ? 'CPF/CNPJ' : field} já está cadastrado';
             } else {
@@ -213,9 +218,10 @@ class _IdentificationStepState extends State<IdentificationStep> {
               ],
               onChanged: (v) => _onFieldChanged('phone', v),
               validator: (v) {
-                if (v?.isEmpty == true) return 'Obrigatório';
-                final digits = v!.replaceAll(RegExp(r'\D'), '');
-                if (digits.length < 10) return 'Inválido';
+                if (v == null || v.isEmpty) return 'Obrigatório';
+                if (!PhoneInputFormatter.isValid(v)) {
+                  return 'DDD ou número inválido';
+                }
                 if (_fieldErrors['phone'] != null) return _fieldErrors['phone'];
                 return null;
               },
@@ -277,6 +283,18 @@ class _IdentificationStepState extends State<IdentificationStep> {
               obscureText: true,
               validator: (v) =>
                   (v?.length ?? 0) < 6 ? 'Mínimo 6 caracteres' : null,
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: widget.confirmPasswordController,
+              decoration: AppTheme.inputDecoration('Confirmar Senha', Icons.lock_outline),
+              obscureText: true,
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Confirme sua senha';
+                if (v != widget.passwordController.text) return 'As senhas não conferem';
+                return null;
+              },
             ),
             const SizedBox(height: 32),
           ],

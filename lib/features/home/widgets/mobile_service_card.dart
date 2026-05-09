@@ -1,18 +1,19 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/trip_statuses.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/fixed_schedule_gate.dart';
 import '../../../services/api_service.dart';
 import '../../../services/data_gateway.dart';
+import '../../../widgets/app_dialog_actions.dart';
 
 /// CARD PARA PRESTADOR MÓVEL (PROFISSIONAL VAI ATÉ O CLIENTE)
 class MobileServiceCard extends StatefulWidget {
@@ -130,39 +131,39 @@ class _MobileServiceCardState extends State<MobileServiceCard>
         _startTrackingPoll(serviceId);
       }
 
-      _serviceSubscription = DataGateway().watchService(serviceId).listen((
-        data,
-      ) {
-        if (!mounted) return;
+      _serviceSubscription = DataGateway()
+          .watchService(serviceId, scope: ServiceDataScope.mobileOnly)
+          .listen((data) {
+            if (!mounted) return;
 
-        if (data.isNotEmpty) {
-          final oldStatus = _streamStatus;
-          final newStatus = data['status'];
+            if (data.isNotEmpty) {
+              final oldStatus = _streamStatus;
+              final newStatus = data['status'];
 
-          if (newStatus == 'deleted' ||
-              (oldStatus != newStatus && widget.onRefreshNeeded != null)) {
-            if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
-          }
+              if (newStatus == 'deleted' ||
+                  (oldStatus != newStatus && widget.onRefreshNeeded != null)) {
+                if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
+              }
 
-          setState(() {
-            _streamStatus = newStatus;
-            _streamDetails = data;
+              setState(() {
+                _streamStatus = newStatus;
+                _streamDetails = data;
+              });
+
+              if ([
+                'searching',
+                'pending',
+                'open',
+                'paid',
+                'offered',
+              ].contains(newStatus)) {
+                _startTrackingPoll(serviceId);
+              } else {
+                _trackingTimer?.cancel();
+                _searchTickTimer?.cancel();
+              }
+            }
           });
-
-          if ([
-            'searching',
-            'pending',
-            'open',
-            'paid',
-            'offered',
-          ].contains(newStatus)) {
-            _startTrackingPoll(serviceId);
-          } else {
-            _trackingTimer?.cancel();
-            _searchTickTimer?.cancel();
-          }
-        }
-      });
     }
   }
 
@@ -205,12 +206,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
   /// Sprint 3: Lê service_logs via Supabase SDK em vez do endpoint legado /service/:id/tracking
   Future<void> _fetchTrackingHeadline(String serviceId) async {
     try {
-      final rows = await Supabase.instance.client
-          .from('service_logs')
-          .select('action, message, created_at')
-          .eq('service_id', serviceId)
-          .order('created_at', ascending: false)
-          .limit(5);
+      final rows = await DataGateway().loadServiceLogs(serviceId, limit: 5);
 
       if (!mounted) return;
 
@@ -223,9 +219,15 @@ class _MobileServiceCardState extends State<MobileServiceCard>
         return;
       }
 
-      final latest = logs.first as Map<String, dynamic>;
-      final eventType = (latest['action'] as String? ?? '').toUpperCase();
-      final message = latest['message'] as String?;
+      final latest = Map<String, dynamic>.from(logs.first as Map);
+      final eventType = (latest['action']?.toString() ?? '').toUpperCase();
+      final details = latest['details'];
+      final message = details is String
+          ? details
+          : details is Map
+          ? (details['message'] ?? details['description'] ?? details['status'])
+                ?.toString()
+          : null;
 
       // Verificar se prestador foi encontrado
       final accepted = logs.any(
@@ -362,7 +364,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
 
     try {
       if (newStatus == 'accepted') {
-        await ApiService().acceptService(id);
+        await ApiService().dispatch.acceptService(id);
       } else {
         await ApiService().updateServiceStatus(id, newStatus);
       }
@@ -428,39 +430,39 @@ class _MobileServiceCardState extends State<MobileServiceCard>
         return api.role == 'provider'
             ? 'Aguardando Validação'
             : 'Confirmação Necessária';
-      case 'waiting_remaining_payment':
+      case ServiceStatusAliases.waitingRemainingPayment:
         return 'Aguardando pagamento restante';
-      case 'completed':
+      case TripStatuses.completed:
         return 'Serviço concluído';
-      case 'waiting_client_confirmation':
+      case ServiceStatusAliases.waitingClientConfirmation:
         return 'Serviço Finalizado. Confirme a Conclusão!';
-      case 'pending':
+      case TripStatuses.pending:
         final api = ApiService();
         final isProvider = api.role == 'provider';
         if (isProvider) return 'Agendado';
         return 'Aguardando prestador';
-      case 'waiting_payment_remaining':
+      case ServiceStatusAliases.waitingPaymentRemaining:
         final api = ApiService();
         return api.role == 'provider'
             ? 'Aguardando Pagamento Seguro'
             : 'Pagar Restante';
-      case 'waiting_payment':
-      case 'arrived':
+      case TripStatuses.waitingPayment:
+      case TripStatuses.arrived:
         return 'Aguardando pagamento';
-      case 'searching':
+      case TripStatuses.searching:
         return 'Buscando prestador';
       case 'open':
         return 'Aberto';
       case 'paid':
       case 'offered':
         return 'Buscando prestador';
-      case 'cancelled':
+      case TripStatuses.cancelled:
         return 'Cancelado';
-      case 'open_for_schedule':
+      case TripStatuses.openForSchedule:
         return 'Disponível para Agendamento';
-      case 'schedule_proposed':
+      case ServiceStatusAliases.scheduleProposed:
         return 'Proposta de Agendamento';
-      case 'scheduled':
+      case TripStatuses.scheduled:
         return 'Serviço Agendado';
       case 'confirmed':
         return 'Confirmado';
@@ -502,9 +504,15 @@ class _MobileServiceCardState extends State<MobileServiceCard>
               if (serviceId != null) {
                 final api = ApiService();
                 if (api.role == 'provider') {
-                  context.push('/provider-service-details/$serviceId');
+                  final isFixed = isCanonicalFixedServiceRecord(
+                    _currentDetails,
+                  );
+                  context.push(
+                    isFixed ? '/provider-home' : '/provider-active/$serviceId',
+                  );
                 } else {
-                  context.push('/tracking/$serviceId');
+                  // Cliente sempre acompanha pelo tracking (o pagamento fica lá).
+                  context.push('/service-tracking/$serviceId');
                 }
               }
             },
@@ -522,7 +530,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
             border: Border.all(color: borderColor, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withOpacity(0.1),
                 offset: const Offset(0, 4),
                 blurRadius: 12,
               ),
@@ -883,7 +891,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
         boxShadow: bg != Colors.transparent && bg != Colors.white
             ? [
                 BoxShadow(
-                  color: bg.withValues(alpha: 0.2),
+                  color: bg.withOpacity(0.2),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -919,8 +927,8 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                 });
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.primaryYellow,
+                foregroundColor: AppTheme.textDark,
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -954,7 +962,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
             final serviceId = (widget.details?['id'] ?? _currentDetails['id'])
                 ?.toString();
             if (serviceId != null) {
-              context.push('/provider-service-details/$serviceId');
+              context.push('/provider-home');
             }
           },
           style: ElevatedButton.styleFrom(
@@ -978,7 +986,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
             final serviceId = (widget.details?['id'] ?? _currentDetails['id'])
                 ?.toString();
             if (serviceId != null) {
-              context.push('/provider-service-details/$serviceId');
+              context.push('/provider-home');
             }
           },
           style: ElevatedButton.styleFrom(
@@ -1019,10 +1027,10 @@ class _MobileServiceCardState extends State<MobileServiceCard>
         return ElevatedButton(
           onPressed: widget.onPay,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).primaryColor,
-            foregroundColor: Colors.black,
+            backgroundColor: Colors.blue.shade700,
+            foregroundColor: Colors.white,
             minimumSize: const Size(double.infinity, 48),
-            elevation: 0,
+            elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -1053,7 +1061,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.blue.withValues(alpha: 0.3),
+              color: Colors.blue.withOpacity(0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1140,7 +1148,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.withValues(alpha: 0.2),
+                color: Colors.blue.withOpacity(0.2),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1164,7 +1172,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withOpacity(0.9),
                 ),
               ),
             ],
@@ -1196,11 +1204,9 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
+                    color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.blue.withValues(alpha: 0.3),
-                    ),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1277,7 +1283,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.withValues(alpha: 0.2),
+                color: Colors.blue.withOpacity(0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -1343,7 +1349,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: statusColor.withValues(alpha: 0.3),
+              color: statusColor.withOpacity(0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1367,7 +1373,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                   Text(
                     'Aguarde enquanto conectamos você.',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 12,
                     ),
                   ),
@@ -1384,7 +1390,7 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                   child: CircularProgressIndicator(
                     value: _searchCountdown / 20,
                     strokeWidth: 3,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    backgroundColor: Colors.white.withOpacity(0.2),
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       Colors.white,
                     ),
@@ -1420,16 +1426,27 @@ class _MobileServiceCardState extends State<MobileServiceCard>
     if (_currentStatus == 'schedule_proposed' ||
         statusText == 'Proposta de Agendamento') {
       final scheduledAt = detail['scheduled_at'];
+      final proposedBy =
+          detail['schedule_proposed_by_user_id']?.toString() ??
+          detail['schedule_proposed_by']?.toString();
+      final currentUserId = api.userId?.trim();
+      final clientId = detail['client_id']?.toString();
+      final isClientProposal = proposedBy != null
+          ? ((currentUserId?.isNotEmpty ?? false)
+                ? proposedBy == currentUserId
+                : proposedBy == clientId)
+          : false;
+      final expiresAt = _toDate(detail['schedule_expires_at']);
       return Column(
         children: [
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.primaryPurple.withValues(alpha: 0.05),
+              color: AppTheme.primaryPurple.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppTheme.primaryPurple.withValues(alpha: 0.2),
+                color: AppTheme.primaryPurple.withOpacity(0.2),
               ),
             ),
             child: Column(
@@ -1455,54 +1472,86 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                     color: AppTheme.primaryPurple,
                   ),
                 ),
+                if (expiresAt != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Responda até ${_formatFriendlyDate(expiresAt)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: () async {
-              final api = ApiService();
-              final id = detail['id']?.toString();
-              if (id != null) {
-                try {
-                  if (scheduledAt != null) {
-                    await api.confirmSchedule(
-                      id,
-                      _toDate(scheduledAt) ?? DateTime.now(),
-                    );
-                  } else {
+          if (!isClientProposal)
+            ElevatedButton(
+              onPressed: () async {
+                final api = ApiService();
+                final id = detail['id']?.toString();
+                if (id != null) {
+                  try {
+                    if (scheduledAt != null) {
+                      await api.confirmSchedule(
+                        id,
+                        _toDate(scheduledAt) ?? DateTime.now(),
+                        scope: ServiceDataScope.mobileOnly,
+                      );
+                    } else {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Data de agendamento não encontrada.'),
+                        ),
+                      );
+                    }
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Data de agendamento não encontrada.'),
-                      ),
+                      const SnackBar(content: Text('Agendamento confirmado!')),
                     );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Erro: $e')));
                   }
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Agendamento confirmado!')),
-                  );
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Erro: $e')));
                 }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[600],
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'CONFIRMAR AGENDAMENTO',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100),
+              ),
+              child: Text(
+                'Sua sugestão foi enviada. Agora estamos aguardando a resposta do prestador.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.blue.shade900,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            child: const Text(
-              'CONFIRMAR AGENDAMENTO',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
           const SizedBox(height: 8),
           if (!_isSchedulingCounter)
             OutlinedButton(
@@ -1836,17 +1885,13 @@ class _MobileServiceCardState extends State<MobileServiceCard>
           'Ao confirmar, você concorda que o serviço foi realizado conforme o combinado e libera o pagamento ao prestador.',
         ),
         actions: [
-          TextButton(
+          AppDialogCancelAction(
+            label: 'Cancelar',
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCELAR'),
           ),
-          ElevatedButton(
+          AppDialogPrimaryAction(
+            label: 'Confirmar',
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[600],
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('CONFIRMAR'),
           ),
         ],
       ),
@@ -2027,11 +2072,10 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                   try {
                     final id = detail['id']?.toString();
                     if (id != null) {
-                      await ApiService().proposeSchedule(id, newDate);
-                      await DataGateway().sendChatMessage(
+                      await ApiService().proposeSchedule(
                         id,
-                        'Não posso no horário proposto. Podemos fazer em: ${DateFormat("dd/MM 'às' HH:mm").format(newDate)}?',
-                        'text',
+                        newDate,
+                        scope: ServiceDataScope.mobileOnly,
                       );
                       if (!mounted) return;
                       setState(() => _isSchedulingCounter = false);
@@ -2121,6 +2165,8 @@ class _MobileServiceCardState extends State<MobileServiceCard>
                       ),
                       use24hFormat: true,
                       onDateTimeChanged: (DateTime newDate) {
+                        HapticFeedback.selectionClick();
+                        SystemSound.play(SystemSoundType.click);
                         tempTime = TimeOfDay(
                           hour: newDate.hour,
                           minute: newDate.minute,
@@ -2211,7 +2257,7 @@ class _ServiceTimerState extends State<_ServiceTimer> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.2),
+        color: Colors.amber.withOpacity(0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

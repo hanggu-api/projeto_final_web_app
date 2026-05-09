@@ -21,8 +21,6 @@ class ProviderArrivedModal extends StatefulWidget {
 class _ProviderArrivedModalState extends State<ProviderArrivedModal> {
   final _api = ApiService();
   bool _isLoading = true;
-  bool _showPaymentOptions = false;
-  bool _isProcessingPayment = false;
   Map<String, dynamic>? _serviceData;
 
   @override
@@ -44,7 +42,10 @@ class _ProviderArrivedModalState extends State<ProviderArrivedModal> {
 
     // Otherwise, fetch from API
     try {
-      final data = await _api.getServiceDetails(widget.serviceId);
+      final data = await _api.getServiceDetails(
+        widget.serviceId,
+        scope: ServiceDataScope.fixedOnly,
+      );
       if (mounted) {
         setState(() {
           _serviceData = data;
@@ -55,62 +56,6 @@ class _ProviderArrivedModalState extends State<ProviderArrivedModal> {
       debugPrint('Erro ao carregar detalhes do serviço: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _processPayment(String method) async {
-    setState(() => _isProcessingPayment = true);
-    try {
-      if (method == 'pix' || method == 'card') {
-        final data = _serviceData ?? {};
-        final total =
-            double.tryParse(data['price_estimated']?.toString() ?? '0') ?? 0.0;
-        final upfront =
-            double.tryParse(data['price_upfront']?.toString() ?? '') ??
-            (total * 0.3);
-        final remaining = (total - upfront).clamp(0.0, double.infinity);
-
-        if (mounted) {
-          Navigator.of(context).pop();
-          context.push(
-            '/payment/${widget.serviceId}',
-            extra: {
-              'serviceId': widget.serviceId,
-              'type': 'remaining',
-              'amount': remaining,
-              'total': total,
-              'initialMethod': method == 'pix' ? 'pix' : 'credit',
-            },
-          );
-        }
-        return;
-      }
-
-      await _api.payRemainingService(widget.serviceId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Pagamento realizado com sucesso!'),
-            backgroundColor: Colors.blue[600],
-          ),
-        );
-        Navigator.of(context).pop();
-        context.push('/tracking/${widget.serviceId}');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao processar pagamento: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessingPayment = false);
       }
     }
   }
@@ -150,75 +95,50 @@ class _ProviderArrivedModalState extends State<ProviderArrivedModal> {
             Text(
               _isLoading
                   ? 'Carregando detalhes...'
-                  : 'O prestador está no local do serviço (${_serviceData?['address'] ?? 'Endereço não disponível'}).',
+                  : 'Seu agendamento segue confirmado em ${_serviceData?['address'] ?? 'Endereço não disponível'}.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.black87),
             ),
             const SizedBox(height: 24),
-            if (_showPaymentOptions) ...[
-              const Text(
-                'Escolha a forma de pagamento:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100),
               ),
-              const SizedBox(height: 16),
-              if (_isProcessingPayment)
-                const CircularProgressIndicator(color: Colors.black)
-              else ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _processPayment('card'),
-                    icon: const Icon(LucideIcons.creditCard),
-                    label: const Text('Cartão de Crédito'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[600],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _processPayment('pix'),
-                    icon: const Icon(LucideIcons.qrCode),
-                    label: const Text('Pix'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[600],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ] else
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() => _showPaymentOptions = true);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[600],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('Ver Detalhes / Pagar'),
+              child: const Text(
+                'No fluxo fixo, os 90% restantes são pagos diretamente ao prestador no local. O app não recebe esse pagamento final.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.push('/scheduled-service/${widget.serviceId}');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Abrir Agendamento'),
+              ),
+            ),
             const SizedBox(height: 16),
             const Text(
-              'O prestador recebe o valor somente após a conclusão do serviço.',
+              'A taxa via PIX confirma a reserva. O valor final é acertado presencialmente com o prestador.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),

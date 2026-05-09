@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/utils/fixed_schedule_gate.dart';
 import '../chat_state.dart';
+import '../../../../services/api_service.dart';
 import '../../../../services/data_gateway.dart';
 import '../../../../services/realtime_service.dart';
 
@@ -45,7 +47,12 @@ mixin ChatActionsMixin<T extends StatefulWidget>
     });
 
     try {
-      await DataGateway().sendChatMessage(serviceId, text, 'text');
+      await DataGateway().sendChatMessage(
+        serviceId,
+        text,
+        'text',
+        recipientId: primaryChatParticipant?['user_id']?.toString(),
+      );
       if (mounted) {
         setState(() {
           final index = pendingMessages.indexWhere(
@@ -69,7 +76,13 @@ mixin ChatActionsMixin<T extends StatefulWidget>
 
   Future<void> confirmSchedule(String serviceId, DateTime date) async {
     try {
-      await api.confirmSchedule(serviceId, date);
+      final details = serviceDetails;
+      final scope = details == null
+          ? ServiceDataScope.auto
+          : (isCanonicalFixedServiceRecord(details)
+                ? ServiceDataScope.fixedOnly
+                : ServiceDataScope.mobileOnly);
+      await api.confirmSchedule(serviceId, date, scope: scope);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Agendamento confirmado!')),
@@ -123,7 +136,16 @@ mixin ChatActionsMixin<T extends StatefulWidget>
     try {
       final details = await DataGateway().getServiceDetails(serviceId);
       if (mounted) {
-        setState(() => serviceDetails = details);
+        setState(() {
+          serviceDetails = details;
+          chatParticipants = DataGateway().extractChatParticipants(details);
+        });
+        unawaited(
+          DataGateway().saveChatParticipantsSnapshot(
+            serviceId,
+            chatParticipants,
+          ),
+        );
         onCalculateOther();
       }
     } catch (e) {
@@ -131,7 +153,7 @@ mixin ChatActionsMixin<T extends StatefulWidget>
     }
   }
 
-  void calculateOtherUser(Function(int, Function(bool)) onCheckStatus) {
+  void calculateOtherUser(Function(String, Function(bool)) onCheckStatus) {
     if (serviceDetails == null) return;
     if (role == null && myUserId == null) return;
 
@@ -146,18 +168,70 @@ mixin ChatActionsMixin<T extends StatefulWidget>
       isMeClient = userIdRaw?.toString() == myIdStr;
     }
 
-    int? targetId;
+    final normalizedParticipants =
+        chatParticipants.isNotEmpty
+        ? chatParticipants
+        : DataGateway().extractChatParticipants(s);
+    final myId = myUserId?.toString().trim();
+
+    Map<String, dynamic>? targetParticipant;
     if (isMeClient) {
-      targetId =
-          s['provider_id'] ??
-          (s['provider'] is Map ? s['provider']['id'] : null);
+      targetParticipant = normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['role'] == 'provider',
+        orElse: () => null,
+      );
+      targetParticipant ??= normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['role'] == 'beneficiary',
+        orElse: () => null,
+      );
     } else {
-      targetId =
-          s['client_id'] ?? (s['client'] is Map ? s['client']['id'] : null);
+      targetParticipant = normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['role'] == 'beneficiary',
+        orElse: () => null,
+      );
+      targetParticipant ??= normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['role'] == 'requester',
+        orElse: () => null,
+      );
+      targetParticipant ??= normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['role'] == 'guardian',
+        orElse: () => null,
+      );
     }
 
-    if (targetId != null && targetId != otherUserId) {
-      setState(() => otherUserId = targetId);
+    if ((targetParticipant == null ||
+            '${targetParticipant['user_id'] ?? ''}'.trim().isEmpty) &&
+        !isMeClient) {
+      targetParticipant = normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['role'] == 'requester' &&
+            '${item?['user_id'] ?? ''}'.trim().isNotEmpty,
+        orElse: () => null,
+      );
+      targetParticipant ??= normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['role'] == 'guardian' &&
+            '${item?['user_id'] ?? ''}'.trim().isNotEmpty,
+        orElse: () => null,
+      );
+    }
+
+    if (targetParticipant != null &&
+        '${targetParticipant['user_id'] ?? ''}'.trim() == myId) {
+      targetParticipant = normalizedParticipants.cast<Map<String, dynamic>?>().firstWhere(
+        (item) =>
+            item != null &&
+            '${item['user_id'] ?? ''}'.trim().isNotEmpty &&
+            '${item['user_id'] ?? ''}'.trim() != myId,
+        orElse: () => null,
+      );
+    }
+
+    final targetId = '${targetParticipant?['user_id'] ?? ''}'.trim();
+
+    if (targetId.isNotEmpty && targetId != otherUserId) {
+      setState(() {
+        otherUserId = targetId;
+        primaryChatParticipant = targetParticipant;
+      });
       RealtimeService().checkStatus(targetId, (online) {
         if (mounted) setState(() => isOtherOnline = online);
       });

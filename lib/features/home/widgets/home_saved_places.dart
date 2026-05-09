@@ -46,26 +46,22 @@ class HomeSavedPlaces extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12.0),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundLight,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 18, color: AppTheme.textDark),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: AppTheme.surfacedCardDecoration(radius: 18),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade100, width: 1.5),
-                  ),
+                  color: AppTheme.backgroundLight,
+                  shape: BoxShape.circle,
                 ),
+                child: Icon(icon, size: 18, color: AppTheme.textDark),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -90,8 +86,8 @@ class HomeSavedPlaces extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

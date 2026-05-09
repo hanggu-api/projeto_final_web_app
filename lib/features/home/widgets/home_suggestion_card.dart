@@ -24,50 +24,74 @@ class HomeSuggestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = isBig ? 85.0 : 70.0;
 
+    // Importante: Em alguns devices/webviews o DraggableScrollableSheet pode
+    // engolir taps pequenos. Usamos GestureDetector (opaque) para garantir
+    // hit-test consistente, mantendo o ripple do InkWell.
     return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(24),
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        debugPrint('👆 [HomeSuggestionCard] tap="$label"');
+        onTap();
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            debugPrint('💧 [HomeSuggestionCard] inkwell="$label"');
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Column(
+              children: [
+                Container(
+                  width: size,
+                  height: size,
+                  decoration: AppTheme.surfacedCardDecoration(
+                    color: color,
+                    radius: 24,
+                  ),
+                  child: customIcons != null
+                      ? Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: customIcons!
+                                .map(
+                                  (path) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                    ),
+                                    child: Image.asset(
+                                      path,
+                                      width: isBig ? 36 : 28,
+                                      height: isBig ? 36 : 28,
+                                      color: AppTheme.textDark,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        )
+                      : Icon(
+                          icon,
+                          color: AppTheme.textDark,
+                          size: isBig ? 40 : 32,
+                        ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+              ],
             ),
-            child: customIcons != null
-                ? Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: customIcons!
-                          .map(
-                            (path) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 2,
-                              ),
-                              child: Image.asset(
-                                path,
-                                width: isBig ? 36 : 28,
-                                height: isBig ? 36 : 28,
-                                color: AppTheme.textDark,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  )
-                : Icon(icon, color: AppTheme.textDark, size: isBig ? 40 : 32),
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: GoogleFonts.manrope(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textDark,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

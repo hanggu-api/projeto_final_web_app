@@ -87,7 +87,7 @@ class _ChatQuickAlertModalState extends State<ChatQuickAlertModal> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF5F5F5),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                border: Border.all(color: Colors.black.withOpacity(0.08)),
               ),
               child: Text(
                 widget.message,
@@ -107,20 +107,20 @@ class _ChatQuickAlertModalState extends State<ChatQuickAlertModal> {
                 decoration: InputDecoration(
                   hintText: 'Responder rapido...',
                   hintStyle: TextStyle(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: Colors.black.withOpacity(0.5),
                   ),
                   filled: true,
                   fillColor: const Color(0xFFF2F2F2),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Colors.black.withValues(alpha: 0.25),
+                      color: Colors.black.withOpacity(0.25),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Colors.black.withValues(alpha: 0.2),
+                      color: Colors.black.withOpacity(0.2),
                     ),
                   ),
                 ),

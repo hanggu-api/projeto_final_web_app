@@ -68,11 +68,11 @@ class HomeCategoryRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: color ?? AppTheme.backgroundLight,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+              border: Border.all(color: Colors.black.withOpacity(0.04)),
               boxShadow: [
                 BoxShadow(
-                  color: (color ?? AppTheme.primaryYellow).withValues(
-                    alpha: 0.3,
+                  color: (color ?? AppTheme.primaryYellow).withOpacity(
+                    0.3,
                   ),
                   blurRadius: 8,
                   offset: const Offset(0, 3),

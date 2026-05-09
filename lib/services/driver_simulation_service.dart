@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:latlong2/latlong.dart';
 
-/// Serviço de simulação de movimentação do motorista.
-/// Gera waypoints aleatórios pela cidade e simula o carro andando,
-/// pegando e deixando passageiros.
+/// Serviço legado de simulação de movimentação operacional.
+/// Gera waypoints aleatórios pela cidade para apoio local de desenvolvimento.
 class DriverSimulationService {
   Timer? _moveTimer;
   final Random _random = Random();
@@ -16,7 +15,7 @@ class DriverSimulationService {
   int _currentWaypointIndex = 0;
   List<LatLng> _waypoints = [];
 
-  // Estado da corrida
+  // Estado legado do atendimento simulado
   SimulationTripState _tripState = SimulationTripState.idle;
   String? _passengerName;
   String? _pickupAddress;
@@ -27,7 +26,7 @@ class DriverSimulationService {
   Function(SimulationTripState state, Map<String, dynamic> tripInfo)?
   onTripStateChange;
 
-  // Nomes de passageiros simulados
+  // Nomes simulados
   static const _names = [
     'Maria Silva',
     'João Santos',
@@ -105,7 +104,7 @@ class DriverSimulationService {
       _moveTowardsWaypoint();
     });
 
-    // Iniciar primeira corrida após 2s
+    // Iniciar primeira simulação após 2s
     Future.delayed(const Duration(seconds: 2), () {
       if (_isRunning) _startNewTrip();
     });
@@ -124,7 +123,7 @@ class DriverSimulationService {
         _generateWaypoints(); // Gerar novos waypoints
       }
 
-      // Verificar se deve mudar estado da corrida
+      // Verificar se deve mudar o estado da simulação
       _checkTripProgress();
       return;
     }
@@ -153,14 +152,14 @@ class DriverSimulationService {
 
     switch (_tripState) {
       case SimulationTripState.idle:
-        // Após 2 waypoints sem corrida, iniciar uma nova
+        // Após 2 waypoints sem atividade, iniciar uma nova simulação
         if (_waypointsVisited >= 2) {
           _startNewTrip();
           _waypointsVisited = 0;
         }
         break;
       case SimulationTripState.goingToPickup:
-        // Após 2 waypoints, "chegou" no passageiro
+        // Após 2 waypoints, marca chegada ao ponto inicial simulado
         if (_waypointsVisited >= 2) {
           _arriveAtPickup();
           _waypointsVisited = 0;
@@ -217,7 +216,7 @@ class DriverSimulationService {
       'dropoff': _dropoffAddress,
     });
 
-    // Passageiro entra após 2 segundos
+    // Continuação da simulação após 2 segundos
     Future.delayed(const Duration(seconds: 2), () {
       if (!_isRunning) return;
       _tripState = SimulationTripState.inTrip;

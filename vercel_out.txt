@@ -1,0 +1,29 @@
+Retrieving project…
+Deploying irismars-projects/deploy-vercel
+Uploading [--------------------] (0.0B/8.4MB)
+Uploading [=====---------------] (2.1MB/8.4MB)
+Uploading [==========----------] (4.2MB/8.4MB)
+Uploading [===============-----] (6.3MB/8.4MB)
+Uploading [====================] (8.4MB/8.4MB)
+Inspect: https://vercel.com/irismars-projects/deploy-vercel/4YtD4CgozGKiVwNmiGmeT1wUrTYn [8s]
+Production: https://deploy-vercel-owxdqqe61-irismars-projects.vercel.app [8s]
+https://deploy-vercel-owxdqqe61-irismars-projects.vercel.appBuilding...
+Building...
+Building: Running build in Washington, D.C., USA (East) – iad1
+Building: Build machine configuration: 2 cores, 8 GB
+Building: Retrieving list of deployment files...
+Building: Previous build caches not available.
+Building: Downloading 972 deployment files...
+Building: Running "vercel build"
+Building: Vercel CLI 53.2.0
+Building: skipping vercel build, built locally
+Building: Build Completed in /vercel/output [245ms]
+Building: Deploying outputs...
+[2K[1A[2K[GProduction: https://deploy-vercel-owxdqqe61-irismars-projects.vercel.app [17s]
+Completing...
+Aliased: https://www.101service.com.br [17s]
+
+Common next commands:
+- `vercel inspect deploy-vercel-owxdqqe61-irismars-projects.vercel.app --logs`
+- `vercel redeploy deploy-vercel-owxdqqe61-irismars-projects.vercel.app`
+> Tip: Run `npx plugins add vercel/vercel-plugin` to enhance your agent experience

@@ -20,7 +20,7 @@ class AgencyHomeScreen extends StatelessWidget {
             icon: const Icon(LucideIcons.globe),
             onPressed: () {
               // TODO: Open Public Profile
-              context.push('/agency/profile/me');
+              context.push('/admin/profile/me');
             },
             tooltip: 'Ver Site Público',
           ),
@@ -44,7 +44,7 @@ class AgencyHomeScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
+                      color: Colors.black.withOpacity(0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -84,7 +84,7 @@ class AgencyHomeScreen extends StatelessWidget {
                       icon: LucideIcons.plusCircle,
                       label: 'Nova Campanha',
                       color: Theme.of(context).colorScheme.secondary,
-                      onTap: () => context.push('/agency/create-campaign'),
+                      onTap: () => context.push('/admin/create-campaign'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -94,7 +94,7 @@ class AgencyHomeScreen extends StatelessWidget {
                       icon: LucideIcons.palette,
                       label: 'Identidade Visual',
                       color: Colors.blueAccent,
-                      onTap: () => context.push('/agency/onboarding'),
+                      onTap: () => context.push('/admin/onboarding'),
                     ),
                   ),
                 ],
@@ -171,7 +171,7 @@ class AgencyHomeScreen extends StatelessWidget {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: Colors.black.withOpacity(0.03),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),

@@ -2,11 +2,17 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../core/config/supabase_config.dart';
 import '../firebase_options.dart';
+import 'client_tracking_service.dart';
+import 'network_status_service.dart';
+import 'provider_keepalive_service.dart';
+
+bool _backgroundServiceConfigured = false;
 
 // Entry point for the background service
 @pragma('vm:entry-point')
@@ -15,15 +21,28 @@ void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
   } catch (e) {
     debugPrint('Firebase init error in background: $e');
   }
 
+  try {
+    await SupabaseConfig.initialize(
+      disableAuthAutoRefresh: true,
+      detectSessionInUri: false,
+    );
+  } catch (e) {
+    debugPrint('Supabase init error in background: $e');
+  }
+
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  final networkStatus = NetworkStatusService();
+  await networkStatus.ensureInitialized();
 
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
@@ -42,49 +61,66 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  /*
-  // Initial notification
+  final providerOnline = await ProviderKeepaliveService.isOnlineForDispatch();
+  final clientTrackingActive = await ClientTrackingService.isTrackingEnabled();
+  if (!providerOnline && !clientTrackingActive) {
+    await service.stopSelf();
+    return;
+  }
+
   if (service is AndroidServiceInstance) {
-    if (await service.isForegroundService()) {
-      flutterLocalNotificationsPlugin.show(
-        888,
-        '101 Service',
-        'Você está online e pronto para receber pedidos',
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'foreground_service_channel',
-            'Online Service',
-            icon: '@mipmap/launcher_icon',
-            ongoing: true,
-          ),
-        ),
-      );
+    if (clientTrackingActive) {
+      await ClientTrackingService.refreshServiceNotification(service);
+    } else {
+      await ProviderKeepaliveService.refreshServiceNotification(service);
     }
   }
 
-  // Timer for Heartbeat / Keep Alive
-  Timer.periodic(const Duration(minutes: 5), (timer) async {
-    if (service is AndroidServiceInstance) {
-      if (await service.isForegroundService()) {
-        flutterLocalNotificationsPlugin.show(
-          888,
-          '101 Service',
-          'Você está online e pronto para receber pedidos',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'foreground_service_channel',
-              'Online Service',
-              icon: '@mipmap/launcher_icon',
-              ongoing: true,
-            ),
-          ),
-        );
-
-        await _sendHeartbeat();
-      }
+  service.on('refreshContext').listen((event) async {
+    final providerOnline = await ProviderKeepaliveService.isOnlineForDispatch();
+    final clientTrackingActive = await ClientTrackingService.isTrackingEnabled();
+    if (!providerOnline && !clientTrackingActive) {
+      await service.stopSelf();
+      return;
+    }
+    if (clientTrackingActive) {
+      await ClientTrackingService.refreshServiceNotification(service);
+    } else {
+      await ProviderKeepaliveService.refreshServiceNotification(service);
     }
   });
-  */
+
+  if (clientTrackingActive) {
+    await ClientTrackingService.sendTrackingTick(source: 'background_start');
+  } else {
+    await ProviderKeepaliveService.sendHeartbeatTick(source: 'background_start');
+  }
+
+  Timer.periodic(ProviderKeepaliveService.heartbeatInterval, (timer) async {
+    final providerOnline = await ProviderKeepaliveService.isOnlineForDispatch();
+    final clientTrackingActive = await ClientTrackingService.isTrackingEnabled();
+    if (!providerOnline && !clientTrackingActive) {
+      timer.cancel();
+      await service.stopSelf();
+      return;
+    }
+
+    if (service is AndroidServiceInstance &&
+        !await service.isForegroundService()) {
+      if (clientTrackingActive) {
+        await ClientTrackingService.refreshServiceNotification(service);
+      } else {
+        await ProviderKeepaliveService.refreshServiceNotification(service);
+      }
+    }
+
+    await networkStatus.refreshConnectivity();
+    if (clientTrackingActive) {
+      await ClientTrackingService.sendTrackingTick(source: 'background');
+    } else {
+      await ProviderKeepaliveService.sendHeartbeatTick(source: 'background');
+    }
+  });
 }
 
 @pragma('vm:entry-point')
@@ -93,6 +129,15 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 }
 
 Future<void> initializeBackgroundService() async {
+  if (_backgroundServiceConfigured) return;
+
+  if (!ProviderKeepaliveService.supportsBackgroundService) {
+    debugPrint(
+      'ℹ️ [BackgroundService] Ignorado em ${kIsWeb ? "web" : defaultTargetPlatform.name}',
+    );
+    return;
+  }
+
   final service = FlutterBackgroundService();
 
   // Create the notification channel on the main isolate as well
@@ -118,13 +163,14 @@ Future<void> initializeBackgroundService() async {
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
       autoStart: false, // Mantendo false para segurança no boot
+      autoStartOnBoot: true,
       isForegroundMode: true,
       notificationChannelId: 'foreground_service_channel',
-      initialNotificationTitle: 'App Ativo',
-      initialNotificationContent: 'Otimizando processos...',
+      initialNotificationTitle: '101 Service',
+      initialNotificationContent: 'Online para receber pedidos',
       foregroundServiceNotificationId: 888,
       foregroundServiceTypes: [
-        AndroidForegroundType.specialUse,
+        AndroidForegroundType.dataSync,
         AndroidForegroundType.location,
       ],
     ),
@@ -136,4 +182,5 @@ Future<void> initializeBackgroundService() async {
   );
 
   // await service.startService(); // Disabled to prevent crash on launch. Start manually after permissions.
+  _backgroundServiceConfigured = true;
 }

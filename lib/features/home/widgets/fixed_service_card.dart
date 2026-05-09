@@ -7,6 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../../core/utils/fixed_schedule_gate.dart';
 import '../../../core/utils/navigation_helper.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -275,25 +276,25 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     _serviceSubscription?.cancel();
     final serviceId = widget.details?['id']?.toString();
     if (serviceId != null) {
-      _serviceSubscription = DataGateway().watchService(serviceId).listen((
-        data,
-      ) {
-        if (!mounted) return;
-        if (data.isNotEmpty) {
-          final oldStatus = _streamStatus;
-          final newStatus = data['status'];
+      _serviceSubscription = DataGateway()
+          .watchService(serviceId, scope: ServiceDataScope.fixedOnly)
+          .listen((data) {
+            if (!mounted) return;
+            if (data.isNotEmpty) {
+              final oldStatus = _streamStatus;
+              final newStatus = data['status'];
 
-          if (newStatus == 'deleted' ||
-              (oldStatus != newStatus && widget.onRefreshNeeded != null)) {
-            if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
-          }
+              if (newStatus == 'deleted' ||
+                  (oldStatus != newStatus && widget.onRefreshNeeded != null)) {
+                if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
+              }
 
-          setState(() {
-            _streamStatus = newStatus;
-            _streamDetails = data;
+              setState(() {
+                _streamStatus = newStatus;
+                _streamDetails = data;
+              });
+            }
           });
-        }
-      });
     }
   }
 
@@ -361,7 +362,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     if (arrivedAt != null &&
         paymentStatus != 'paid' &&
         ['accepted', 'in_progress'].contains(_currentStatus)) {
-      return 'Pagar Restante';
+      return 'Pagamento no local';
     }
 
     switch (_currentStatus) {
@@ -394,6 +395,17 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     }
   }
 
+  bool _isAwaitingFixedDeposit() {
+    final paymentStatus = (_currentDetails['payment_status'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (paymentStatus == 'paid' || paymentStatus == 'partially_paid') {
+      return false;
+    }
+    return _currentStatus == 'waiting_payment' || _currentStatus == 'pending';
+  }
+
   @override
   Widget build(BuildContext context) {
     final detail = _currentDetails;
@@ -411,53 +423,84 @@ class _FixedServiceCardState extends State<FixedServiceCard>
               ? AppTheme.primaryYellow
               : Colors.grey.shade300);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      padding: EdgeInsets.all(isExpanded ? 16 : 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            offset: const Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // TOPO: Agendamento Confirmado + Data/Hora
-          if (['accepted', 'scheduled', 'confirmed'].contains(_currentStatus))
-            _buildStatusHeader(scheduledAt),
+    return InkWell(
+      onTap: () {
+        if (_isAwaitingFixedDeposit()) {
+          context.push('/beauty-booking');
+          return;
+        }
+        final serviceId = (widget.serviceId ?? _currentDetails['id'])
+            ?.toString();
+        if (serviceId != null) {
+          logFixedScheduleGateDecision(
+            'fixed_service_card_tap',
+            _currentDetails,
+          );
+          if (!widget.isProviderView &&
+              !evaluateFixedScheduleGate(
+                _currentDetails,
+              ).shouldStayOnScheduledScreen) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'O acompanhamento libera 30 minutos antes do agendamento.',
+                ),
+              ),
+            );
+            return;
+          }
+          context.push('/scheduled-service/$serviceId');
+        }
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: EdgeInsets.all(isExpanded ? 16 : 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              offset: const Offset(0, 4),
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // TOPO: Agendamento Confirmado + Data/Hora
+            if (['accepted', 'scheduled', 'confirmed'].contains(_currentStatus))
+              _buildStatusHeader(scheduledAt),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Alerta de Saída (Fica no topo se ativo)
-          if (_travelHeadline != null && !clientHasArrived)
-            _buildTravelAlert(clientHasArrived),
+            // Alerta de Saída (Fica no topo se ativo)
+            if (_travelHeadline != null && !clientHasArrived)
+              _buildTravelAlert(clientHasArrived),
 
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          // Informações do Profissional (Avatar, Nome, Perfil, Chat)
-          _buildProviderSection(detail),
+            // Informações do Profissional (Avatar, Nome, Perfil, Chat)
+            _buildProviderSection(detail),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Descrição do Serviço
-          Text(
-            detail['description'] ?? widget.category,
-            style: const TextStyle(fontSize: 14, color: Colors.black87),
-          ),
+            // Descrição do Serviço
+            Text(
+              detail['description'] ?? widget.category,
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Ações (Maps, Estou a Caminho, Cheguei, Pagar)
-          _buildUnifiedActions(detail),
-        ],
+            // Ações (Maps, Estou a Caminho, Cheguei, Pagar)
+            _buildUnifiedActions(detail),
+          ],
+        ),
       ),
     );
   }
@@ -611,11 +654,44 @@ class _FixedServiceCardState extends State<FixedServiceCard>
           IconButton(
             onPressed: () {
               final id = detail['id']?.toString();
-              if (id != null) context.push('/chat/$id');
+              if (id != null) {
+                final participants = DataGateway().extractChatParticipants(
+                  detail,
+                );
+                final beneficiary = participants
+                    .cast<Map<String, dynamic>?>()
+                    .firstWhere(
+                      (item) => item?['role'] == 'beneficiary',
+                      orElse: () => null,
+                    );
+                final requester = participants
+                    .cast<Map<String, dynamic>?>()
+                    .firstWhere(
+                      (item) => item?['role'] == 'requester',
+                      orElse: () => null,
+                    );
+                final beneficiaryName =
+                    '${beneficiary?['display_name'] ?? ''}'.trim();
+                final beneficiaryId = '${beneficiary?['user_id'] ?? ''}'.trim();
+                final requesterId = '${requester?['user_id'] ?? ''}'.trim();
+                final participantContextLabel =
+                    beneficiaryName.isNotEmpty &&
+                        (beneficiaryId.isEmpty || beneficiaryId != requesterId)
+                    ? 'Pessoa atendida: $beneficiaryName'
+                    : null;
+                context.push(
+                  '/chat/$id',
+                  extra: {
+                    'serviceId': id,
+                    'participants': participants,
+                    'participantContextLabel': participantContextLabel,
+                  },
+                );
+              }
             },
             icon: Icon(LucideIcons.messageCircle, color: AppTheme.primaryBlue),
             style: IconButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
+              backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(1),
               ),
@@ -680,15 +756,26 @@ class _FixedServiceCardState extends State<FixedServiceCard>
             onPressed: () => _updateClientStatus('arrived_client'),
           ),
 
-        // 4. Pagar Restante
+        // 4. Orientação do pagamento presencial
         if (clientHasArrived &&
             status != 'completed' &&
             detail['payment_remaining_status'] != 'paid')
-          _buildActionButton(
-            label: 'PAGAR RESTANTE',
-            icon: LucideIcons.creditCard,
-            color: AppTheme.primaryBlue,
-            onPressed: widget.onPay ?? () => _payRemainingFlow(detail),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Text(
+              'Os 90% restantes são pagos diretamente ao prestador no local, fora do app.',
+              style: TextStyle(
+                color: Colors.blue.shade900,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
           ),
 
         // 5. Cancelar
@@ -706,6 +793,9 @@ class _FixedServiceCardState extends State<FixedServiceCard>
 
   Widget _buildProviderActions(Map<String, dynamic> detail) {
     final status = _currentStatus;
+    final shouldShowManualPaymentWarning =
+        status == 'client_arrived' ||
+        detail['payment_remaining_status'] == 'pending';
     return Column(
       children: [
         if (status == 'pending')
@@ -721,6 +811,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
           'scheduled',
           'confirmed',
           'client_departing',
+          'client_arrived',
         ].contains(status))
           _buildActionButton(
             label: 'INICIAR SERVIÇO',
@@ -737,13 +828,24 @@ class _FixedServiceCardState extends State<FixedServiceCard>
             onPressed: () => _handleStatusChange('completed'),
           ),
 
-        if (status == 'client_arrived' ||
-            detail['payment_remaining_status'] == 'pending')
-          _buildActionButton(
-            label: 'CONFIRMAR PAGAMENTO (MANUAL)',
-            icon: Icons.money,
-            color: Colors.pink,
-            onPressed: _confirmManualPayment,
+        if (shouldShowManualPaymentWarning)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Text(
+              'O valor restante deste agendamento é pago presencialmente, fora do app. Não há confirmação manual interna.',
+              style: TextStyle(
+                color: Colors.amber.shade900,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
           ),
       ],
     );
@@ -787,7 +889,20 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     final id = _currentDetails['id']?.toString();
     if (id == null) return;
     try {
-      await ApiService().post('/services/$id/$endpoint', {});
+      if (endpoint == 'depart') {
+        await ApiService().markClientDeparting(id);
+        await _sendCurrentClientLocation(id);
+        if (mounted) {
+          setState(() => _streamStatus = 'client_departing');
+        }
+      } else if (endpoint == 'arrived_client') {
+        await ApiService().markClientArrived(id);
+        if (mounted) {
+          setState(() => _streamStatus = 'client_arrived');
+        }
+      } else {
+        await ApiService().post('/services/$id/$endpoint', {});
+      }
       if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
     } catch (e) {
       if (mounted) {
@@ -795,6 +910,29 @@ class _FixedServiceCardState extends State<FixedServiceCard>
           context,
         ).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
+    }
+  }
+
+  Future<void> _sendCurrentClientLocation(String serviceId) async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+      await ApiService().updateServiceClientLocation(
+        serviceId,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
+    } catch (_) {
+      // best effort: status update must continue even without location
     }
   }
 
@@ -813,44 +951,6 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     }
   }
 
-  Future<void> _confirmManualPayment() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar Pagamento?'),
-        content: const Text(
-          'O cliente realizou o pagamento do restante por fora do app? Isso finalizará o serviço.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Não'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sim, Recebi'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      try {
-        final id = _currentDetails['id']?.toString();
-        if (id != null) {
-          await ApiService().confirmPaymentManual(id);
-          if (widget.onRefreshNeeded != null) widget.onRefreshNeeded!();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Erro: $e')));
-        }
-      }
-    }
-  }
-
   Future<void> _openMap() async {
     final detail = _currentDetails;
     final providerLat = detail['latitude'] ?? detail['provider_lat'];
@@ -861,30 +961,6 @@ class _FixedServiceCardState extends State<FixedServiceCard>
     await NavigationHelper.openNavigation(
       latitude: double.tryParse(providerLat.toString()) ?? 0,
       longitude: double.tryParse(providerLon.toString()) ?? 0,
-    );
-  }
-
-  void _payRemainingFlow(Map<String, dynamic> detail) {
-    final id = detail['id']?.toString();
-    if (id == null) return;
-
-    final double? total = _toDouble(detail['price_estimated']);
-    double remaining = total ?? 0.0;
-
-    if (detail['payment_status'] == 'partially_paid') {
-      remaining = remaining * 0.7;
-    }
-
-    context.push(
-      '/payment/$id',
-      extra: {
-        'serviceId': id,
-        'type': 'remaining',
-        'amount': remaining,
-        'total': total,
-        'providerName': detail['provider_name'],
-        'serviceType': detail['service_type'] ?? widget.category,
-      },
     );
   }
 

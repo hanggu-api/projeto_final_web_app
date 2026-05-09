@@ -24,7 +24,7 @@ void main() {
       tester.binding.window.clearPhysicalSizeTestValue();
       tester.binding.window.clearDevicePixelRatioTestValue();
     });
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const MyApp(initialLocation: '/login'));
     await tester.pump();
     expect(tester.takeException(), isNull);
   });

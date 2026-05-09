@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'device_capability_service.dart';
 
 /// Gerenciador Global de Inicialização (Semáforo)
 /// Controla quando widgets pesados (mapas, vídeos, webviews) podem ser carregados.
@@ -16,7 +17,10 @@ class GlobalStartupManager {
     if (canLoadHeavyWidgets.value) return;
 
     // Pequeno respiro antes de autorizar widgets pesados (evita context loss)
-    await Future.delayed(const Duration(milliseconds: 500));
+    final delay = DeviceCapabilityService.instance.prefersReducedBackground
+        ? const Duration(milliseconds: 1800)
+        : const Duration(milliseconds: 500);
+    await Future.delayed(delay);
 
     debugPrint(
       '🦁 [GlobalStartupManager] Liberando a besta! (Widgets pesados autorizados)',

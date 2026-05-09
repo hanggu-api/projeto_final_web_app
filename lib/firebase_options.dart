@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBn6wMn-ci27kDaYfiLiqoe-1G3MDwe5V0',
-    appId: '1:478559853980:android:e99a1e14b2d7ebfbcc7c59',
+    appId: '1:478559853980:android:686d6522a4a98f0ecc7c59',
     messagingSenderId: '478559853980',
     projectId: 'cardapyia-service-2025',
     storageBucket: 'cardapyia-service-2025.firebasestorage.app',

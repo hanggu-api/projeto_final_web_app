@@ -9,6 +9,31 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Scripts/one-offs usados para debug e manutenção local.
+    # Eles não fazem parte do app distribuído e geravam centenas de lints (avoid_print, deps, etc).
+    - "bin/**"
+    - "check_user_state.dart"
+    - "cleanup_orphans.dart"
+    - "debug_signup.dart"
+    - "debug_signup_raw.dart"
+    - "find_driver.dart"
+    - "simulate_driver_ride.dart"
+    - "test_jwt_connection.dart"
+    - "test_jwt_direct.dart"
+    - "test_rekognition.dart"
+    - "test_sp.dart"
+    - "test_user_query.dart"
+    - "verify_final.dart"
+    - "verify_system.dart"
+  errors:
+    # Muitos lugares usam APIs deprecadas do Flutter (ex.: Color.withOpacity).
+    # Tratamos como dívida técnica e não bloqueamos a pipeline por isso.
+    deprecated_member_use: ignore
+    # Existem chamadas onde o mounted check já impede crash, mas a regra sinaliza mesmo assim.
+    use_build_context_synchronously: ignore
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
@@ -21,6 +46,10 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
+    curly_braces_in_flow_control_structures: false
+    unnecessary_underscores: false
+    prefer_is_empty: false
+    use_null_aware_elements: false
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 

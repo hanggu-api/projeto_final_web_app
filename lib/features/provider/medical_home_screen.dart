@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../services/data_gateway.dart';
 import '../../services/realtime_service.dart';
+import '../shared/widgets/notification_dropdown_menu.dart';
 import 'medical_agenda_view.dart';
 import 'schedule_edit_screen.dart';
 import '../../widgets/skeleton_loader.dart';
@@ -57,38 +57,39 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
     rt.on('appointment.cancelled', _handleAppointmentCancelled);
     rt.connect();
 
-    final p = await SharedPreferences.getInstance();
+    final unread = await DataGateway().loadUnreadChatCount();
     if (mounted) {
       setState(() {
-        _unreadCount = p.getInt('unread_chat_count') ?? 0;
+        _unreadCount = unread;
       });
     }
   }
 
-  void _handleChatMessage(dynamic data) {
+  void _handleChatMessage(dynamic data) async {
+    if (!mounted) return;
+    final unread = await DataGateway().loadUnreadChatCount();
     if (!mounted) return;
     setState(() {
-      _unreadCount++;
-    });
-    SharedPreferences.getInstance().then((p) {
-      p.setInt('unread_chat_count', _unreadCount);
+      _unreadCount = unread;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Nova Mensagem: ${data['message'] ?? ''}'),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Ver',
-          onPressed: () {
-            final id = data['service_id'] ?? data['id'];
-            if (id != null) {
-              context.push('/chat/${id.toString()}');
-            }
-          },
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nova Mensagem: ${data['message'] ?? ''}'),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Ver',
+            onPressed: () {
+              final id = data['service_id'] ?? data['id'];
+              if (id != null) {
+                context.push('/chat/${id.toString()}');
+              }
+            },
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   void _handleNewAppointment(dynamic data) {
@@ -118,23 +119,18 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
     setState(() => _isLoading = true);
     try {
       // Load Services (Requests/Appointments)
-      final services = await _api.getMyServices();
+      final services = await DataGateway().loadMyServices();
 
       // Sprint 2: Supabase SDK em vez de GET /provider/setup
       final providerId = _api.userId;
-      List<dynamic> schedulesData = [];
-      List<dynamic> exceptionsData = [];
+      List<Map<String, dynamic>> schedulesData = [];
+      List<Map<String, dynamic>> exceptionsData = [];
 
       if (providerId != null) {
-        schedulesData = await Supabase.instance.client
-            .from('provider_schedule_configs')
-            .select()
-            .eq('provider_id', providerId);
-
-        exceptionsData = await Supabase.instance.client
-            .from('provider_schedule_exceptions')
-            .select()
-            .eq('provider_id', providerId);
+        schedulesData = await DataGateway().loadProviderSchedules(providerId);
+        exceptionsData = await DataGateway().loadProviderScheduleExceptions(
+          providerId,
+        );
       }
 
       setState(() {
@@ -229,7 +225,7 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryPurple.withValues(alpha: 0.1),
+                    color: AppTheme.primaryPurple.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -263,7 +259,7 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
+                    color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
@@ -335,7 +331,7 @@ class _MedicalHomeScreenState extends State<MedicalHomeScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.notifications),
-                  onPressed: () => context.push('/notifications'),
+                  onPressed: () => NotificationDropdownMenu.show(context),
                 ),
                 if (_unreadCount > 0)
                   Positioned(

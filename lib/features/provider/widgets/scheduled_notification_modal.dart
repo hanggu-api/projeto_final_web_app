@@ -7,9 +7,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../../../core/config/supabase_config.dart';
+import '../../../core/maps/app_tile_layer.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../services/notification_service.dart';
 
@@ -185,20 +187,32 @@ class _ScheduledNotificationModalState
     setState(() => _isLoadingAction = true);
 
     try {
-      // Comportamento idêntico ao aceitar serviço normal
-      await _api.logServiceEvent(
+      try {
+        await _api.logServiceEvent(
+          widget.serviceId,
+          'ACCEPTED',
+          'Scheduled Modal - Provider Confirmed Schedule',
+        );
+      } catch (_) {
+        // Fluxo fixo não depende de service_logs em service_requests_new.
+      }
+
+      final scheduledAtRaw =
+          _serviceData?['scheduled_at'] ?? _serviceData?['data_agendada'];
+      final scheduledAt = scheduledAtRaw == null
+          ? null
+          : DateTime.tryParse(scheduledAtRaw.toString());
+      if (scheduledAt == null) {
+        throw Exception(
+          'Horário do agendamento não encontrado para sincronizar a agenda.',
+        );
+      }
+
+      await _api.confirmSchedule(
         widget.serviceId,
-        'ACCEPTED',
-        'Scheduled Modal - Provider Confirmed Schedule',
+        scheduledAt,
+        scope: ServiceDataScope.mobileOnly,
       );
-      // Sprint 2: Usar Supabase SDK em vez do backend legado
-      await Supabase.instance.client
-          .from('service_requests_new')
-          .update({
-            'status': 'accepted',
-            'accepted_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', widget.serviceId);
 
       NotificationService().stopPersistentNotification(widget.serviceId);
       await NotificationService().cancelAll();
@@ -245,13 +259,13 @@ class _ScheduledNotificationModalState
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: textColor.withValues(alpha: 0.7)),
+              Icon(icon, size: 16, color: textColor.withOpacity(0.7)),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11,
-                  color: textColor.withValues(alpha: 0.7),
+                  color: textColor.withOpacity(0.7),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -274,7 +288,7 @@ class _ScheduledNotificationModalState
                   Icon(
                     subtitleIcon,
                     size: 11,
-                    color: textColor.withValues(alpha: 0.6),
+                    color: textColor.withOpacity(0.6),
                   ),
                   const SizedBox(width: 4),
                 ],
@@ -282,7 +296,7 @@ class _ScheduledNotificationModalState
                   subtitle,
                   style: TextStyle(
                     fontSize: 11,
-                    color: textColor.withValues(alpha: 0.6),
+                    color: textColor.withOpacity(0.6),
                   ),
                 ),
               ],
@@ -358,7 +372,7 @@ class _ScheduledNotificationModalState
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.15),
+                        color: Colors.amber.withOpacity(0.15),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -426,14 +440,8 @@ class _ScheduledNotificationModalState
                                 ),
                               ),
                               children: [
-                                TileLayer(
-                                  urlTemplate:
-                                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                                  subdomains: const ['a', 'b', 'c', 'd'],
-                                  userAgentPackageName: 'com.play101.app',
-                                  tileDimension: 512,
-                                  zoomOffset: -1,
-                                  maxZoom: 22,
+                                AppTileLayer.standard(
+                                  mapboxToken: SupabaseConfig.mapboxToken,
                                 ),
                                 PolylineLayer(
                                   polylines: [
@@ -485,7 +493,7 @@ class _ScheduledNotificationModalState
                               icon: LucideIcons.wallet,
                               label: 'Seu Ganho Líquido',
                               value: 'R\$ ${netAmount.toStringAsFixed(2)}',
-                              backgroundColor: const Color(0xFFFFD700),
+                              backgroundColor: AppTheme.primaryYellow,
                               textColor: Colors.black,
                               valueFontSize: 24,
                               subtitle: 'Aguardando Início',

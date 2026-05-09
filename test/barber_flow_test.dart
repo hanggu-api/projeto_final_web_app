@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:service_101/features/provider/medical_agenda_view.dart';
@@ -6,6 +7,16 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'test_supabase_setup.dart';
 
 void main() {
+  final runFlowTests = Platform.environment['RUN_APP_FLOWS'] == '1';
+  if (!runFlowTests) {
+    test(
+      'Barber/medical flows skipped (set RUN_APP_FLOWS=1 to run)',
+      () {},
+      skip: 'Requer RUN_APP_FLOWS=1 para habilitar fluxo completo com dados.',
+    );
+    return;
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
@@ -68,7 +79,7 @@ void main() {
     expect(find.text('08:00'), findsOneWidget);
 
     // Verify Interaction
-    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.tap(find.byIcon(Icons.chevron_right).first);
     await tester.pump();
 
     expect(dateSelected, isTrue);

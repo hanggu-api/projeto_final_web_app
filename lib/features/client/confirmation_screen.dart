@@ -78,7 +78,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
+                        color: Colors.green.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -111,7 +111,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                       onPressed: () {
                         _timer?.cancel();
                         if (widget.serviceId != null) {
-                          context.go('/tracking/${widget.serviceId}');
+                          context.go('/service-tracking/${widget.serviceId}');
                         } else {
                           context.go('/home');
                         }
@@ -126,7 +126,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                         elevation: 4,
                       ),
                       child: const Text(
-                        'Acompanhar serviço',
+                        'Acompanhar Serviço',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -140,13 +140,13 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                         context.go('/home');
                       },
                       child: const Text(
-                        'Voltar para o início',
+                        'Voltar para o Início',
                         style: TextStyle(color: Colors.black54),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Voltando para a home em $_counter segundos',
+                      'Redirecionando em $_counter segundo${_counter == 1 ? '' : 's'}...',
                       style: const TextStyle(
                         color: Colors.grey,
                         fontSize: 13,

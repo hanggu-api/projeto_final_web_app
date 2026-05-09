@@ -4,7 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/realtime_service.dart';
-import '../services/uber_service.dart';
+import '../services/api_service.dart';
 
 class AppBottomNav extends StatefulWidget {
   final int currentIndex;
@@ -19,24 +19,29 @@ class _AppBottomNavState extends State<AppBottomNav> {
   String? _role;
   bool _isMedical = false;
   int _unread = 0;
-  int? _myUserId;
+  String? _myUserId;
+  void Function(dynamic)? _chatMessageHandler;
 
   @override
   void initState() {
     super.initState();
     SharedPreferences.getInstance().then((prefs) {
-      _role = prefs.getString('user_role');
-      _isMedical = prefs.getBool('is_medical') ?? false;
-      _unread = prefs.getInt('unread_chat_count') ?? 0;
-      final userId = prefs.getInt('user_id');
-      _myUserId = userId;
-      if (mounted) setState(() {});
+      final api = ApiService();
+      // Prioriza papel do ApiService (fonte da verdade em tempo real)
+      if (mounted) {
+        setState(() {
+          _role = api.role ?? prefs.getString('user_role');
+          _isMedical = api.isMedical || (prefs.getBool('is_medical') ?? false);
+          _unread = prefs.getInt('unread_chat_count') ?? 0;
+          _myUserId = _normalizeUserId(api.userId ?? prefs.get('user_id'));
+        });
+      }
 
       final rt = RealtimeService();
       rt.connect();
 
-      if (userId != null) {
-        rt.authenticate(userId);
+      if (_myUserId != null) {
+        rt.authenticate(_myUserId!);
       }
 
       void handleNewMessage(dynamic data) async {
@@ -53,29 +58,26 @@ class _AppBottomNavState extends State<AppBottomNav> {
         if (mounted) setState(() {});
       }
 
+      _chatMessageHandler = handleNewMessage;
       rt.on('chat.message', handleNewMessage);
       rt.on('chat_message', handleNewMessage);
 
-      _checkActiveTrip();
     });
   }
 
-  String? _activeTripId;
+  String? _normalizeUserId(Object? userId) => userId?.toString();
 
-  Future<void> _checkActiveTrip() async {
-    if (_myUserId == null) return;
-    try {
-      final trip = (_role == 'provider' || _role == 'driver')
-          ? await UberService().getActiveTripForDriver(_myUserId!)
-          : await UberService().getActiveTripForClient(_myUserId!);
-
-      if (mounted) {
-        setState(() {
-          _activeTripId = trip != null ? trip['id']?.toString() : null;
-        });
-      }
-    } catch (_) {}
+  @override
+  void dispose() {
+    final handler = _chatMessageHandler;
+    if (handler != null) {
+      final rt = RealtimeService();
+      rt.off('chat.message', handler);
+      rt.off('chat_message', handler);
+    }
+    super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -86,9 +88,15 @@ class _AppBottomNavState extends State<AppBottomNav> {
     final items = isProvider
         ? [
             _NavData(label: 'Início', icon: LucideIcons.home),
-            _NavData(label: 'Ganhos', icon: LucideIcons.banknote),
-            _NavData(label: 'Atividade', icon: LucideIcons.history),
-            _NavData(label: 'Perfil', icon: LucideIcons.user),
+            _NavData(
+              label: 'Chat',
+              icon: LucideIcons.messageSquare,
+              isBadge: true,
+            ),
+            _NavData(
+              label: 'Perfil',
+              icon: _role == 'driver' ? LucideIcons.user : Icons.person_rounded,
+            ),
           ]
         : [
             _NavData(label: 'Início', icon: LucideIcons.home),
@@ -112,12 +120,11 @@ class _AppBottomNavState extends State<AppBottomNav> {
       final isSelected = idx == safeIndex;
 
       final color = isSelected
-          ? Colors
-                .black // Could be AppTheme.primaryPurple depending on theme later
-          : Colors.black.withValues(alpha: 0.4);
+          ? const Color(0xFF09111F)
+          : const Color(0xFF09111F).withOpacity(0.42);
 
       final bgColor = isSelected
-          ? Colors.black.withValues(alpha: 0.05)
+          ? const Color(0xFFE8F0FF)
           : Colors.transparent;
 
       return Expanded(
@@ -134,68 +141,45 @@ class _AppBottomNavState extends State<AppBottomNav> {
       );
     }).toList();
 
-    if (_activeTripId != null) {
-      navWidgets.insert(
-        items.length ~/ 2,
-        Expanded(
-          child: GestureDetector(
-            onTap: () => context.push('/uber-tracking/$_activeTripId'),
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade600,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.drive_eta,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final media = MediaQuery.of(context);
+    final bottomInset = media.viewPadding.bottom;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.8,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(50),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.21),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+    return SafeArea(
+      top: false,
+      left: false,
+      right: false,
+      minimum: EdgeInsets.only(bottom: bottomInset > 0 ? 8 : 12),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.8,
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: navWidgets,
-          ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FBFF).withOpacity(0.94),
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(color: Colors.white.withOpacity(0.9)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF09111F).withOpacity(0.18),
+                    blurRadius: 26,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: navWidgets,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -219,18 +203,19 @@ class _AppBottomNavState extends State<AppBottomNav> {
     if (isProvider) {
       switch (idx) {
         case 0:
-          context.go(_isMedical ? '/medical-home' : '/provider-home');
+          final api = ApiService();
+          if (api.isMedical || _isMedical) {
+            context.go('/medical-home');
+          } else {
+            context.go('/provider-home');
+          }
           break;
         case 1:
-          context.go('/uber-driver-earnings');
+          context.go('/chats');
           break;
         case 2:
-          context.go('/activity');
-          break;
-        case 3:
-          context.go(
-            _role == 'driver' ? '/driver-settings' : '/client-settings',
-          );
+          // Abrir o menu drawer (menu hamburger) em vez de navegar para perfil
+          Scaffold.of(context).openDrawer();
           break;
       }
     } else {
@@ -242,7 +227,8 @@ class _AppBottomNavState extends State<AppBottomNav> {
           context.go('/chats');
           break;
         case 2:
-          context.go('/client-settings');
+          // Abrir o menu drawer (menu hamburger) em vez de navegar para perfil
+          Scaffold.of(context).openDrawer();
           break;
       }
     }

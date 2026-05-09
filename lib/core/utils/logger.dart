@@ -1,10 +1,106 @@
 import 'package:flutter/foundation.dart';
 
 class AppLogger {
-  static bool showDebugLogs = kDebugMode;
+  static const String _logMode = String.fromEnvironment(
+    'APP_LOG_MODE',
+    defaultValue: 'critical',
+  ); // critical | important | verbose | silent
+
+  static bool showDebugLogs = kDebugMode && _logMode != 'silent';
+  static bool compactRidePaymentLogsOnly = _logMode != 'verbose';
+
+  static bool _containsAny(String source, List<String> needles) {
+    for (final needle in needles) {
+      if (source.contains(needle)) return true;
+    }
+    return false;
+  }
+
+  static bool _shouldEmit({required String category, required String message}) {
+    if (!showDebugLogs) return false;
+    final lower = message.toLowerCase();
+
+    // Sempre manter erros críticos
+    const errorNeedles = [
+      'erro',
+      'error',
+      'exception',
+      'falha',
+      'failed',
+      'invalid',
+      'unauthorized',
+      'forbidden',
+      'timeout',
+      'stack trace',
+    ];
+    if (category == 'ERRO' || _containsAny(lower, errorNeedles)) {
+      return true;
+    }
+
+    if (_logMode == 'verbose') return true;
+
+    const criticalNeedles = [
+      'status mudou',
+      'status change',
+      'pagamento confirmado',
+      'payment confirmed',
+      'webhook',
+      'awaiting_confirmation',
+      'serviço concluído',
+      'servico concluido',
+      'service completed',
+      'crédito',
+      'credito',
+      'wallet',
+      'carteira',
+      'dispatch',
+    ];
+
+    const criticalCategories = ['SUCESSO', 'ALERTA', 'SISTEMA'];
+    if (_logMode == 'critical') {
+      return criticalCategories.contains(category) &&
+          _containsAny(lower, criticalNeedles);
+    }
+
+    if (!compactRidePaymentLogsOnly) return true;
+
+    // Em modo "important", mostrar apenas sinais de negócio relevantes
+    // para acompanhar fluxo crítico sem poluir terminal.
+    const importantNeedles = [
+      'serviço concluído',
+      'servico concluido',
+      'finalizar serviço',
+      'finalizar servico',
+      'confirm_completion',
+      'awaiting_confirmation',
+      'wallet',
+      'carteira',
+      'saldo',
+      'pix',
+      'pagamento',
+      'crédito',
+      'credito',
+      'rpc_confirm_completion',
+      'service completed',
+    ];
+
+    // Logs de alto nível com categorias mais úteis
+    const importantCategories = ['SUCESSO', 'ALERTA', 'API'];
+    if (importantCategories.contains(category) &&
+        _containsAny(lower, importantNeedles)) {
+      return true;
+    }
+
+    // Também aceita linhas de debugPrint com esses sinais
+    return _containsAny(lower, importantNeedles);
+  }
+
+  static bool shouldEmitRaw(String message, {String category = 'RAW'}) {
+    return _shouldEmit(category: category, message: message);
+  }
 
   static void _print(String icon, String category, String message) {
-    if (showDebugLogs) {
+    if (_shouldEmit(category: category, message: message)) {
       final timestamp = DateTime.now()
           .toIso8601String()
           .split('T')
@@ -33,7 +129,7 @@ class AppLogger {
 
   // Mantido para compatibilidade temporária
   static void log(String message, {bool important = false}) {
-    if (important || showDebugLogs) {
+    if (important || _shouldEmit(category: 'LOG', message: message)) {
       // ignore: avoid_print
       print(message);
     }
@@ -42,7 +138,7 @@ class AppLogger {
 
 void customDebugPrint(String? message, {int? wrapWidth}) {
   if (message == null) return;
-  if (AppLogger.showDebugLogs) {
+  if (AppLogger._shouldEmit(category: 'DEBUG_PRINT', message: message)) {
     debugPrintThrottled(message, wrapWidth: wrapWidth);
   }
 }

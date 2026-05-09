@@ -21,8 +21,10 @@ mixin ChatStateMixin<T extends StatefulWidget> on State<T> {
   Timer? recordTicker;
 
   Map<String, dynamic>? serviceDetails;
-  int? myUserId;
-  int? otherUserId;
+  String? myUserId;
+  String? otherUserId;
+  List<Map<String, dynamic>> chatParticipants = [];
+  Map<String, dynamic>? primaryChatParticipant;
   String? role;
   bool isRecording = false;
   DateTime? recordStartAt;

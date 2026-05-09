@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class AdBanner extends StatefulWidget {
@@ -14,17 +15,33 @@ class AdBanner extends StatefulWidget {
 class _AdBannerState extends State<AdBanner> {
   WebViewController? _controller;
   bool _isLoading = true;
+  Uri? _initialUri;
 
   @override
   void initState() {
     super.initState();
 
     if (widget.url != null && widget.url!.isNotEmpty) {
+      _initialUri = Uri.tryParse(widget.url!);
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(const Color(0x00000000))
         ..setNavigationDelegate(
           NavigationDelegate(
+            onNavigationRequest: (NavigationRequest request) async {
+              final requested = Uri.tryParse(request.url);
+              if (requested == null) return NavigationDecision.navigate;
+
+              final isHttp = requested.scheme == 'http' || requested.scheme == 'https';
+              if (!isHttp) return NavigationDecision.navigate;
+
+              final initial = _initialUri;
+              final isSameAsInitial = initial != null && request.url == initial.toString();
+              if (isSameAsInitial) return NavigationDecision.navigate;
+
+              await launchUrl(requested, mode: LaunchMode.externalApplication);
+              return NavigationDecision.prevent;
+            },
             onProgress: (int progress) {},
             onPageStarted: (String url) {},
             onPageFinished: (String url) {

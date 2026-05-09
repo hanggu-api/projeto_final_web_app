@@ -58,3 +58,7 @@ screen_release.png
 # Environment
 .env
 .env.*
+!.env.example
+assets/env/app.env
+.vercel
+windows/env.strep

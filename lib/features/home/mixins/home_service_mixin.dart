@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../home_state.dart';
+import '../../../core/utils/fixed_schedule_gate.dart';
 import '../../../services/api_service.dart';
 
 mixin HomeServiceMixin<T extends StatefulWidget>
@@ -14,7 +15,11 @@ mixin HomeServiceMixin<T extends StatefulWidget>
       if (!isInServiceMode) {
         servicePromptController.clear();
         aiProfessionName = null;
+        aiTaskId = null;
         aiTaskName = null;
+        aiTaskPrice = null;
+        aiServiceType = null;
+        aiLogId = null;
         serviceCandidates.clear();
       }
     });
@@ -38,47 +43,17 @@ mixin HomeServiceMixin<T extends StatefulWidget>
   }
 
   Future<void> classifyServiceAi() async {
-    final text = servicePromptController.text.trim();
-    if (text.length < 4) return;
-
-    setState(() => isServiceAiClassifying = true);
-    try {
-      final r = await _api.classifyServiceAi(text);
-
-      if (r['encontrado'] == true && mounted) {
-        setState(() {
-          aiProfessionName = r['profissao'];
-          aiServiceType = r['service_type'];
-
-          if (r['task'] != null) {
-            aiTaskName = r['task']['name'];
-            aiTaskPrice = double.tryParse(
-              r['task']['unit_price']?.toString() ?? '0',
-            );
-          } else if (r['candidates'] != null &&
-              (r['candidates'] as List).isNotEmpty) {
-            final best = r['candidates'][0];
-            aiTaskName = best['task_name'];
-            aiTaskPrice = double.tryParse(best['price']?.toString() ?? '0');
-          } else {
-            aiTaskName = null;
-            aiTaskPrice = null;
-          }
-        });
-
-        if (aiProfessionName != null) {
-          fetchNearbyServiceCandidates();
-        }
-      } else if (mounted) {
-        setState(() {
-          aiProfessionName = null;
-        });
-      }
-    } catch (e) {
-      debugPrint('AI Error: $e');
-    } finally {
-      if (mounted) setState(() => isServiceAiClassifying = false);
-    }
+    // IA removida.
+    if (!mounted) return;
+    setState(() {
+      isServiceAiClassifying = false;
+      aiLogId = null;
+      aiProfessionName = null;
+      aiTaskId = null;
+      aiTaskName = null;
+      aiTaskPrice = null;
+      serviceCandidates.clear();
+    });
   }
 
   Future<void> fetchNearbyServiceCandidates() async {
@@ -119,7 +94,9 @@ mixin HomeServiceMixin<T extends StatefulWidget>
 
     try {
       double price = aiTaskPrice!;
-      double upfront = price * 0.30;
+      double rate = isFixedService ? 0.05 : 0.30;
+      double upfront = price * rate;
+      double onSite = price - upfront;
       String desc = servicePromptController.text.trim();
 
       if (desc.isEmpty) {
@@ -127,6 +104,11 @@ mixin HomeServiceMixin<T extends StatefulWidget>
       } else if (aiTaskName != null) {
         desc = "$aiTaskName\n$desc";
       }
+      final resolvedProfessionId = await _api.resolveProfessionIdForServiceCreation(
+        professionId: null,
+        taskId: int.tryParse(aiTaskId ?? ''),
+        professionName: aiProfessionName,
+      );
 
       final result = await _api.createService(
         categoryId: 1,
@@ -136,18 +118,23 @@ mixin HomeServiceMixin<T extends StatefulWidget>
         address: 'Localização Atual',
         priceEstimated: price,
         priceUpfront: upfront,
+        feeAdminRate: rate,
+        feeAdminAmount: upfront,
+        amountPayableOnSite: onSite,
         imageKeys: [],
         videoKey: null,
         audioKeys: [],
         profession: aiProfessionName,
-        professionId: null,
+        professionId: resolvedProfessionId,
         locationType: 'client',
         providerId: null,
-        taskId: null,
+        taskId: aiTaskId,
       );
 
       final serviceId =
           result['service']?['id']?.toString() ?? result['id']?.toString();
+
+      // IA removida: sem feedback/treinamento.
 
       if (serviceId != null && mounted) {
         context.push(
@@ -157,6 +144,10 @@ mixin HomeServiceMixin<T extends StatefulWidget>
             'amount': upfront,
             'total': price,
             'type': 'deposit',
+            'entityType': isFixedService
+                ? 'service_fixed'
+                : 'service_mobile',
+            'isFixed': isFixedService,
           },
         );
         toggleServiceMode();
@@ -173,5 +164,10 @@ mixin HomeServiceMixin<T extends StatefulWidget>
     }
   }
 
-  bool get isFixedService => aiServiceType == 'fixed';
+  @override
+  bool get isFixedService => isCanonicalFixedServiceRecord(<String, dynamic>{
+    'service_type': aiServiceType,
+    'profession_name': aiProfessionName,
+    'task_name': aiTaskName,
+  });
 }

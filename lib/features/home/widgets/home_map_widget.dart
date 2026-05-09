@@ -3,13 +3,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/compass_service.dart';
 import '../../../services/idle_driver_simulator.dart';
-import '../../uber/widgets/car_marker_widget.dart';
+import '../../../services/app_config_service.dart';
+import '../../../services/device_capability_service.dart';
 import '../../../core/config/supabase_config.dart';
+import '../../../core/maps/app_tile_layer.dart';
 
 class HomeMapWidget extends StatefulWidget {
   final MapController mapController;
@@ -21,6 +24,7 @@ class HomeMapWidget extends StatefulWidget {
   final VoidCallback onMapReady;
   final VoidCallback? onAnimationStart;
   final VoidCallback? onAnimationEnd;
+  final bool enableLiveSensors;
 
   const HomeMapWidget({
     super.key,
@@ -28,6 +32,7 @@ class HomeMapWidget extends StatefulWidget {
     required this.currentPosition,
     required this.routePolyline,
     required this.onMapReady,
+    this.enableLiveSensors = false,
     this.onAnimationStart,
     this.onAnimationEnd,
     this.pickupLocation,
@@ -54,6 +59,12 @@ class HomeMapWidget extends StatefulWidget {
 
 class _HomeMapWidgetState extends State<HomeMapWidget>
     with TickerProviderStateMixin {
+  static const double _minCameraRotationDelta = 2.0;
+  static const double _fastCameraRotationDelta = 7.5;
+  static const Duration _minCameraRotationInterval = Duration(
+    milliseconds: 180,
+  );
+  mapbox.MapboxMap? _mapboxMap;
   late AnimationController _animationController;
   late AnimationController _pulseController;
   final List<AnimationController> _moveControllers =
@@ -64,6 +75,7 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
   StreamSubscription<Position>? _positionStream;
   final CompassService _compassService = CompassService();
   double _mapRotation = 0.0;
+  DateTime? _lastCameraRotationAt;
   final bool _isHeadingUp = true; // Inicia com rotação automática
 
   @override
@@ -93,13 +105,11 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
       }
     });
 
-    if (!kIsWeb) {
-      _compassService.start();
-      _startHeadingTracking();
-    }
+    _syncLiveSensors();
   }
 
   void _startHeadingTracking() {
+    if (_positionStream != null) return;
     _positionStream =
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
@@ -124,17 +134,60 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
             targetRotation,
           );
 
-          setState(() {
-            _mapRotation = newRotation;
-          });
+          if (!_shouldApplyCameraRotation(newRotation)) return;
+          _mapRotation = newRotation;
 
-          widget.mapController.rotate(-_mapRotation);
+          if (kIsWeb) {
+            widget.mapController.rotate(-_mapRotation);
+          } else if (_mapboxMap != null) {
+            unawaited(
+              _mapboxMap!.setCamera(
+                mapbox.CameraOptions(bearing: _mapRotation),
+              ),
+            );
+          }
         });
+  }
+
+  void _syncLiveSensors() {
+    if (kIsWeb) return;
+    if (widget.enableLiveSensors) {
+      _compassService.start();
+      _startHeadingTracking();
+      return;
+    }
+    _positionStream?.cancel();
+    _positionStream = null;
+    _compassService.stop();
+  }
+
+  bool _shouldApplyCameraRotation(double nextRotation) {
+    final delta = _normalizedAngleDelta(_mapRotation, nextRotation);
+    if (delta < _minCameraRotationDelta) return false;
+
+    final now = DateTime.now();
+    final lastUpdate = _lastCameraRotationAt;
+    if (lastUpdate != null &&
+        now.difference(lastUpdate) < _minCameraRotationInterval &&
+        delta < _fastCameraRotationDelta) {
+      return false;
+    }
+
+    _lastCameraRotationAt = now;
+    return true;
+  }
+
+  double _normalizedAngleDelta(double current, double next) {
+    final rawDelta = (next - current + 540) % 360 - 180;
+    return rawDelta.abs();
   }
 
   @override
   void didUpdateWidget(HomeMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.enableLiveSensors != widget.enableLiveSensors) {
+      _syncLiveSensors();
+    }
 
     // Calcula o bearing (direção) do motorista
     if (widget.driverLatLng != null &&
@@ -144,7 +197,9 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
         oldWidget.driverLatLng!,
         widget.driverLatLng!,
       );
-      if (bearing != 0) {
+      if (bearing != 0 &&
+          _normalizedAngleDelta(_driverBearing, bearing) >=
+              _minCameraRotationDelta) {
         setState(() {
           _driverBearing = bearing;
         });
@@ -212,6 +267,23 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
     Duration duration,
   ) {
     if (!mounted) return;
+    if (!kIsWeb && _mapboxMap != null) {
+      final config = AppConfigService();
+      _mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(
+              destLocation.longitude,
+              destLocation.latitude,
+            ),
+          ),
+          zoom: destZoom,
+          pitch: config.homeMapTiltRadians * 180 / pi,
+          bearing: _mapRotation,
+        ),
+      );
+      return;
+    }
 
     final latTween = Tween<double>(
       begin: widget.mapController.camera.center.latitude,
@@ -400,19 +472,115 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
 
   @override
   Widget build(BuildContext context) {
-    return FlutterMap(
+    final useLightweightMap =
+        kIsWeb || DeviceCapabilityService.instance.prefersLightweightMaps;
+    final useBasicLightweightMap =
+        DeviceCapabilityService.instance.prefersLightweightMaps;
+    final config = AppConfigService();
+    final tiltRadians = config.homeMapTiltRadians;
+    final tiltPerspective = config.homeMapTiltPerspective;
+    final tiltScaleX = config.homeMapTiltScaleX;
+    final tiltScaleY = config.homeMapTiltScaleY;
+
+    // Preset "navigation look": perspectiva forte de mapa inclinado.
+    final effectiveTilt = tiltRadians.clamp(0.16, 0.28);
+    final effectivePerspective = tiltPerspective.clamp(0.0012, 0.0028);
+    final effectiveScaleX = tiltScaleX.clamp(1.00, 1.06);
+    final effectiveScaleY = tiltScaleY.clamp(1.08, 1.28);
+
+    if (!useLightweightMap) {
+      const pitchDegrees = 20.0;
+      return Stack(
+        children: [
+          mapbox.MapWidget(
+            key: const ValueKey('home_mapbox'),
+            styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
+            cameraOptions: mapbox.CameraOptions(
+              center: mapbox.Point(
+                coordinates: mapbox.Position(
+                  widget.currentPosition.longitude,
+                  widget.currentPosition.latitude,
+                ),
+              ),
+              zoom: 15.3,
+              pitch: pitchDegrees,
+              bearing: _mapRotation,
+            ),
+            onMapCreated: (map) async {
+              _mapboxMap = map;
+              await map.scaleBar.updateSettings(
+                mapbox.ScaleBarSettings(enabled: false),
+              );
+              await map.compass.updateSettings(
+                mapbox.CompassSettings(enabled: false),
+              );
+              await map.logo.updateSettings(
+                mapbox.LogoSettings(enabled: false),
+              );
+              await map.attribution.updateSettings(
+                mapbox.AttributionSettings(enabled: false),
+              );
+              await map.location.updateSettings(
+                mapbox.LocationComponentSettings(
+                  enabled: false,
+                  pulsingEnabled: false,
+                  puckBearingEnabled: false,
+                ),
+              );
+              setState(() => _mapReady = true);
+              widget.onMapReady();
+            },
+            onStyleLoadedListener: (_) async {
+              if (_mapboxMap == null) return;
+              await _mapboxMap!.setCamera(
+                mapbox.CameraOptions(
+                  pitch: pitchDegrees,
+                  bearing: _mapRotation,
+                ),
+              );
+            },
+            onCameraChangeListener: (_) {
+              if (widget.isPickingOnMap) {
+                widget.onPickingLocationChanged?.call(widget.currentPosition);
+              }
+            },
+          ),
+          if (!widget.isInTripMode)
+            IgnorePointer(
+              child: Center(
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade400,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.shade400.withOpacity(0.35),
+                        blurRadius: 12,
+                        spreadRadius: 3,
+                      ),
+                    ],
+                    border: Border.all(color: Colors.white, width: 3),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    final mapContent = FlutterMap(
       mapController: widget.mapController,
       options: MapOptions(
         initialCenter: widget.currentPosition,
-        initialZoom: 15.0,
+        initialZoom: useBasicLightweightMap ? 14.0 : 15.0,
         onMapReady: () {
           if (mounted) {
             setState(() => _mapReady = true);
             widget.onMapReady();
 
-            // 🎬 Inicia animação apenas se tiver rota definida
             if (widget.routePolyline.isNotEmpty && !_animationPlayed) {
-              // Pequeno delay para garantir que o mapa renderizou
               Future.delayed(
                 const Duration(milliseconds: 500),
                 _playRouteAnimation,
@@ -427,14 +595,9 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
         },
       ),
       children: [
-        TileLayer(
-          urlTemplate:
-              'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${SupabaseConfig.mapboxToken}',
-          userAgentPackageName: 'com.play101.app',
-          tileDimension: 512,
-          zoomOffset: -1,
-          maxZoom: 22,
-        ),
+        useBasicLightweightMap
+            ? AppTileLayer.lightweight()
+            : AppTileLayer.standard(mapboxToken: SupabaseConfig.mapboxToken),
 
         // 🛣️ Polilinha da rota
         if (widget.routePolyline.isNotEmpty)
@@ -444,305 +607,335 @@ class _HomeMapWidgetState extends State<HomeMapWidget>
                 points: List<LatLng>.from(widget.routePolyline),
                 strokeWidth: 5.0,
                 color: AppTheme.accentBlue,
-                borderColor: AppTheme.accentBlue.withValues(alpha: 0.5),
+                borderColor: AppTheme.accentBlue.withOpacity(0.5),
                 borderStrokeWidth: 1.0,
               ),
             ],
           ),
 
-        // 📍 Marcadores
-        MarkerLayer(
-          markers: [
-            // Marcador da posição atual (usuário)
-            if (!widget.isInTripMode)
-              Marker(
-                point: widget.currentPosition,
-                width: 60,
-                height: 60,
-                child: AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    return Stack(
+            // 📍 Marcadores
+            MarkerLayer(
+              markers: [
+                // Marcador da posição atual (usuário)
+                if (!widget.isInTripMode)
+                  Marker(
+                    point: widget.currentPosition,
+                    width: 60,
+                    height: 60,
+                    child: AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, child) {
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Círculo de pulso
+                            Container(
+                              width: 20 + (25 * _pulseController.value),
+                              height: 20 + (25 * _pulseController.value),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryYellow.withOpacity(
+                                  0.5 * (1.0 - _pulseController.value),
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            // Marcador central
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: AppTheme.primaryYellow,
+                                  width: 3,
+                                ),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.person,
+                                  color: AppTheme.textDark,
+                                  size: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+
+                // 🟢 Ponto de coleta (pickup) - DESIGN PREMIUM COM SETAS SAINDO
+                if (widget.pickupLocation != null)
+                  Marker(
+                    point: widget.pickupLocation!,
+                    width: 70,
+                    height: 70,
+                    child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Círculo de pulso
-                        Container(
-                          width: 20 + (25 * _pulseController.value),
-                          height: 20 + (25 * _pulseController.value),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withValues(
-                              alpha: 0.5 * (1.0 - _pulseController.value),
+                        // Setas direcionais saindo (>>>>)
+                        Positioned(
+                          right: 0,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(
+                              3,
+                              (index) => Icon(
+                                Icons.chevron_right,
+                                color: Colors.green.withOpacity(
+                                  0.5 - (index * 0.15),
+                                ),
+                                size: 16,
+                              ),
                             ),
-                            shape: BoxShape.circle,
                           ),
                         ),
-                        // Marcador central
+                        // Marcador Principal
                         Container(
-                          width: 22,
-                          height: 22,
+                          width: 24,
+                          height: 24,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
+                                color: Colors.black26,
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
-                            border: Border.all(
-                              color: AppTheme.primaryYellow,
-                              width: 3,
+                            border: Border.all(color: Colors.green, width: 6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // 🔴 Ponto de entrega (dropoff) - DESIGN PREMIUM COM SETAS CHEGANDO
+                if (widget.dropoffLocation != null)
+                  Marker(
+                    point: widget.dropoffLocation!,
+                    width: 70,
+                    height: 70,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Setas direcionais chegando (>>>>)
+                        Positioned(
+                          left: 0,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(
+                              3,
+                              (index) => Icon(
+                                Icons.chevron_right,
+                                color: Colors.orange.withOpacity(
+                                  0.2 + (index * 0.15),
+                                ),
+                                size: 16,
+                              ),
                             ),
+                          ),
+                        ),
+                        // Marcador Principal (Pino mais clássico/estético)
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: AppTheme.textDark,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.white, width: 3),
                           ),
                           child: const Center(
                             child: Icon(
-                              Icons.person,
-                              color: AppTheme.textDark,
-                              size: 12,
+                              Icons.location_on,
+                              color: Colors.white,
+                              size: 14,
                             ),
                           ),
                         ),
                       ],
-                    );
-                  },
-                ),
-              ),
-
-            // 🟢 Ponto de coleta (pickup) - DESIGN PREMIUM COM SETAS SAINDO
-            if (widget.pickupLocation != null)
-              Marker(
-                point: widget.pickupLocation!,
-                width: 70,
-                height: 70,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Setas direcionais saindo (>>>>)
-                    Positioned(
-                      right: 0,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(
-                          3,
-                          (index) => Icon(
-                            Icons.chevron_right,
-                            color: Colors.green.withValues(
-                              alpha: 0.5 - (index * 0.15),
-                            ),
-                            size: 16,
-                          ),
-                        ),
-                      ),
                     ),
-                    // Marcador Principal
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                        border: Border.all(color: Colors.green, width: 6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // 🔴 Ponto de entrega (dropoff) - DESIGN PREMIUM COM SETAS CHEGANDO
-            if (widget.dropoffLocation != null)
-              Marker(
-                point: widget.dropoffLocation!,
-                width: 70,
-                height: 70,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Setas direcionais chegando (>>>>)
-                    Positioned(
-                      left: 0,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(
-                          3,
-                          (index) => Icon(
-                            Icons.chevron_right,
-                            color: Colors.orange.withValues(
-                              alpha: 0.2 + (index * 0.15),
-                            ),
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Marcador Principal (Pino mais clássico/estético)
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: AppTheme.textDark,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                        border: Border.all(color: Colors.white, width: 3),
-                      ),
-                      child: const Center(
-                        child: Icon(
+                  ),
+                // 📍 Pino Central para Seleção de Local (Picking Mode)
+                // Estilo Uber: O mapa se move por baixo do pino fixo no centro
+                if (widget.isPickingOnMap)
+                  Marker(
+                    point: widget.mapController.camera.center,
+                    width: 60,
+                    height: 60,
+                    child: Column(
+                      children: [
+                        Icon(
                           Icons.location_on,
-                          color: Colors.white,
-                          size: 14,
+                          color: AppTheme.primaryBlue,
+                          size: 40,
                         ),
+                        const SizedBox(
+                          height: 12,
+                        ), // Espaço para o pino "flutuar"
+                      ],
+                    ),
+                  ),
+
+                // 🚗 Marcador do Motorista
+                if (widget.driverLatLng != null)
+                  Marker(
+                    point: widget.driverLatLng!,
+                    width: 70,
+                    height: 70,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(end: _driverBearing),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOut,
+                      builder: (context, bearing, child) {
+                        // Ajuste de orientação do asset (car_marker.png) para alinhar rodas para baixo
+                        const double bearingOffset = -90;
+                        return Transform.rotate(
+                          angle: (bearing + bearingOffset) * pi / 180,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 10,
+                                ),
+                              ],
+                              border: Border.all(
+                                color: AppTheme.primaryYellow,
+                                width: 2,
+                              ),
+                            ),
+                            child: Image.asset(
+                              'assets/images/car_marker.png',
+                              width: 48,
+                              height: 48,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(
+                                    Icons.directions_car,
+                                    color: AppTheme.primaryYellow,
+                                    size: 36,
+                                  ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                // 🚙 Carros Livres (Simulados)
+                if (widget.simulatedCars != null &&
+                    widget.simulatedCars!.isNotEmpty)
+                  ...widget.simulatedCars!.map(
+                    (car) => Marker(
+                      point: car.position,
+                      width: 50,
+                      height: 50,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(end: car.heading),
+                        duration: const Duration(milliseconds: 1200),
+                        curve: Curves.linear,
+                        builder: (context, angle, child) {
+                          return const Icon(
+                            Icons.person_pin_circle,
+                            color: Colors.deepPurple,
+                            size: 32,
+                          );
+                        },
                       ),
                     ),
-                  ],
-                ),
-              ),
-            // 📍 Pino Central para Seleção de Local (Picking Mode)
-            // Estilo Uber: O mapa se move por baixo do pino fixo no centro
-            if (widget.isPickingOnMap)
-              Marker(
-                point: widget.mapController.camera.center,
-                width: 60,
-                height: 60,
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      color: AppTheme.primaryBlue,
-                      size: 40,
+                  ),
+              ],
+            ),
+
+            // 🎬 Indicador visual da animação
+            if (!_animationPlayed &&
+                _mapReady &&
+                widget.routePolyline.isNotEmpty)
+              Positioned(
+                bottom: 30 + MediaQuery.of(context).padding.bottom,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                    const SizedBox(height: 12), // Espaço para o pino "flutuar"
-                  ],
-                ),
-              ),
-
-            // 🚗 Marcador do Motorista
-            if (widget.driverLatLng != null)
-              Marker(
-                point: widget.driverLatLng!,
-                width: 70,
-                height: 70,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(end: _driverBearing),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeOut,
-                  builder: (context, bearing, child) {
-                    return Transform.rotate(
-                      angle: bearing * pi / 180,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 10),
-                          ],
-                          border: Border.all(
-                            color: AppTheme.primaryYellow,
-                            width: 2,
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: AnimatedBuilder(
+                            animation: _animationController,
+                            builder: (context, child) =>
+                                CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppTheme.primaryYellow,
+                                  ),
+                                  value: _animationController.value,
+                                ),
                           ),
                         ),
-                        child: Image.asset(
-                          'assets/images/car_marker.png',
-                          width: 48,
-                          height: 48,
-                          errorBuilder: (context, error, stackTrace) => Icon(
-                            Icons.directions_car,
-                            color: AppTheme.primaryYellow,
-                            size: 36,
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Visualizando rota...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-            // 🚙 Carros Livres (Simulados)
-            if (widget.simulatedCars != null &&
-                widget.simulatedCars!.isNotEmpty)
-              ...widget.simulatedCars!.map(
-                (car) => Marker(
-                  point: car.position,
-                  width: 50,
-                  height: 50,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(end: car.heading),
-                    duration: const Duration(milliseconds: 1200),
-                    curve: Curves.linear,
-                    builder: (context, angle, child) {
-                      return PremiumDriverMarker(
-                        heading: angle,
-                        isMoto: false,
-                        size: 40,
-                      );
-                    },
+                      ],
+                    ),
                   ),
                 ),
               ),
-          ],
-        ),
-
-        // 🎬 Indicador visual da animação
-        if (!_animationPlayed && _mapReady && widget.routePolyline.isNotEmpty)
-          Positioned(
-            bottom: 30 + MediaQuery.of(context).padding.bottom,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: AnimatedBuilder(
-                        animation: _animationController,
-                        builder: (context, child) => CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppTheme.primaryYellow,
-                          ),
-                          value: _animationController.value,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Visualizando rota...',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
       ],
+    );
+
+    if (useBasicLightweightMap) {
+      return mapContent;
+    }
+
+    final tiltMatrix = Matrix4.identity()
+      ..setEntry(3, 2, effectivePerspective)
+      ..rotateX(effectiveTilt)
+      ..scale(effectiveScaleX, effectiveScaleY)
+      ..translate(0.0, 24.0, 0.0);
+
+    return ClipRect(
+      child: Transform(
+        alignment: Alignment.bottomCenter,
+        transform: tiltMatrix,
+        transformHitTests: false,
+        child: mapContent,
+      ),
     );
   }
 }

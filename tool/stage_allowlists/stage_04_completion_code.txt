@@ -1,0 +1,5 @@
+supabase/functions/service-request/
+lib/features/client/service_tracking_page.dart
+lib/features/provider/provider_active_service_mobile_screen.dart
+docs/SERVICE_FLOW_STAGE_CHECKLIST.md
+RELATORIO_DEV.md

@@ -195,6 +195,7 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                           builder: (context) => RefundRequestScreen(
                             serviceId: widget.serviceId,
                             title: 'Abrir Reclamação',
+                            claimType: 'complaint',
                           ),
                         ),
                       );
@@ -215,6 +216,7 @@ class _ServiceVerificationScreenState extends State<ServiceVerificationScreen> {
                           builder: (context) => RefundRequestScreen(
                             serviceId: widget.serviceId,
                             title: 'Pedir Devolução',
+                            claimType: 'refund_request',
                           ),
                         ),
                       );

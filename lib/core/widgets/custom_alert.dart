@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class CustomAlert {
   static Future<bool?> show({
@@ -71,7 +72,7 @@ class CustomAlert {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -85,14 +86,14 @@ class CustomAlert {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isDestructive
-                      ? Colors.red.withValues(alpha: 0.1)
-                      : const Color(0xFFFFC107).withValues(alpha: 0.1),
+                      ? Colors.red.withOpacity(0.1)
+                      : AppTheme.primaryYellow.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   icon,
                   size: 32,
-                  color: isDestructive ? Colors.red : const Color(0xFFFFC107),
+                  color: isDestructive ? Colors.red : AppTheme.primaryYellow,
                 ),
               ),
               const SizedBox(height: 16),
@@ -161,7 +162,7 @@ class CustomAlert {
                           confirmColor ??
                           (isDestructive
                               ? Colors.red
-                              : const Color(0xFFFFC107)),
+                              : AppTheme.primaryYellow),
                       foregroundColor:
                           confirmTextColor ??
                           (isDestructive ? Colors.white : Colors.black),

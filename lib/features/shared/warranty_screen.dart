@@ -60,7 +60,7 @@ class WarrantyScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.black.withOpacity(0.05),
                       blurRadius: 10,
                     ),
                   ],
@@ -150,7 +150,7 @@ class WarrantyScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.successGreen.withValues(alpha: 0.1),
+              color: AppTheme.successGreen.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(

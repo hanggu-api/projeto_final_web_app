@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/utils/fixed_schedule_gate.dart';
 import 'mobile_service_card.dart';
 import 'fixed_service_card.dart';
 
@@ -44,12 +46,8 @@ class ServiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determinar o tipo de local (location_type)
-    // 'provider' ou 'at_provider' -> FixedServiceCard
-    // 'client', 'on_site', 'delivery' -> MobileServiceCard
-    final locationType = (details?['location_type'] ?? '').toString();
     final bool isFixed =
-        locationType == 'provider' || locationType == 'at_provider';
+        details != null && isCanonicalFixedServiceRecord(details!);
 
     if (isFixed) {
       return FixedServiceCard(

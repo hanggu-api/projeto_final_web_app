@@ -1,0 +1,12 @@
+{
+  "routes": [
+    {
+      "src": "/delete_account_page/?",
+      "dest": "/delete_account_page/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "https://crud-hj5rfelsb-irismars-projects.vercel.app/$1"
+    }
+  ]
+}

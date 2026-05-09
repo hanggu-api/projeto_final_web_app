@@ -2,14 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../core/utils/fixed_schedule_gate.dart';
 import '../../core/utils/navigation_helper.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../core/config/supabase_config.dart';
+import '../../core/maps/app_tile_layer.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../shared/chat_screen.dart';
 import '../../services/api_service.dart';
+import '../../services/background_main.dart';
+import '../../services/client_tracking_service.dart';
+import '../../services/data_gateway.dart';
+import '../../widgets/app_dialog_actions.dart';
 
 class ScheduledServiceScreen extends StatefulWidget {
   final String serviceId;
@@ -20,40 +28,220 @@ class ScheduledServiceScreen extends StatefulWidget {
   State<ScheduledServiceScreen> createState() => _ScheduledServiceScreenState();
 }
 
-class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
+class _ScheduledServiceScreenState extends State<ScheduledServiceScreen>
+    with WidgetsBindingObserver {
+  static const double _arrivedDistanceThresholdMeters = 200;
   final ApiService _api = ApiService();
   bool _isLoading = true;
+  bool _isReturningHome = false;
   Map<String, dynamic>? _service;
 
   Timer? _refreshTimer;
 
+  String? _serviceParticipantContextLabel(Map<String, dynamic>? service) {
+    if (service == null) return null;
+    final participants = DataGateway().extractChatParticipants(service);
+    final beneficiary = participants.cast<Map<String, dynamic>?>().firstWhere(
+      (item) => item?['role'] == 'beneficiary',
+      orElse: () => null,
+    );
+    final requester = participants.cast<Map<String, dynamic>?>().firstWhere(
+      (item) => item?['role'] == 'requester',
+      orElse: () => null,
+    );
+    if (beneficiary == null) return null;
+    final beneficiaryName = '${beneficiary['display_name'] ?? ''}'.trim();
+    if (beneficiaryName.isEmpty) return null;
+    final beneficiaryId = '${beneficiary['user_id'] ?? ''}'.trim();
+    final requesterId = '${requester?['user_id'] ?? ''}'.trim();
+    if (beneficiaryId.isNotEmpty && beneficiaryId == requesterId) return null;
+    return 'Pessoa atendida: $beneficiaryName';
+  }
+
+  Future<void> _openChatModal() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return FractionallySizedBox(
+          heightFactor: 0.96,
+          child: ChatScreen(
+            serviceId: widget.serviceId,
+            otherName: _service?['provider_name']?.toString(),
+            otherAvatar: _service?['provider_avatar']?.toString(),
+            isInline: true,
+            onClose: () => Navigator.of(context).pop(),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadService();
+    _startRefreshTimer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startRefreshTimer();
+      unawaited(initializeBackgroundService());
+      if (_service != null) {
+        _handleScheduledGateDecision(_service!, source: 'resume', silent: true);
+        unawaited(ClientTrackingService.syncTrackingForService(_service));
+      }
+      unawaited(_loadService(silent: true));
+      return;
+    }
+    _refreshTimer?.cancel();
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      return;
+    }
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 60),
       (_) => _loadService(silent: true),
     );
   }
 
-  @override
-  void dispose() {
+  bool _isMissingOrDeletedService(Map<String, dynamic> service) {
+    final status = (service['status'] ?? '').toString().trim().toLowerCase();
+    return service['not_found'] == true || status == 'deleted';
+  }
+
+  bool _shouldBlockUnpaidFixedAccess(Map<String, dynamic> service) {
+    final status = (service['status'] ?? '').toString().trim().toLowerCase();
+    final paymentStatus = (service['payment_status'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    final isFixed =
+        service['is_fixed'] == true ||
+        service['at_provider'] == true ||
+        (service['service_type'] ?? '').toString().trim().toLowerCase() ==
+            'at_provider' ||
+        (service['location_type'] ?? '').toString().trim().toLowerCase() ==
+            'provider';
+    final depositPaid =
+        paymentStatus == 'paid' || paymentStatus == 'partially_paid';
+    return isFixed &&
+        !depositPaid &&
+        {'waiting_payment', 'pending'}.contains(status);
+  }
+
+  bool _shouldKeepScheduledScreenLocked(Map<String, dynamic> service) {
+    return evaluateFixedScheduleGate(service).shouldStayOnScheduledScreen;
+  }
+
+  void _scheduleReturnHomeForUnlockedService({bool showMessage = true}) {
+    if (_isReturningHome) return;
+    _isReturningHome = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (showMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Esse agendamento ainda está longe. A home foi liberada por enquanto.',
+            ),
+          ),
+        );
+      }
+      context.go('/home');
+    });
+  }
+
+  bool _handleScheduledGateDecision(
+    Map<String, dynamic> service, {
+    required String source,
+    bool silent = false,
+  }) {
+    logFixedScheduleGateDecision(source, service);
+    final decision = evaluateFixedScheduleGate(service);
+    if (decision.shouldStayOnScheduledScreen) return true;
+
     _refreshTimer?.cancel();
-    super.dispose();
+    _scheduleReturnHomeForUnlockedService(showMessage: !silent);
+    return false;
   }
 
   Future<void> _loadService({bool silent = false}) async {
     try {
-      final data = await _api.getServiceDetails(widget.serviceId);
+      final data = await _api.getServiceDetails(
+        widget.serviceId,
+        scope: ServiceDataScope.fixedOnly,
+      );
       debugPrint(
         '🔍 [ScheduledService] Data loaded: ${data['id']} - Status: ${data['status']}',
       );
+      if (_isMissingOrDeletedService(data)) {
+        _refreshTimer?.cancel();
+        if (!mounted) return;
+        setState(() {
+          _service = null;
+          _isLoading = false;
+        });
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Esse agendamento não existe mais. Voltando para a Home.',
+              ),
+            ),
+          );
+        }
+        context.go('/home');
+        return;
+      }
+      if (_shouldBlockUnpaidFixedAccess(data)) {
+        _refreshTimer?.cancel();
+        await ClientTrackingService.clearContext(finalStatus: 'waiting_payment');
+        if (!mounted) return;
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Esse agendamento ainda está aguardando o pagamento da taxa. Volte para concluir o PIX.',
+              ),
+            ),
+          );
+        }
+        context.go('/beauty-booking');
+        return;
+      }
+      if (!_handleScheduledGateDecision(
+        data,
+        source: 'refresh_success',
+        silent: silent,
+      )) {
+        await ClientTrackingService.syncTrackingForService(data);
+        return;
+      }
       if (mounted) {
         setState(() {
           _service = data;
           if (!silent) _isLoading = false;
         });
+        await initializeBackgroundService();
+        await ClientTrackingService.syncTrackingForService(data);
 
         // Fetch full profile if provider name is generic
         final pName = _service?['provider_name'];
@@ -67,6 +255,14 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
       }
     } catch (e) {
       debugPrint('Error loading service: $e');
+      if (_service != null &&
+          !_handleScheduledGateDecision(
+            _service!,
+            source: 'refresh_error_with_cached_service',
+            silent: true,
+          )) {
+        return;
+      }
       if (mounted && !silent) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -121,6 +317,76 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
     );
   }
 
+  double? _distanceToProviderMeters() {
+    final clientLat = double.tryParse(
+      _service?['client_latitude']?.toString() ??
+          _service?['latitude']?.toString() ??
+          '',
+    );
+    final clientLon = double.tryParse(
+      _service?['client_longitude']?.toString() ??
+          _service?['longitude']?.toString() ??
+          '',
+    );
+    final providerLat = double.tryParse(
+      _service?['provider_lat']?.toString() ??
+          _service?['provider']?['latitude']?.toString() ??
+          '',
+    );
+    final providerLon = double.tryParse(
+      _service?['provider_lon']?.toString() ??
+          _service?['provider']?['longitude']?.toString() ??
+          '',
+    );
+    if (clientLat == null ||
+        clientLon == null ||
+        providerLat == null ||
+        providerLon == null) {
+      return null;
+    }
+    return Geolocator.distanceBetween(
+      clientLat,
+      clientLon,
+      providerLat,
+      providerLon,
+    );
+  }
+
+  bool _canMarkArrived() {
+    final distanceMeters = _distanceToProviderMeters();
+    if (distanceMeters == null) return false;
+    return distanceMeters <= _arrivedDistanceThresholdMeters;
+  }
+
+  String? _trackingStatusMessage() {
+    final detail = _service;
+    if (detail == null) return null;
+
+    final trackingStatus = (detail['client_tracking_status'] ?? '')
+        .toString()
+        .toLowerCase()
+        .trim();
+    final updatedAt = DateTime.tryParse(
+      (detail['client_tracking_updated_at'] ?? '').toString(),
+    )?.toLocal();
+    final isTrackingActive = detail['client_tracking_active'] == true;
+
+    if (trackingStatus == 'permission_denied') {
+      return 'Acompanhamento pausado: habilite a localizacao para continuar enviando seu trajeto.';
+    }
+    if (trackingStatus == 'location_unavailable') {
+      return 'Nao conseguimos atualizar sua localizacao agora. O app vai tentar novamente automaticamente.';
+    }
+    if (updatedAt != null &&
+        DateTime.now().difference(updatedAt) > const Duration(minutes: 2)) {
+      return 'Ultima atualizacao do trajeto ha mais de 2 minutos. O acompanhamento sera retomado assim que houver sinal.';
+    }
+    if (isTrackingActive) {
+      return 'Seu trajeto ate o local esta sendo acompanhado automaticamente a cada 30 segundos.';
+    }
+    return null;
+  }
+
   Future<void> _cancelService() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -128,14 +394,13 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
         title: const Text('Cancelar Agendamento?'),
         content: const Text('Tem certeza que deseja cancelar este serviço?'),
         actions: [
-          TextButton(
+          AppDialogCancelAction(
+            label: 'Não',
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Não'),
           ),
-          TextButton(
+          AppDialogCancelAction(
+            label: 'Sim, Cancelar',
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Sim, Cancelar'),
           ),
         ],
       ),
@@ -143,12 +408,20 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
 
     if (confirm == true) {
       try {
-        await _api.cancelService(widget.serviceId);
+        await _api.cancelService(
+          widget.serviceId,
+          scope: ServiceDataScope.fixedOnly,
+        );
+        await ClientTrackingService.clearContext(finalStatus: 'cancelled');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Agendamento cancelado.')),
           );
-          context.pop(); // Back to home
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            context.go('/home');
+          }
         }
       } catch (e) {
         if (mounted) {
@@ -176,13 +449,27 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
       );
     }
 
+    if (!_handleScheduledGateDecision(
+      _service!,
+      source: 'build_cached_service',
+      silent: true,
+    )) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Agendamento'),
         leading: IconButton(
           icon: const Icon(LucideIcons.chevronLeft),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/home');
+            }
+          },
         ),
       ),
       body: RefreshIndicator(
@@ -218,8 +505,9 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
     final scheduledAtStr = _service?['scheduled_at'];
     DateTime? scheduledAt;
     if (scheduledAtStr != null) {
-      scheduledAt = DateTime.tryParse(scheduledAtStr);
+      scheduledAt = DateTime.tryParse(scheduledAtStr)?.toLocal();
     }
+    final participantContextLabel = _serviceParticipantContextLabel(_service);
 
     return Container(
       width: double.infinity,
@@ -231,7 +519,7 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
         ), // Removido border radius lateral para alargar o card
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -242,7 +530,7 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.primaryYellow.withValues(alpha: 0.2),
+              color: AppTheme.primaryYellow.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -257,9 +545,21 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
+          if (participantContextLabel != null) ...[
+            Text(
+              participantContextLabel,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.blue.shade900,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (scheduledAt != null)
             Text(
-              '${scheduledAt.day}/${scheduledAt.month} às ${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}',
+              '${scheduledAt.day.toString().padLeft(2, '0')}/${scheduledAt.month.toString().padLeft(2, '0')} às ${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           const SizedBox(height: 24),
@@ -272,6 +572,11 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
 
   Widget _buildTimeToLeave(DateTime? scheduledAt) {
     if (scheduledAt == null) return const SizedBox.shrink();
+    if (_service == null || !_shouldKeepScheduledScreenLocked(_service!)) {
+      return const SizedBox.shrink();
+    }
+
+    final now = DateTime.now().toLocal();
 
     final clientLat = double.tryParse(_service?['latitude']?.toString() ?? '');
     final clientLon = double.tryParse(_service?['longitude']?.toString() ?? '');
@@ -307,9 +612,7 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
           int.tryParse(_service?['travel_time_min']?.toString() ?? '30') ?? 30;
     }
 
-    final leaveAt = scheduledAt.subtract(Duration(minutes: travelTime));
-    final now = DateTime.now();
-
+    final leaveAt = scheduledAt.subtract(Duration(minutes: travelTime + 15));
     final isLate = now.isAfter(leaveAt);
     final timeStr =
         '${leaveAt.hour.toString().padLeft(2, '0')}:${leaveAt.minute.toString().padLeft(2, '0')}';
@@ -317,24 +620,29 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
     final bgColor = isLate ? Colors.red[50] : Colors.blue[50];
     final textColor = isLate ? Colors.red : Colors.blue;
     final message = isLate
-        ? 'Saia agora! ($timeStr)'
-        : 'Saia de casa às $timeStr';
+        ? 'Saia agora para chegar com antecedência! ($timeStr)'
+        : 'Saia de casa às $timeStr para chegar 15 min antes';
     final icon = isLate ? LucideIcons.alertTriangle : LucideIcons.clock;
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: textColor, size: 20),
           const SizedBox(width: 8),
-          Text(
-            message,
-            style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -395,13 +703,8 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
                     initialZoom: (clientLat != null) ? 14 : 16,
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
-                      userAgentPackageName: 'com.play101.app',
-                      tileDimension: 512,
-                      zoomOffset: -1,
-                      maxZoom: 22,
+                    AppTileLayer.standard(
+                      mapboxToken: SupabaseConfig.mapboxToken,
                     ),
                     if (clientLat != null && clientLon != null)
                       PolylineLayer(
@@ -496,7 +799,7 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -572,9 +875,7 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
               ),
             ),
             IconButton(
-              onPressed: () {
-                context.push('/chat/${widget.serviceId}');
-              },
+              onPressed: _openChatModal,
               icon: const Icon(LucideIcons.messageCircle, color: Colors.green),
               style: IconButton.styleFrom(
                 backgroundColor: Colors.green[50],
@@ -591,6 +892,8 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
 
   Widget _buildActions() {
     final status = _service?['status'];
+    final distanceMeters = _distanceToProviderMeters();
+    final canMarkArrived = _canMarkArrived();
     final bool clientHasArrived =
         status == 'client_arrived' ||
         _service?['arrived_at'] != null ||
@@ -604,7 +907,7 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
           child: ElevatedButton.icon(
             onPressed: _openMap,
             icon: const Icon(LucideIcons.map),
-            label: const Text('Abrir no Maps'),
+            label: const Text('Ir com GPS'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,
@@ -615,6 +918,25 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
           ),
         ),
         const SizedBox(height: 12),
+        if (_trackingStatusMessage() != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Text(
+              _trackingStatusMessage()!,
+              style: TextStyle(
+                color: Colors.blue.shade900,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // 1. Hora de Sair (Departing)
         if (status == 'accepted' || status == 'scheduled')
@@ -627,6 +949,9 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
                 );
                 try {
                   await ApiService().markClientDeparting(widget.serviceId);
+                  await ClientTrackingService.sendTrackingTick(
+                    source: 'client_depart_button',
+                  );
                   debugPrint(
                     '✅ [ScheduledService] markClientDeparting success',
                   );
@@ -653,8 +978,11 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
           ),
 
         // 2. Cheguei (Arrived)
-        if (status == 'client_departing' ||
-            (status == 'accepted' && !clientHasArrived))
+        if ((status == 'client_departing' ||
+                status == 'accepted' ||
+                status == 'scheduled') &&
+            !clientHasArrived &&
+            canMarkArrived)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -685,27 +1013,47 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
             ),
           ),
 
-        // 3. Pagar Restante (Pay Remaining)
-        // If client arrived, show payment button (unless already paid)
-        if (clientHasArrived || status == 'client_arrived') ...[
-          // If already paid manual or completed, don't show pay button
-          if (status != 'completed' &&
-              _service?['payment_remaining_status'] != 'paid_manual' &&
-              _service?['payment_remaining_status'] != 'paid')
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _payRemaining, // Using existing payment flow
-                icon: const Icon(LucideIcons.creditCard),
-                label: const Text('PAGAR RESTANTE'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+        if ((status == 'client_departing' ||
+                status == 'accepted' ||
+                status == 'scheduled') &&
+            !clientHasArrived &&
+            !canMarkArrived)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Text(
+              distanceMeters == null
+                  ? 'O botão "Cheguei no local" aparece quando o app confirmar que você está próximo do salão.'
+                  : 'Aproxime-se mais do salão para liberar "Cheguei no local". Distância atual: ${(distanceMeters / 1000).toStringAsFixed(distanceMeters >= 1000 ? 1 : 2)} km.',
+              style: TextStyle(
+                color: Colors.amber.shade900,
+                fontWeight: FontWeight.w600,
               ),
             ),
-        ],
+          ),
+
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.blueGrey[50],
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.blueGrey.shade100),
+          ),
+          child: const Text(
+            'Pagamento final: os 90% restantes são pagos diretamente no salão, fora do app.',
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
 
         if (!clientHasArrived &&
             status != 'client_departing' &&
@@ -718,47 +1066,6 @@ class _ScheduledServiceScreenState extends State<ScheduledServiceScreen> {
           ),
         ],
       ],
-    );
-  }
-
-  void _payRemaining() {
-    if (_service == null) return;
-
-    final double? estimatedPrice = double.tryParse(
-      _service!['price_estimated']?.toString() ?? '',
-    );
-    final double? price = double.tryParse(_service!['price']?.toString() ?? '');
-    final double total = price ?? estimatedPrice ?? 0.0;
-
-    // Calcula o restante (assumindo depósito de 30% se 'price_deposit' existir)
-    double remaining = total;
-    final double? deposit = double.tryParse(
-      _service!['price_deposit']?.toString() ?? '',
-    );
-    if (deposit != null && total > deposit) {
-      remaining = total - deposit;
-    } else if (total > 0) {
-      // Fallback: Se não tem depósito explícito, assume que o restante é 70%
-      // (supondo fluxo padrão de 30/70) OU simplesmente cobra o total se não foi pago nada.
-      // Melhor abordagem: Verificar payment_remaining_status.
-      // Se estamos aqui, é porque deve pagar o restante.
-      // Vamos assumir que o 'amount' passado para PaymentScreen é o valor A PAGAR AGORA.
-      // Se já pagou 30%, faltam 70%.
-      if (_service!['payment_status'] == 'partially_paid') {
-        remaining = total * 0.7;
-      }
-    }
-
-    context.push(
-      '/payment/${widget.serviceId}',
-      extra: {
-        'serviceId': widget.serviceId,
-        'type': 'remaining',
-        'amount': remaining,
-        'total': total,
-        'providerName': _service!['provider_name'],
-        'serviceType': _service!['service_type'],
-      },
     );
   }
 }

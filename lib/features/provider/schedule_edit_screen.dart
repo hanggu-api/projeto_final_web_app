@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../services/data_gateway.dart';
+import '../../widgets/ios_date_time_picker.dart';
 
 class ScheduleEditScreen extends StatefulWidget {
   const ScheduleEditScreen({super.key});
@@ -45,15 +46,12 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
     }
     try {
       // Sprint 2: Supabase SDK em vez de GET /provider/setup
-      final schedulesRaw = await Supabase.instance.client
-          .from('provider_schedule_configs')
-          .select()
-          .eq('provider_id', providerId);
-
-      final exceptionsRaw = await Supabase.instance.client
-          .from('provider_schedule_exceptions')
-          .select()
-          .eq('provider_id', providerId);
+      final schedulesRaw = await DataGateway().loadProviderSchedules(
+        providerId,
+      );
+      final exceptionsRaw = await DataGateway().loadProviderScheduleExceptions(
+        providerId,
+      );
 
       setState(() {
         final List<dynamic> schedulesData = schedulesRaw;
@@ -87,6 +85,7 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
             .toList();
       });
     } catch (e) {
+      debugPrint('❌ [Schedule] Erro ao carregar dados: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -177,43 +176,30 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
     }
     try {
       // Sprint 2: Supabase SDK em vez de POST /provider/schedule
-      final schedulesToSend = _schedules
-          .map(
-            (s) => {
-              'provider_id': providerId,
-              'day_of_week': s['day_of_week'],
-              'start_time': s['start_time'],
-              'end_time': s['end_time'],
-              'break_start': s['break_start'],
-              'break_end': s['break_end'],
-              'is_enabled': s['is_enabled'] == true,
-            },
-          )
-          .toList();
-
-      await Supabase.instance.client
-          .from('provider_schedule_configs')
-          .upsert(schedulesToSend, onConflict: 'provider_id,day_of_week');
-
-      // Exceptions: delete all and re-insert
-      await Supabase.instance.client
-          .from('provider_schedule_exceptions')
-          .delete()
-          .eq('provider_id', providerId);
-
-      if (_exceptions.isNotEmpty) {
-        final exceptionsToSend = _exceptions
-            .map(
-              (e) => {
-                ...Map<String, dynamic>.from(e),
-                'provider_id': providerId,
-              },
-            )
-            .toList();
-        await Supabase.instance.client
-            .from('provider_schedule_exceptions')
-            .insert(exceptionsToSend);
+      String? asSqlTime(String? v) {
+        if (v == null || v.isEmpty) return null;
+        // garante formato HH:MM:SS
+        if (v.length == 5) return '$v:00';
+        return v;
       }
+
+      final schedulesToSend = _schedules.map((s) {
+        return {
+          'provider_id': int.tryParse(providerId) ?? providerId,
+          'day_of_week': s['day_of_week'],
+          'start_time': asSqlTime(s['start_time']),
+          'end_time': asSqlTime(s['end_time']),
+          'break_start': asSqlTime(s['break_start']),
+          'break_end': asSqlTime(s['break_end']),
+          'slot_duration': s['slot_duration'] ?? 30,
+          'is_enabled': s['is_enabled'] == true,
+        };
+      }).toList();
+
+      debugPrint('[Schedule] payload: $schedulesToSend');
+
+      await ApiService().saveScheduleConfig(schedulesToSend);
+      await ApiService().saveScheduleExceptions(_exceptions);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -221,7 +207,9 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
         );
         Navigator.pop(context, true);
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('❌ [Schedule] Erro ao salvar: $e');
+      debugPrint('STACK: $st');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -249,15 +237,10 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
       }
     }
 
-    final TimeOfDay? picked = await showTimePicker(
+    final TimeOfDay? picked = await AppCupertinoPicker.showTimePicker(
       context: context,
       initialTime: initialTime,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
+      title: 'Selecionar horário',
     );
 
     if (picked != null) {
@@ -504,11 +487,12 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
 
   Future<void> _addException() async {
     final now = DateTime.now();
-    final pickedDate = await showDatePicker(
+    final pickedDate = await AppCupertinoPicker.showDatePicker(
       context: context,
       initialDate: now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
+      title: 'Selecionar data',
     );
 
     if (pickedDate == null) return;
@@ -559,12 +543,13 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
                         Expanded(
                           child: InkWell(
                             onTap: () async {
-                              final t = await showTimePicker(
+                              final t = await AppCupertinoPicker.showTimePicker(
                                 context: context,
                                 initialTime: const TimeOfDay(
                                   hour: 9,
                                   minute: 0,
                                 ),
+                                title: 'Horário de início',
                               );
                               if (t != null) {
                                 setStateDialog(() {
@@ -585,12 +570,13 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
                         Expanded(
                           child: InkWell(
                             onTap: () async {
-                              final t = await showTimePicker(
+                              final t = await AppCupertinoPicker.showTimePicker(
                                 context: context,
                                 initialTime: const TimeOfDay(
                                   hour: 18,
                                   minute: 0,
                                 ),
+                                title: 'Horário de término',
                               );
                               if (t != null) {
                                 setStateDialog(() {

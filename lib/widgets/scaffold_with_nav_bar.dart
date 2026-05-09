@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app_drawer.dart';
 import 'app_bottom_nav.dart';
-import '../services/theme_service.dart';
+import '../services/api_service.dart';
+import '../services/client_tracking_service.dart';
 
 class ScaffoldWithNavBar extends StatefulWidget {
   final Widget child;
@@ -15,9 +19,10 @@ class ScaffoldWithNavBar extends StatefulWidget {
 }
 
 class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
-  final GlobalKey _navBarKey = GlobalKey();
-  double _navBarHeight = 100.0;
   String? _role;
+  bool _isMedical = false;
+  bool _restoreChecked = false;
+  int _restoreAttempts = 0;
 
   @override
   void initState() {
@@ -25,31 +30,56 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
     _loadRole();
   }
 
-  void _updateHeight() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final RenderBox? renderBox =
-          _navBarKey.currentContext?.findRenderObject() as RenderBox?;
-      if (renderBox != null) {
-        final newHeight = renderBox.size.height + 32;
-        if ((_navBarHeight - newHeight).abs() > 1.0) {
-          setState(() {
-            _navBarHeight = newHeight;
-          });
-        }
+  Future<void> _restoreActiveTrackingIfNeeded() async {
+    if (_restoreChecked || !mounted) return;
+
+    final location = GoRouterState.of(context).uri.toString();
+    final isClient = !(_role == 'provider' || _role == 'driver');
+    if (!isClient) return;
+    if (!location.startsWith('/home') && !location.startsWith('/login')) return;
+
+    final activeServiceId =
+        await ClientTrackingService.activeServiceIdForCurrentSession();
+    if (!mounted) return;
+    if (activeServiceId == null || activeServiceId.trim().isEmpty) {
+      // No reload web, auth/session pode hidratar alguns instantes depois.
+      // Repetimos algumas tentativas antes de desistir.
+      _restoreAttempts++;
+      if (_restoreAttempts < 18) {
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (!mounted || _restoreChecked) return;
+          _restoreActiveTrackingIfNeeded();
+        });
+      } else {
+        _restoreChecked = true;
       }
+      return;
+    }
+    _restoreChecked = true;
+
+    Future.microtask(() {
+      if (!mounted) return;
+      context.go('/service-tracking/$activeServiceId');
     });
   }
 
+  /// Carrega role e is_medical do SharedPreferences
   Future<void> _loadRole() async {
     final prefs = await SharedPreferences.getInstance();
+    final api = ApiService();
     if (mounted) {
       setState(() {
-        _role = prefs.getString('user_role');
+        _role = api.role ?? prefs.getString('user_role');
+        _isMedical = api.isMedical || (prefs.getBool('is_medical') ?? false);
       });
+      debugPrint(
+        '🔄 [ScaffoldWithNavBar] Role carregado: $_role, Medical: $_isMedical',
+      );
+      unawaited(_restoreActiveTrackingIfNeeded());
     }
   }
 
+  /// Calcula qual aba deve estar selecionada baseado na rota atual
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
     final isProvider = _role == 'provider' || _role == 'driver';
@@ -59,23 +89,29 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
           location.startsWith('/medical-home')) {
         return 0;
       }
-      if (location.startsWith('/uber-driver-earnings')) {
+      if (location.startsWith('/chats')) {
         return 1;
       }
-      if (location.startsWith('/activity')) {
+      if (location.startsWith('/my-provider-profile') ||
+          location.startsWith('/driver-settings') ||
+          location.startsWith('/provider-settings') ||
+          location.startsWith('/client-settings')) {
         return 2;
       }
-      if (location.startsWith('/client-settings') ||
-          location.startsWith('/my-provider-profile')) {
-        return 3;
-      }
     } else {
-      if (location.startsWith('/home') ||
-          location.startsWith('/tracking') ||
-          location.startsWith('/uber-request')) {
+      if (location.startsWith('/home')) {
         return 0;
       }
-      if (location.startsWith('/chats') || location.startsWith('/chat/')) {
+      if (location.startsWith('/tracking')) {
+        return 0;
+      }
+      if (location.startsWith('/service-tracking')) {
+        return 0;
+      }
+      if (location.startsWith('/service-busca-prestador-movel')) {
+        return 0;
+      }
+      if (location.startsWith('/chats')) {
         return 1;
       }
       if (location.startsWith('/client-settings')) {
@@ -87,62 +123,27 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
+    final isProvider = _role == 'provider' || _role == 'driver';
     final String location = GoRouterState.of(context).uri.toString();
-    final bool navBarBlocked =
-        location.startsWith('/uber-tracking') ||
-        location.startsWith('/uber-driver-trip');
-    final isNavBarVisible = ThemeService().isNavBarVisible && !navBarBlocked;
-    final bottomPadding = mediaQuery.viewPadding.bottom;
+    final bool hideBottomNav =
+        location.startsWith('/servicos') ||
+        location.startsWith('/provider-profile') ||
+        location.startsWith('/service-tracking') ||
+        location.startsWith('/service-busca-prestador-movel') ||
+        location.startsWith('/provider-active') ||
+        location.startsWith('/provider-service-finish');
 
     return Scaffold(
-      extendBody: true, // Garante que o conteúdo vá até o fundo real da tela
-      body: Stack(
-        children: [
-          // Conteúdo Principal (compensando a altura da nav bar para não ficar oculto)
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: (isNavBarVisible ? _navBarHeight : 0) + bottomPadding,
+      backgroundColor: Colors.white,
+      extendBody: !hideBottomNav,
+      drawer: const AppDrawer(),
+      body: widget.child,
+      bottomNavigationBar: hideBottomNav
+          ? null
+          : AppBottomNav(
+              currentIndex: _calculateSelectedIndex(context),
+              isProvider: isProvider,
             ),
-            child: widget.child,
-          ),
-
-          // Barra de Navegação Flutuante (Estilo Stitch)
-          Positioned(
-            key: _navBarKey,
-            left: 16,
-            right: 16,
-            bottom: 24 + bottomPadding,
-            child: ListenableBuilder(
-              listenable: ThemeService(),
-              builder: (context, child) {
-                _updateHeight();
-
-                // Oculta se o ThemeService mandar ou se estiver em uma rota de viagem
-                final isVisible =
-                    ThemeService().isNavBarVisible && !navBarBlocked;
-
-                return AnimatedSlide(
-                  duration: const Duration(milliseconds: 400),
-                  offset: isVisible ? Offset.zero : const Offset(0, 1.5),
-                  curve: Curves.easeInOut,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 300),
-                    opacity: isVisible ? 1.0 : 0.0,
-                    child: IgnorePointer(
-                      ignoring: !isVisible,
-                      child: AppBottomNav(
-                        currentIndex: _calculateSelectedIndex(context),
-                        isProvider: _role == 'provider' || _role == 'driver',
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

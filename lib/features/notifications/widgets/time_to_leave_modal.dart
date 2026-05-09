@@ -72,12 +72,12 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal>
           color: Colors.white,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(
-            color: AppTheme.textBrown.withValues(alpha: 0.2),
+            color: AppTheme.textBrown.withOpacity(0.2),
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -90,7 +90,7 @@ class _TimeToLeaveModalState extends State<TimeToLeaveModal>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.primaryYellow.withValues(alpha: 0.1),
+                color: AppTheme.primaryYellow.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

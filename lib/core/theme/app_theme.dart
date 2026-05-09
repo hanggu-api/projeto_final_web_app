@@ -8,8 +8,8 @@ class AppTheme {
   // ══════════════════════════════════════════════════════════
 
   // Primary Palette
-  static Color get primaryYellow => const Color(0xFFFFD700);
-  static Color get primaryDark => const Color(0xFFE6C200);
+  static Color get primaryYellow => const Color(0xFFFFC107);
+  static Color get primaryDark => primaryYellow;
   static Color get accentOrange => ThemeService().currentConfig.secondary;
   static const Color accentBlue = Color(0xFF427CF0);
 
@@ -108,31 +108,51 @@ class AppTheme {
   static const double borderRadiusXXL =
       32.0; // Manual adjustment for specific cards
 
+  static const Color cardBorderColor = Color(0xFFE6ECF5);
+  static const BorderSide cardBorderSide = BorderSide(
+    color: cardBorderColor,
+    width: 1.2,
+  );
+
+  static List<BoxShadow> get cardShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.08),
+      blurRadius: 18,
+      spreadRadius: 0,
+      offset: const Offset(0, 6),
+    ),
+  ];
+
+  static BoxBorder get cardBorder =>
+      Border.all(color: cardBorderSide.color, width: cardBorderSide.width);
+
   static BoxDecoration get cardDecoration => BoxDecoration(
     color: surfaceWhite,
     borderRadius: BorderRadius.circular(borderRadius),
-    boxShadow: const [
-      BoxShadow(
-        color: Color(0x0A000000),
-        blurRadius: 10,
-        spreadRadius: 0,
-        offset: Offset(0, 4),
-      ),
-    ],
+    border: cardBorder,
+    boxShadow: cardShadow,
   );
 
   static BoxDecoration get cardDecorationElevated => BoxDecoration(
     color: surfaceWhite,
     borderRadius: BorderRadius.circular(borderRadiusLarge),
-    boxShadow: const [
-      BoxShadow(
-        color: Color(0x14000000),
-        blurRadius: 20,
-        spreadRadius: 0,
-        offset: Offset(0, 8),
-      ),
-    ],
+    border: cardBorder,
+    boxShadow: cardShadow,
   );
+
+  static BoxDecoration surfacedCardDecoration({
+    Color color = surfaceWhite,
+    double radius = borderRadiusLarge,
+    BoxBorder? border,
+    List<BoxShadow>? shadow,
+  }) {
+    return BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(radius),
+      border: border ?? cardBorder,
+      boxShadow: shadow ?? cardShadow,
+    );
+  }
 
   static InputDecoration inputDecoration(String label, IconData icon) {
     return InputDecoration(
@@ -153,6 +173,96 @@ class AppTheme {
       ),
       filled: true,
       fillColor: backgroundLight,
+    );
+  }
+
+  static InputDecoration authInputDecoration(
+    String hint,
+    IconData icon, {
+    Widget? suffixIcon,
+    bool hasError = false,
+  }) {
+    const borderRadiusValue = 18.0;
+    final baseBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(borderRadiusValue),
+      borderSide: BorderSide(
+        color: hasError ? errorRed.withOpacity(0.4) : const Color(0xFFE6ECF5),
+        width: 1.2,
+      ),
+    );
+
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(
+        fontFamily: fontFamily,
+        color: textMuted,
+        fontWeight: FontWeight.w600,
+        fontSize: 16,
+      ),
+      prefixIcon: Icon(icon, color: accentBlue, size: 21),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: surfaceWhite,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      floatingLabelBehavior: FloatingLabelBehavior.never,
+      border: baseBorder,
+      enabledBorder: baseBorder,
+      focusedBorder: baseBorder.copyWith(
+        borderSide: BorderSide(
+          color: primaryYellow.withOpacity(0.95),
+          width: 2,
+        ),
+      ),
+      errorBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: errorRed.withOpacity(0.75), width: 1.4),
+      ),
+      focusedErrorBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: errorRed, width: 1.8),
+      ),
+    );
+  }
+
+  static ButtonStyle primaryActionButtonStyle({
+    double radius = 18,
+    double height = 54,
+  }) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: primaryYellow,
+      foregroundColor: textDark,
+      disabledBackgroundColor: primaryYellow.withOpacity(0.55),
+      disabledForegroundColor: textDark.withOpacity(0.7),
+      minimumSize: Size(double.infinity, height),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      textStyle: const TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+
+  static ButtonStyle secondaryActionButtonStyle({
+    double radius = 18,
+    double height = 54,
+  }) {
+    return OutlinedButton.styleFrom(
+      backgroundColor: surfaceWhite,
+      foregroundColor: textDark,
+      minimumSize: Size(double.infinity, height),
+      side: const BorderSide(color: Color(0xFFE6ECF5), width: 1.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      textStyle: const TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 

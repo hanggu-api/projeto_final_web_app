@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'remote_theme_service.dart';
@@ -52,7 +54,7 @@ class ThemeConfig {
 
   // Default Client Theme (Stitch v1.0 Style)
   static ThemeConfig get defaultClient => ThemeConfig(
-    primary: const Color(0xFFFFD700),
+    primary: const Color(0xFFFFC107),
     secondary: const Color(0xFF0F172A), // Dark blue from Stitch
     background: const Color(0xFFF1F5F9), // backgroundLight from Stitch
     surface: Colors.white,
@@ -64,7 +66,7 @@ class ThemeConfig {
 
   // Default Provider Theme (Stitch v1.0 Style)
   static ThemeConfig get defaultProvider => ThemeConfig(
-    primary: const Color(0xFFFFD700),
+    primary: const Color(0xFFFFC107),
     secondary: const Color(0xFF0F172A),
     background: const Color(0xFFF1F5F9),
     surface: Colors.white,
@@ -94,7 +96,9 @@ class ThemeService extends ChangeNotifier {
   Future<void> loadTheme() async {
     try {
       debugPrint('🎨 [ThemeService] Syncing with RemoteThemeService...');
-      await RemoteThemeService().initialize();
+      await RemoteThemeService()
+          .initialize()
+          .timeout(const Duration(seconds: 4));
 
       final theme = RemoteThemeService().getRemoteTheme();
       if (theme != null) {
@@ -109,6 +113,10 @@ class ThemeService extends ChangeNotifier {
           textPrimary: ThemeConfig._parseColor(theme.colors.textPrimary),
         );
       }
+    } on TimeoutException catch (_) {
+      debugPrint(
+        '⏳ [ThemeService] RemoteThemeService demorou demais no bootstrap; seguindo com tema local.',
+      );
     } catch (e) {
       debugPrint('⚠️ [ThemeService] Error syncing theme: $e');
     }
@@ -197,38 +205,73 @@ class ThemeService extends ChangeNotifier {
         bodyMedium: GoogleFonts.manrope(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          color: config.textPrimary.withValues(alpha: 0.8),
+          color: config.textPrimary.withOpacity(0.8),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
+          borderSide: const BorderSide(color: Color(0xFFE6ECF5), width: 1.2),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
+          borderSide: const BorderSide(color: Color(0xFFE6ECF5), width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          borderSide: BorderSide(color: config.secondary, width: 1.5),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
+          borderSide: BorderSide(color: config.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
+          borderSide: BorderSide(
+            color: config.error.withOpacity(0.75),
+            width: 1.4,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
+          borderSide: BorderSide(color: config.error, width: 1.8),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
+          horizontal: 18,
+          vertical: 18,
         ),
-        labelStyle: GoogleFonts.manrope(color: Colors.grey.shade600),
+        labelStyle: GoogleFonts.manrope(
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w600,
+        ),
+        hintStyle: GoogleFonts.manrope(
+          color: AppTheme.textMuted,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: config.secondary,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 56),
+          backgroundColor: config.primary,
+          foregroundColor: config.textPrimary,
+          disabledBackgroundColor: config.primary.withOpacity(0.55),
+          disabledForegroundColor: config.textPrimary.withOpacity(0.7),
+          minimumSize: const Size(double.infinity, 54),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
+            borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
+          ),
+          textStyle: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: config.textPrimary,
+          minimumSize: const Size(double.infinity, 54),
+          side: const BorderSide(color: Color(0xFFE6ECF5), width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
           ),
           textStyle: GoogleFonts.manrope(
             fontSize: 16,
@@ -239,9 +282,12 @@ class ThemeService extends ChangeNotifier {
       cardTheme: CardThemeData(
         color: config.surface,
         elevation: 0,
+        shadowColor: Colors.black.withOpacity(0.08),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge + 2),
+          side: AppTheme.cardBorderSide,
         ),
+        margin: EdgeInsets.zero,
       ),
     );
   }

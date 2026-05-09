@@ -284,7 +284,7 @@ class _AudioMediaWidgetState extends State<AudioMediaWidget> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Colors.black.withOpacity(0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -467,7 +467,7 @@ class _AudioMediaWidgetState extends State<AudioMediaWidget> {
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: Colors.purple.withValues(alpha: 0.1),
+                          color: Colors.purple.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(

@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -41,7 +40,7 @@ class NavigationAppsHelper {
     NavigationAppOption(
       id: 'google_maps',
       label: 'Google Maps',
-      icon: LucideIcons.map,
+      icon: Icons.map_rounded,
       uriBuilder: (lat, lon) {
         if (kIsWeb) {
           return Uri.parse(
@@ -64,14 +63,14 @@ class NavigationAppsHelper {
     NavigationAppOption(
       id: 'waze',
       label: 'Waze',
-      icon: LucideIcons.navigation,
+      icon: Icons.route_rounded,
       uriBuilder: (lat, lon) => Uri.parse('waze://?ll=$lat,$lon&navigate=yes'),
       availabilityUri: kIsWeb ? null : Uri.parse('waze://'),
     ),
     NavigationAppOption(
       id: 'apple_maps',
       label: 'Apple Maps',
-      icon: LucideIcons.mapPin,
+      icon: Icons.location_on_rounded,
       uriBuilder: (lat, lon) => _isIos
           ? Uri.parse('maps://?daddr=$lat,$lon&dirflg=d')
           : Uri.parse('https://maps.apple.com/?daddr=$lat,$lon&dirflg=d'),
@@ -80,7 +79,7 @@ class NavigationAppsHelper {
     NavigationAppOption(
       id: 'browser_maps',
       label: 'Navegador',
-      icon: LucideIcons.globe,
+      icon: Icons.language_rounded,
       uriBuilder: (lat, lon) => Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon',
       ),
@@ -157,7 +156,7 @@ class NavigationAppsHelper {
             return SafeArea(
               child: Container(
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: Color(0xFFF8FBFF),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -181,11 +180,13 @@ class NavigationAppsHelper {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
+                        color: Color(0xFF09111F),
                       ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Selecione o GPS que você quer usar neste dispositivo.',
+                      style: TextStyle(color: Color(0xFF475569)),
                     ),
                     const SizedBox(height: 16),
                     ...availableApps.map((option) {
@@ -200,30 +201,57 @@ class NavigationAppsHelper {
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFFFFF4B8)
-                                  : Colors.grey.shade50,
+                                  ? const Color(0xFFE8F0FF)
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
                                 color: isSelected
-                                    ? const Color(0xFFE0B400)
-                                    : Colors.black12,
+                                    ? const Color(0xFF1D4ED8)
+                                    : const Color(0xFFD8E3F2),
                                 width: isSelected ? 1.6 : 1,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF09111F).withOpacity(0.05),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
-                                Icon(option.icon),
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF1D4ED8)
+                                        : const Color(0xFFF1F5F9),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    option.icon,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF09111F),
+                                  ),
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     option.label,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
+                                      color: Color(0xFF09111F),
                                     ),
                                   ),
                                 ),
                                 if (isSelected)
-                                  const Icon(Icons.check_circle, size: 20),
+                                  const Icon(
+                                    Icons.check_circle,
+                                    size: 20,
+                                    color: Color(0xFF1D4ED8),
+                                  ),
                               ],
                             ),
                           ),
@@ -252,6 +280,14 @@ class NavigationAppsHelper {
                             ),
                           );
                         },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF09111F),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(54),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
                         child: Text(actionLabel),
                       ),
                     ),

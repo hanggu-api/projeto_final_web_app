@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'dart:async';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/config/supabase_config.dart';
+import '../../../core/maps/app_tile_layer.dart';
+import '../../../services/api_service.dart';
 
 class LocationStep extends StatefulWidget {
   final GlobalKey<FormState> formKey;
@@ -13,6 +16,7 @@ class LocationStep extends StatefulWidget {
   final Function(double lat, double lng)? onLocationChanged;
   final double? initialLat;
   final double? initialLng;
+  final bool isMobileProvider;
 
   const LocationStep({
     super.key,
@@ -21,6 +25,7 @@ class LocationStep extends StatefulWidget {
     this.onLocationChanged,
     this.initialLat,
     this.initialLng,
+    this.isMobileProvider = false,
   });
 
   @override
@@ -29,6 +34,7 @@ class LocationStep extends StatefulWidget {
 
 class _LocationStepState extends State<LocationStep> {
   final MapController _mapController = MapController();
+  final ApiService _api = ApiService();
   LatLng _currentCenter = const LatLng(-5.5265, -47.4761); // Imperatriz Default
   bool _locating = false;
   bool _isGeocoding = false;
@@ -39,10 +45,8 @@ class _LocationStepState extends State<LocationStep> {
     super.initState();
     if (widget.initialLat != null && widget.initialLng != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLng!);
-      // Optionally reverse geocode initial position if address is empty
-      if (widget.addressController.text.isEmpty) {
-        _reverseGeocode(_currentCenter);
-      }
+      // Sempre resolve endereço no carregamento para evitar mostrar apenas coords.
+      _reverseGeocode(_currentCenter);
     } else {
       _locateUser();
     }
@@ -59,71 +63,117 @@ class _LocationStepState extends State<LocationStep> {
     setState(() => _isGeocoding = true);
 
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      // Use Edge Function (Mapbox) via ApiService
+      debugPrint(
+        '[LocationStep] reverse request lat=${latLng.latitude.toStringAsFixed(6)} lon=${latLng.longitude.toStringAsFixed(6)}',
+      );
+      final result = await _api.reverseGeocode(
         latLng.latitude,
         latLng.longitude,
       );
-
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        // Format: Rua X, 123, Bairro, Cidade - UF
-        final street = place.thoroughfare ?? '';
-        final number = place.subThoroughfare ?? '';
-        final subLocality = place.subLocality ?? '';
-        final locality = place.subAdministrativeArea ?? place.locality ?? '';
-        final adminArea = place.administrativeArea ?? '';
-        final postalCode = place.postalCode ?? '';
-
-        String formattedAddress = '';
-        if (street.isNotEmpty) formattedAddress += street;
-        if (number.isNotEmpty) formattedAddress += ', $number';
-        if (subLocality.isNotEmpty) formattedAddress += ' - $subLocality';
-        if (locality.isNotEmpty) formattedAddress += ', $locality';
-        if (adminArea.isNotEmpty) formattedAddress += ' - $adminArea';
-        if (postalCode.isNotEmpty) formattedAddress += ' ($postalCode)';
-
-        // Remove leading comma/dash if street is empty
-        if (formattedAddress.startsWith(', ') ||
-            formattedAddress.startsWith(' - ')) {
-          formattedAddress = formattedAddress.substring(2);
-        }
-
-        // Fallback if address is very short (e.g. just city)
-        if (formattedAddress.trim().isEmpty) {
-          formattedAddress =
-              'Endereço aproximado: ${latLng.latitude.toStringAsFixed(5)}, ${latLng.longitude.toStringAsFixed(5)}';
-        }
-
-        if (mounted) {
-          setState(() {
-            widget.addressController.text = formattedAddress;
-          });
-        }
-      } else {
-        if (mounted) {
-          debugPrint(
-            'No placemarks found for ${latLng.latitude}, ${latLng.longitude}',
-          );
-          // Fallback to coordinates
-          setState(() {
-            widget.addressController.text =
-                'Loc: ${latLng.latitude.toStringAsFixed(5)}, ${latLng.longitude.toStringAsFixed(5)}';
-          });
-        }
+      if (kDebugMode) {
+        final debugPayload = {
+          'street': result['street'],
+          'house_number': result['house_number'],
+          'neighborhood': result['neighborhood'] ?? result['suburb'],
+          'city': result['city'],
+          'state_code': result['state_code'],
+          'display_name': result['display_name'],
+        };
+        debugPrint('[LocationStep] reverse payload: ${jsonEncode(debugPayload)}');
       }
-    } catch (e) {
-      // Suppress specific platform/library errors common on emulators
-      if (e.toString().contains("Null check operator")) {
-        debugPrint('Geocoding internal error (likely emulator issue): $e');
-      } else {
-        debugPrint('Error reverse geocoding: $e');
+
+      String formattedAddress = widget.isMobileProvider
+          ? 'Região não identificada'
+          : 'Endereço não identificado';
+
+      if (result.isNotEmpty) {
+        String readAny(List<String> keys) {
+          for (final k in keys) {
+            final v = result[k];
+            if (v != null && v.toString().trim().isNotEmpty) {
+              return v.toString().trim();
+            }
+          }
+          return '';
+        }
+
+        final street = readAny([
+          'street',
+          'road',
+          'street_name',
+          'address_line1',
+          'address_line',
+        ]);
+        final number = readAny(['house_number', 'street_number', 'number']);
+        final neighborhood = readAny([
+          'neighborhood',
+          'neighbourhood',
+          'suburb',
+          'district',
+        ]);
+        final city = readAny([
+          'city',
+          'town',
+          'municipality',
+          'county',
+        ]);
+        final state = readAny(['state_code', 'state']);
+        final displayName = readAny(['display_name']);
+
+        String firstLine = '';
+        if (street.isNotEmpty) {
+          firstLine = number.isNotEmpty ? '$street, $number' : street;
+        }
+        if (firstLine.isEmpty && displayName.isNotEmpty) {
+          firstLine = displayName.split(',').first.trim();
+        }
+        if (firstLine.isEmpty && neighborhood.isNotEmpty) {
+          firstLine = neighborhood;
+        }
+
+        final secondLineParts = <String>[];
+        if (neighborhood.isNotEmpty && neighborhood != firstLine) {
+          secondLineParts.add(neighborhood);
+        }
+        if (city.isNotEmpty) {
+          secondLineParts.add(city);
+        }
+        final secondLineCore = secondLineParts.join(', ');
+        final secondLine = state.isNotEmpty
+            ? (secondLineCore.isEmpty ? state : '$secondLineCore - $state')
+            : secondLineCore;
+
+        if (firstLine.isNotEmpty || secondLine.isNotEmpty) {
+          formattedAddress = [firstLine, secondLine]
+              .where((line) => line.trim().isNotEmpty)
+              .join('\n');
+        } else if (displayName.isNotEmpty) {
+          final parts = displayName
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .take(3)
+              .toList();
+          if (parts.isNotEmpty) {
+            formattedAddress = parts.join(', ');
+          }
+        }
       }
 
       if (mounted) {
-        // Fallback to coordinates on error
         setState(() {
-          widget.addressController.text =
-              'Loc: ${latLng.latitude.toStringAsFixed(5)}, ${latLng.longitude.toStringAsFixed(5)}';
+          widget.addressController.text = formattedAddress;
+        });
+        debugPrint('[LocationStep] endereço formatado="$formattedAddress"');
+      }
+    } catch (e) {
+      debugPrint('Error reverse geocoding: $e');
+      if (mounted) {
+        setState(() {
+          widget.addressController.text = widget.isMobileProvider
+              ? 'Região não identificada'
+              : 'Endereço não identificado';
         });
       }
     } finally {
@@ -189,23 +239,67 @@ class _LocationStepState extends State<LocationStep> {
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.isMobileProvider
+        ? 'Região onde você prefere receber notificações'
+        : 'Localização do Estabelecimento';
+    final subtitle = widget.isMobileProvider
+        ? 'Ajuste o pino no mapa. O sistema vai priorizar notificações próximas de você.'
+        : 'Ajuste o pino no mapa para a localização exata';
+    final addressLabel =
+        widget.isMobileProvider ? 'Região de Referência' : 'Endereço Completo';
+    final addressHelper = widget.isMobileProvider
+        ? 'Seu endereço não é visível para outros prestadores nem para clientes.'
+        : 'Rua, Número, Bairro, Cidade - UF';
+
     return SingleChildScrollView(
       child: Form(
         key: widget.formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Localização do Estabelecimento',
+            Text(
+              title,
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Ajuste o pino no mapa para a localização exata',
+            Text(
+              subtitle,
               style: TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
+            if (widget.isMobileProvider) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.privacy_tip_outlined,
+                      size: 18,
+                      color: Color(0xFF1565C0),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Seu endereço é privado. Essa localização é usada apenas para priorizar chamadas na sua região.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1E3A8A),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
 
             // MAP SECTION
@@ -227,13 +321,8 @@ class _LocationStepState extends State<LocationStep> {
                         },
                       ),
                       children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
-                          userAgentPackageName: 'com.play101.app',
-                          tileDimension: 512,
-                          zoomOffset: -1,
-                          maxZoom: 22,
+                        AppTileLayer.standard(
+                          mapboxToken: SupabaseConfig.mapboxToken,
                         ),
                         // Fixed marker at center
                         // Note: MarkerLayer with a fixed marker at center is tricky if we want the map to move under it.
@@ -296,7 +385,7 @@ class _LocationStepState extends State<LocationStep> {
               controller: widget.addressController,
               decoration:
                   AppTheme.inputDecoration(
-                    'Endereço Completo',
+                    addressLabel,
                     Icons.map,
                   ).copyWith(
                     suffixIcon: _isGeocoding
@@ -309,11 +398,14 @@ class _LocationStepState extends State<LocationStep> {
                             ),
                           )
                         : null,
-                    helperText: 'Rua, Número, Bairro, Cidade - UF',
+                    helperText: addressHelper,
                   ),
               maxLines: 2,
-              validator: (v) =>
-                  v?.isEmpty == true ? 'Informe o endereço completo' : null,
+              validator: (v) => v?.isEmpty == true
+                  ? (widget.isMobileProvider
+                        ? 'Informe uma região de referência'
+                        : 'Informe o endereço completo')
+                  : null,
             ),
             const SizedBox(height: 32),
           ],

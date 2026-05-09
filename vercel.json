@@ -4,9 +4,33 @@
     {
       "src": "build/web/index.html",
       "use": "@vercel/static"
+    },
+    {
+      "src": "build/web/plotica_privacidade/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "build/web/politica_privacidade/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "build/web/delete_account.html",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
+    {
+      "src": "/plotica_privacidade/?",
+      "dest": "/plotica_privacidade/index.html"
+    },
+    {
+      "src": "/politica_privacidade/?",
+      "dest": "/politica_privacidade/index.html"
+    },
+    {
+      "src": "/delete_account/?",
+      "dest": "/delete_account.html"
+    },
     {
       "src": "/(.*)",
       "dest": "/index.html"

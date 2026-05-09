@@ -107,7 +107,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final driverName =
         _serviceDetails?['provider_name'] ??
         _serviceDetails?['providers']?['users']?['full_name'] ??
-        'o motorista';
+        'o prestador';
 
     return Scaffold(
       backgroundColor: Colors.white,

@@ -1,0 +1,155 @@
+=== TABELAS REFERENCIADAS (lib + supabase/functions) ===
+service_requests: 82
+users: 77
+payments: 38
+payment_transaction_logs: 26
+trips: 23
+providers: 16
+notificacao_de_servicos: 15
+agendamento_servico: 15
+wallet_transactions: 14
+payment_accounts: 12
+provider_locations: 11
+task_catalog: 11
+fixed_booking_pix_intents: 10
+user_payment_methods: 9
+driver_commission_summary: 8
+service_dispatch_queue: 7
+service_logs: 7
+driver_balances: 7
+trip_cancellation_fees: 7
+driver_locations: 6
+id-verification: 6
+provider_professions: 6
+chat_messages: 4
+professions: 4
+fixed_booking_slot_holds: 4
+appointments: 4
+service_disputes: 4
+notifications: 3
+driver_mercadopago_accounts: 3
+vehicles: 3
+profiles: 3
+uber_config: 3
+service_chat_participants: 3
+client_locations: 2
+driver_biometric_validations: 2
+ai_classification_cache: 2
+ai_semantic_search_cache: 2
+payout_batches: 2
+app_configs: 2
+reviews: 1
+driver_location_history: 1
+remote_screen_publications: 1
+remote_screen_variants: 1
+service_location_history: 1
+offers: 1
+trips_reviews: 1
+ai_search_logs: 1
+payout_items: 1
+financial_transactions: 1
+system_settings: 1
+remote_ui_audit_log: 1
+remote_action_policies: 1
+assignments: 1
+
+=== TABELAS-ALVO (USO) ===
+- fixed_booking_pix_intents: refs=10 arquivos=5
+- notificacao_de_servicos: refs=15 arquivos=5
+- payments: refs=38 arquivos=13
+- provider_locations: refs=11 arquivos=5
+- service_dispatch_queue: refs=7 arquivos=3
+- service_requests: refs=82 arquivos=22
+- service_requests_new: refs=0 arquivos=0
+- users: refs=77 arquivos=31
+
+=== COLUNAS REFERENCIADAS POR TABELA-ALVO (cadeia from().select()) ===
+
+[fixed_booking_pix_intents]
+  (sem colunas extraídas por cadeia from().select())
+
+[notificacao_de_servicos]
+  service_id: 3
+  status: 1
+  last_notified_at: 1
+  response_deadline_at: 1
+  id: 1
+  provider_user_id: 1
+
+[payments]
+  amount: 12
+  id: 12
+  status: 11
+  commission_amount: 6
+  metadata: 6
+  mp_payment_id: 5
+  pix_payload: 5
+  pix_qr_code: 5
+  external_payment_id: 4
+  mp_response: 4
+  trip_id: 4
+  mission_id: 3
+  asaas_payment_id: 2
+  created_at: 2
+  settlement_status: 1
+  billing_type: 1
+  service_id: 1
+  commission_rate: 1
+
+[provider_locations]
+  latitude: 5
+  longitude: 5
+  updated_at: 4
+  provider_id: 3
+  provider_uid: 3
+
+[service_dispatch_queue]
+  service_id: 4
+  attempts: 2
+  status: 1
+  updated_at: 1
+  next_run_at: 1
+
+[service_requests]
+  id: 15
+  status: 13
+  provider_id: 13
+  client_id: 8
+  payment_remaining_status: 4
+  price_upfront: 2
+  price_estimated: 2
+  task_id: 1
+  status_updated_at: 1
+  completed_at: 1
+
+[service_requests_new]
+  (sem colunas extraídas por cadeia from().select())
+
+[users]
+  id: 32
+  full_name: 13
+  supabase_uid: 12
+  role: 9
+  phone: 8
+  avatar_url: 6
+  driver_payment_mode: 6
+  document_value: 5
+  email: 4
+  asaas_wallet_id: 4
+  driver_platform_tx_fee_rate: 4
+  is_active: 4
+  fcm_token: 3
+  driver_daily_fee_amount: 3
+  preferred_payment_method: 2
+  postal_code: 2
+  address_number: 2
+  wallet_balance: 2
+  asaas_status: 2
+  name: 1
+  providers: 1
+  mp_account_status: 1
+  mp_collector_id: 1
+  is_online: 1
+  updated_at: 1
+  firebase_uid: 1
+  pix_key: 1

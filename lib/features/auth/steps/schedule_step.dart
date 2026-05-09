@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../widgets/ios_date_time_picker.dart';
 
 class ScheduleStep extends StatefulWidget {
   final Map<int, Map<String, dynamic>> schedule;
@@ -17,6 +19,7 @@ class ScheduleStep extends StatefulWidget {
 
 class _ScheduleStepState extends State<ScheduleStep>
     with SingleTickerProviderStateMixin {
+  static const double _fieldRadius = 18;
   final List<String> _days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   late TabController _tabController;
   String _globalBreakStart = '12:00';
@@ -62,47 +65,13 @@ class _ScheduleStepState extends State<ScheduleStep>
         widget.schedule[dayIndex]?[key] ??
         (key.contains('break') ? '12:00' : '09:00');
     final parts = current.split(':');
-    final time = await showTimePicker(
+    final time = await AppCupertinoPicker.showTimePicker(
       context: context,
       initialTime: TimeOfDay(
         hour: int.parse(parts[0]),
         minute: int.parse(parts[1]),
       ),
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.black,
-              onPrimary: Colors.white,
-              primaryContainer: Colors.white,
-              onPrimaryContainer: Colors.black,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: Colors.black),
-            ),
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: Colors.white,
-              hourMinuteColor: Colors.white,
-              hourMinuteTextColor: Colors.black,
-              hourMinuteShape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(8)),
-                side: BorderSide(color: Colors.black, width: 1),
-              ),
-              dialHandColor: Colors.black,
-              dialBackgroundColor: Colors.grey.shade200,
-              dialTextColor: Colors.black,
-              entryModeIconColor: Colors.black,
-              helpTextStyle: const TextStyle(color: Colors.black),
-            ),
-          ),
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-            child: child!,
-          ),
-        );
-      },
+      title: 'Selecionar horário',
     );
 
     if (time != null) {
@@ -130,47 +99,13 @@ class _ScheduleStepState extends State<ScheduleStep>
   Future<void> _pickGlobalBreakTime(String key) async {
     final current = key == 'break_start' ? _globalBreakStart : _globalBreakEnd;
     final parts = current.split(':');
-    final time = await showTimePicker(
+    final time = await AppCupertinoPicker.showTimePicker(
       context: context,
       initialTime: TimeOfDay(
         hour: int.parse(parts[0]),
         minute: int.parse(parts[1]),
       ),
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.black,
-              onPrimary: Colors.white,
-              primaryContainer: Colors.white,
-              onPrimaryContainer: Colors.black,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: Colors.black),
-            ),
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: Colors.white,
-              hourMinuteColor: Colors.white,
-              hourMinuteTextColor: Colors.black,
-              hourMinuteShape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(8)),
-                side: BorderSide(color: Colors.black, width: 1),
-              ),
-              dialHandColor: Colors.black,
-              dialBackgroundColor: Colors.grey.shade200,
-              dialTextColor: Colors.black,
-              entryModeIconColor: Colors.black,
-              helpTextStyle: const TextStyle(color: Colors.black),
-            ),
-          ),
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-            child: child!,
-          ),
-        );
-      },
+      title: 'Selecionar horário',
     );
 
     if (time != null) {
@@ -230,102 +165,191 @@ class _ScheduleStepState extends State<ScheduleStep>
                   final isEnabled =
                       widget.schedule[index]?['is_enabled'] ?? false;
 
-                  return Card(
-                    color: AppTheme.lightGray,
-                    elevation: 0,
+                  return Container(
                     margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceWhite,
+                      borderRadius: BorderRadius.circular(_fieldRadius),
+                      border: Border.all(
+                        color: const Color(0xFFE6ECF5),
+                        width: 1.2,
+                      ),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Checkbox(
-                                activeColor: AppTheme.darkBlueText,
-                                value: isEnabled,
-                                onChanged: (_) => _toggleDay(index),
+                              SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: Checkbox(
+                                  activeColor: AppTheme.darkBlueText,
+                                  value: isEnabled,
+                                  onChanged: (_) => _toggleDay(index),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 _days[index],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                                style: GoogleFonts.manrope(
+                                  color: AppTheme.textDark,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
                                 ),
                               ),
                               const Spacer(),
                               if (isEnabled) ...[
-                                TextButton(
-                                  onPressed: () =>
-                                      _pickTime(index, 'start_time'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.black,
-                                  ),
-                                  child: Text(
-                                    widget.schedule[index]!['start_time'],
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _pickTime(index, 'start_time'),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 6,
+                                    ),
+                                    child: Text(
+                                      widget.schedule[index]!['start_time'],
+                                      style: GoogleFonts.manrope(
+                                        color: AppTheme.textDark,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const Text(
-                                  '-',
-                                  style: TextStyle(color: Colors.black),
-                                ),
-                                TextButton(
-                                  onPressed: () => _pickTime(index, 'end_time'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.black,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
                                   ),
                                   child: Text(
-                                    widget.schedule[index]!['end_time'],
+                                    '-',
+                                    style: GoogleFonts.manrope(
+                                      color: AppTheme.textMuted,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _pickTime(index, 'end_time'),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 6,
+                                    ),
+                                    child: Text(
+                                      widget.schedule[index]!['end_time'],
+                                      style: GoogleFonts.manrope(
+                                        color: AppTheme.textDark,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ] else
-                                const Text(
-                                  'Fechado',
-                                  style: TextStyle(color: Colors.grey),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundLight,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    'Fechado',
+                                    style: GoogleFonts.manrope(
+                                      color: AppTheme.textMuted,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                 ),
                             ],
                           ),
                           if (isEnabled) ...[
-                            const Divider(),
+                            const SizedBox(height: 10),
+                            const Divider(height: 1, color: Color(0xFFE6ECF5)),
+                            const SizedBox(height: 10),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const SizedBox(
-                                  width: 48,
-                                ), // Indent under checkbox
-                                const Text(
+                                const SizedBox(width: 36),
+                                Text(
                                   'Almoço:',
-                                  style: TextStyle(
+                                  style: GoogleFonts.manrope(
+                                    color: AppTheme.textMuted,
+                                    fontWeight: FontWeight.w700,
                                     fontSize: 14,
-                                    color: Colors.grey,
                                   ),
                                 ),
                                 const Spacer(),
-                                TextButton(
-                                  onPressed: () =>
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () =>
                                       _pickTime(index, 'break_start'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.black54,
-                                  ),
-                                  child: Text(
-                                    widget.schedule[index]!['break_start'] ??
-                                        '12:00',
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 4,
+                                    ),
+                                    child: Text(
+                                      widget.schedule[index]!['break_start'] ??
+                                          '12:00',
+                                      style: GoogleFonts.manrope(
+                                        color: AppTheme.textDark,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const Text(
-                                  '-',
-                                  style: TextStyle(color: Colors.black54),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      _pickTime(index, 'break_end'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.black54,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
                                   ),
                                   child: Text(
-                                    widget.schedule[index]!['break_end'] ??
-                                        '13:00',
+                                    '-',
+                                    style: GoogleFonts.manrope(
+                                      color: AppTheme.textMuted,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _pickTime(index, 'break_end'),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 4,
+                                    ),
+                                    child: Text(
+                                      widget.schedule[index]!['break_end'] ??
+                                          '13:00',
+                                      style: GoogleFonts.manrope(
+                                        color: AppTheme.textDark,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
+                          ] else ...[
+                            const SizedBox(height: 2),
                           ],
                         ],
                       ),

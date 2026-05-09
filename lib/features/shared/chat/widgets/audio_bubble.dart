@@ -179,7 +179,7 @@ class _AudioBubbleState extends State<AudioBubble> {
                       trackHeight: 3,
                       thumbColor: accentColor,
                       activeTrackColor: accentColor,
-                      inactiveTrackColor: Colors.grey.withValues(alpha: 0.3),
+                      inactiveTrackColor: Colors.grey.withOpacity(0.3),
                     ),
                     child: Slider(
                       value: _position.inSeconds.toDouble().clamp(
@@ -202,7 +202,7 @@ class _AudioBubbleState extends State<AudioBubble> {
                       Text(
                         _formatDuration(_position),
                         style: TextStyle(
-                          color: fgColor.withValues(alpha: 0.8),
+                          color: fgColor.withOpacity(0.8),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -210,7 +210,7 @@ class _AudioBubbleState extends State<AudioBubble> {
                       Text(
                         _formatDuration(_duration),
                         style: TextStyle(
-                          color: fgColor.withValues(alpha: 0.8),
+                          color: fgColor.withOpacity(0.8),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),

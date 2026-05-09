@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,13 +7,23 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/config/supabase_config.dart';
+import '../../../../core/constants/trip_statuses.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/maps/app_tile_layer.dart';
+import '../../../../services/api_service.dart';
+import '../../../../services/app_config_service.dart';
+import '../../../../services/data_gateway.dart';
 
 class ProviderServiceCard extends StatefulWidget {
   final Map<String, dynamic> service;
   final VoidCallback? onNavigate;
+  final VoidCallback? onAccept;
+  final VoidCallback? onReject;
   final VoidCallback? onArrive;
   final VoidCallback? onStart;
   final VoidCallback? onFinish;
@@ -20,11 +31,14 @@ class ProviderServiceCard extends StatefulWidget {
   final Function(DateTime scheduledAt, String message)? onSchedule;
   final VoidCallback? onConfirmSchedule;
   final Map<String, String>? travelInfo;
+  final bool isFocusMode;
 
   const ProviderServiceCard({
     super.key,
     required this.service,
     this.onNavigate,
+    this.onAccept,
+    this.onReject,
     this.onArrive,
     this.onStart,
     this.onFinish,
@@ -32,6 +46,7 @@ class ProviderServiceCard extends StatefulWidget {
     this.onSchedule,
     this.onConfirmSchedule,
     this.travelInfo,
+    this.isFocusMode = false,
   });
 
   @override
@@ -42,45 +57,205 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
     with TickerProviderStateMixin {
   bool _isExpanded = false;
   bool _isScheduling = false;
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
   final TextEditingController _messageController = TextEditingController();
   final MapController _mapController = MapController();
   LatLng? _providerLocation;
   List<LatLng> _routePoints = [];
+  DateTime? _lastLocationPermissionLogAt;
+  Timer? _confirmationCountdownTimer;
+  DateTime _countdownNow = DateTime.now();
+
+  double _resolveProviderNetAmount(Map<String, dynamic> s) {
+    final direct =
+        double.tryParse((s['provider_amount'] ?? '').toString()) ?? 0.0;
+    if (direct > 0) return direct;
+
+    final gross =
+        double.tryParse(
+          (s['price_estimated'] ?? s['price'] ?? s['total_price'] ?? 0)
+              .toString(),
+        ) ??
+        0.0;
+    if (gross <= 0) return 0.0;
+
+    final cfg = AppConfigService();
+    final net = cfg.calculateNetGain(gross);
+    if (net > 0) return double.parse(net.toStringAsFixed(2));
+    return double.parse((gross * 0.85).toStringAsFixed(2));
+  }
+
+  double _focusMapHeight(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final preferred = screenHeight * 0.40;
+    return preferred.clamp(220.0, 340.0);
+  }
 
   @override
   void initState() {
     super.initState();
+    final minimumSchedule = _minimumScheduleDateTime();
+    _selectedDate = DateTime(
+      minimumSchedule.year,
+      minimumSchedule.month,
+      minimumSchedule.day,
+    );
+    _selectedTime = TimeOfDay.fromDateTime(minimumSchedule);
+    if (widget.isFocusMode) {
+      _isExpanded = true;
+    }
     _updateDynamicMessage();
     _loadProviderLocation();
+    _startConfirmationCountdownTicker();
+  }
+
+  void _startConfirmationCountdownTicker() {
+    _confirmationCountdownTimer?.cancel();
+    _confirmationCountdownTimer = Timer.periodic(const Duration(minutes: 1), (
+      _,
+    ) {
+      if (!mounted) return;
+      setState(() => _countdownNow = DateTime.now());
+    });
+  }
+
+  DateTime _minimumScheduleDateTime() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, now.hour, now.minute);
+  }
+
+  bool _isSameCalendarDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  DateTime _composeSelectedScheduleDateTime({DateTime? date, TimeOfDay? time}) {
+    final selectedDate = date ?? _selectedDate;
+    final selectedTime = time ?? _selectedTime;
+    return DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+  }
+
+  DateTime _normalizedScheduleDateTimeForSubmit(DateTime candidate) {
+    final minimum = _minimumScheduleDateTime();
+    if (candidate.isBefore(minimum)) {
+      return minimum;
+    }
+    return candidate;
+  }
+
+  void _syncScheduleSelectionWithMinimum() {
+    final minimum = _minimumScheduleDateTime();
+    final minimumDay = DateTime(minimum.year, minimum.month, minimum.day);
+
+    if (_selectedDate.isBefore(minimumDay)) {
+      _selectedDate = minimumDay;
+      _selectedTime = TimeOfDay.fromDateTime(minimum);
+      return;
+    }
+
+    final selectedDateTime = _composeSelectedScheduleDateTime();
+    if (_isSameCalendarDay(_selectedDate, minimumDay) &&
+        selectedDateTime.isBefore(minimum)) {
+      _selectedTime = TimeOfDay.fromDateTime(minimum);
+    }
+  }
+
+  void _startSchedulingNow() {
+    setState(() {
+      _isScheduling = true;
+      _syncScheduleSelectionWithMinimum();
+    });
+    _updateDynamicMessage();
+  }
+
+  void _applyCurrentScheduleNow() {
+    final minimum = _minimumScheduleDateTime();
+    setState(() {
+      _selectedDate = DateTime(minimum.year, minimum.month, minimum.day);
+      _selectedTime = TimeOfDay.fromDateTime(minimum);
+    });
+    _updateDynamicMessage();
   }
 
   Future<void> _loadProviderLocation() async {
     try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _providerLocation = LatLng(position.latitude, position.longitude);
-        });
-
-        // Fetch Route if destination exists
-        final s = widget.service;
-        if (s['latitude'] != null && s['longitude'] != null) {
-          final dest = LatLng(
-            double.tryParse(s['latitude'].toString()) ?? 0,
-            double.tryParse(s['longitude'].toString()) ?? 0,
-          );
-          _fetchRoute(_providerLocation!, dest);
+      if (!kIsWeb) {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+          ),
+        );
+        if (mounted) {
+          setState(() {
+            _providerLocation = LatLng(position.latitude, position.longitude);
+          });
         }
       }
+
+      if (_providerLocation == null) {
+        final providerId = await _resolveCurrentProviderId();
+        if (providerId != null) {
+          final persisted = await _resolveProviderStartFromDatabase(providerId);
+          if (persisted != null && mounted) {
+            setState(() => _providerLocation = persisted);
+          }
+        }
+      }
+
+      final s = widget.service;
+      if (_providerLocation != null &&
+          s['latitude'] != null &&
+          s['longitude'] != null) {
+        final dest = LatLng(
+          double.tryParse(s['latitude'].toString()) ?? 0,
+          double.tryParse(s['longitude'].toString()) ?? 0,
+        );
+        _fetchRoute(_providerLocation!, dest);
+      }
     } catch (e) {
-      debugPrint('Error getting provider location: $e');
+      final text = e.toString().toLowerCase();
+      final isPermissionDenied =
+          text.contains('denied permissions') ||
+          text.contains('permission denied') ||
+          text.contains('locationpermission.denied') ||
+          text.contains('locationpermission.deniedforever');
+      if (!isPermissionDenied) {
+        debugPrint('Error getting provider location: $e');
+        return;
+      }
+
+      final now = DateTime.now();
+      if (_lastLocationPermissionLogAt != null &&
+          now.difference(_lastLocationPermissionLogAt!) <
+              const Duration(minutes: 1)) {
+        return;
+      }
+      _lastLocationPermissionLogAt = now;
+      debugPrint(
+        '⚠️ [ProviderServiceCard] Location permission denied. Usando fallback silencioso.',
+      );
     }
+  }
+
+  Future<int?> _resolveCurrentProviderId() async {
+    final api = ApiService();
+    int? providerId = api.userIdInt;
+    if (providerId != null) return providerId;
+    try {
+      final authUid = Supabase.instance.client.auth.currentUser?.id;
+      if (authUid != null && authUid.trim().isNotEmpty) {
+        providerId = await DataGateway().resolveUserIdByAuthUid(authUid);
+      }
+    } catch (e) {
+      debugPrint('Erro resolvendo providerId atual: $e');
+    }
+    return providerId;
   }
 
   Future<void> _fetchRoute(LatLng start, LatLng end) async {
@@ -130,6 +305,14 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
         CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(32)),
       );
     } catch (e) {
+      // flutter_map throws if MapController is used before the FlutterMap renders.
+      // This can happen during route fetch. We'll rely on MapOptions.onMapReady
+      // to call _fitBounds once the map is ready.
+      final msg = e.toString();
+      if (msg.contains('FlutterMap widget rendered at least once') ||
+          msg.contains('rendered at least once')) {
+        return;
+      }
       debugPrint('Error fitting bounds: $e');
     }
   }
@@ -160,31 +343,157 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
 
   @override
   void dispose() {
+    _confirmationCountdownTimer?.cancel();
     _messageController.dispose();
     super.dispose();
+  }
+
+  DateTime? _parseServiceDate(dynamic raw) {
+    if (raw == null) return null;
+    return DateTime.tryParse(raw.toString())?.toLocal();
+  }
+
+  DateTime? _resolveClientConfirmationBase(Map<String, dynamic> service) {
+    return _parseServiceDate(service['finished_at']) ??
+        _parseServiceDate(service['status_updated_at']) ??
+        _parseServiceDate(service['completed_at']) ??
+        _parseServiceDate(service['updated_at']) ??
+        _parseServiceDate(service['created_at']);
+  }
+
+  Duration? _remainingClientConfirmationWindow(Map<String, dynamic> service) {
+    final base = _resolveClientConfirmationBase(service);
+    if (base == null) return null;
+    final deadline = base.add(const Duration(hours: 12));
+    return deadline.difference(_countdownNow);
+  }
+
+  String _formatRemainingClientConfirmation(Duration remaining) {
+    if (remaining.inSeconds <= 0) {
+      return 'menos de 1 minuto';
+    }
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(60);
+    if (hours <= 0) {
+      return '$minutes min';
+    }
+    if (minutes <= 0) {
+      return '${hours}h';
+    }
+    return '${hours}h ${minutes}min';
+  }
+
+  Future<LatLng?> _resolveProviderStartFromDatabase(int providerUserId) async {
+    try {
+      final row = await DataGateway().loadProviderStartLocation(providerUserId);
+      final lat = (row?['latitude'] as num?)?.toDouble();
+      final lon = (row?['longitude'] as num?)?.toDouble();
+      if (lat != null && lon != null) return LatLng(lat, lon);
+    } catch (e) {
+      debugPrint('Fallback de localização do prestador falhou: $e');
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final s = widget.service;
     final status = s['status'];
-    final price = s['provider_amount'] ?? s['price_estimated'] ?? 0;
+    final statusLower = normalizeServiceStatus(status?.toString());
+    final isAcceptedPhase =
+        statusLower == TripStatuses.accepted ||
+        statusLower == 'provider_near' ||
+        statusLower == TripStatuses.scheduled;
+    final isWaitingSecurePayment = ServiceStatusSets.paymentRemaining.contains(
+      statusLower,
+    );
+    final hasArrived =
+        s['arrived_at'] != null ||
+        s['client_arrived'] == true ||
+        s['client_arrived'] == 'true';
+    final paymentRemainingStatus = (s['payment_remaining_status'] ?? '')
+        .toString()
+        .toLowerCase();
+    final remainingPaidStatuses = {
+      'paid',
+      'paid_manual',
+      'approved',
+      'completed',
+      'succeeded',
+    };
+    final isRemainingPaid = remainingPaidStatuses.contains(
+      paymentRemainingStatus,
+    );
+    final hasServiceStarted = s['started_at'] != null;
+    final price = _resolveProviderNetAmount(s);
+    final providerId = s['provider_id'];
+    final providerIdText = (providerId ?? '').toString().trim().toLowerCase();
+    final isUnassigned =
+        providerId == null ||
+        providerIdText.isEmpty ||
+        providerIdText == 'null' ||
+        providerIdText == '0';
+    final isAvailable =
+        isUnassigned &&
+        (statusLower == TripStatuses.pending ||
+            statusLower == TripStatuses.openForSchedule ||
+            statusLower == TripStatuses.searching);
+    final canShowScheduleAction =
+        statusLower == TripStatuses.openForSchedule &&
+        widget.onSchedule != null;
+    final serviceTitle =
+        (s['task_name'] ??
+                s['task_title'] ??
+                s['description'] ??
+                s['profession'] ??
+                s['category_name'] ??
+                s['title'] ??
+                'Serviço')
+            .toString()
+            .replaceAll('Serviço: ', '')
+            .trim();
+    final serviceDescription = (s['description'] ?? '').toString().trim();
+    final isAwaitingClientConfirmation = ServiceStatusSets.providerConcluding
+        .contains(statusLower);
+    final remainingClientConfirmation = isAwaitingClientConfirmation
+        ? _remainingClientConfirmationWindow(s)
+        : null;
+    final remainingClientConfirmationLabel = remainingClientConfirmation == null
+        ? null
+        : _formatRemainingClientConfirmation(remainingClientConfirmation);
+    final hideMapInFocusMode =
+        widget.isFocusMode &&
+        (hasArrived ||
+            isWaitingSecurePayment ||
+            statusLower == TripStatuses.inProgress ||
+            statusLower == ServiceStatusAliases.awaitingConfirmation ||
+            statusLower == ServiceStatusAliases.waitingClientConfirmation ||
+            statusLower == TripStatuses.completed);
+    final readyToStartExecution =
+        (isWaitingSecurePayment && isRemainingPaid) ||
+        (statusLower == TripStatuses.inProgress && !hasServiceStarted);
+    final canShowFinishAction =
+        statusLower == TripStatuses.inProgress && hasServiceStarted;
 
     // Determine colors based on status
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: widget.isFocusMode ? 6 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(widget.isFocusMode ? 12 : 16),
+        boxShadow: widget.isFocusMode
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
         border: Border.all(
-          color: _isExpanded ? AppTheme.primaryPurple : Colors.transparent,
+          color: widget.isFocusMode
+              ? Colors.transparent
+              : (_isExpanded ? AppTheme.primaryPurple : Colors.transparent),
         ),
       ),
       child: Material(
@@ -192,9 +501,12 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: () {
+            if (widget.isFocusMode) return;
             // Disable expansion for completed/cancelled services
-            final st = status?.toString().toLowerCase();
-            if (st == 'completed' || st == 'cancelled' || st == 'canceled') {
+            final st = normalizeServiceStatus(status?.toString());
+            if (st == TripStatuses.completed ||
+                st == TripStatuses.cancelled ||
+                st == TripStatuses.canceled) {
               return;
             }
 
@@ -204,7 +516,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(widget.isFocusMode ? 12 : 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -217,32 +529,40 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            (s['title'] ??
-                                    s['description'] ??
-                                    s['profession'] ??
-                                    s['category_name'] ??
-                                    'Serviço')
-                                .toString()
-                                .replaceAll('Serviço: ', '')
-                                .trim(),
+                            serviceTitle,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            s['address'] ?? 'Endereço não disponível',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[600],
+                          if (widget.isFocusMode &&
+                              serviceDescription.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              serviceDescription,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: _isExpanded ? null : 1,
-                            overflow: _isExpanded
-                                ? null
-                                : TextOverflow.ellipsis,
-                          ),
+                          ],
+                          const SizedBox(height: 4),
+                          if (!widget.isFocusMode)
+                            Text(
+                              s['address'] ?? 'Endereço não disponível',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                              maxLines: _isExpanded ? null : 1,
+                              overflow: _isExpanded
+                                  ? null
+                                  : TextOverflow.ellipsis,
+                            ),
                         ],
                       ),
                     ),
@@ -294,7 +614,8 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                 ),
 
                 // SCHEDULE BUTTON-LIKE INFO (always visible)
-                if (status == 'scheduled' && s['scheduled_at'] != null) ...[
+                if (statusLower == TripStatuses.scheduled &&
+                    s['scheduled_at'] != null) ...[
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
@@ -311,7 +632,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.cyan.withValues(alpha: 0.3),
+                          color: Colors.cyan.withOpacity(0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -343,15 +664,18 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                   ),
                 ],
 
-                if (status == 'schedule_proposed' &&
+                if (statusLower == ServiceStatusAliases.scheduleProposed &&
                     s['scheduled_at'] != null) ...[
                   const SizedBox(height: 12),
                   Builder(
                     builder: (_) {
-                      final proposedBy = s['schedule_proposed_by']?.toString();
+                      final proposedBy =
+                          s['schedule_proposed_by_user_id']?.toString() ??
+                          s['schedule_proposed_by']?.toString();
                       final providerId = s['provider_id']?.toString();
                       final isClientProposal =
                           proposedBy != null && proposedBy != providerId;
+                      final expiresAt = s['schedule_expires_at']?.toString();
                       return Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -375,15 +699,30 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(
-                                isClientProposal
-                                    ? 'Cliente propôs: ${_formatScheduledDate(s['scheduled_at'].toString())}'
-                                    : 'Aguardando confirmação do cliente',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isClientProposal
+                                        ? 'Cliente propôs: ${_formatScheduledDate(s['scheduled_at'].toString())}'
+                                        : 'Aguardando confirmação do cliente',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (expiresAt != null &&
+                                      expiresAt.trim().isNotEmpty)
+                                    Text(
+                                      'Expira em ${_formatScheduledDate(expiresAt)}',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ],
@@ -401,39 +740,50 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 16),
-                            const Divider(),
-                            const SizedBox(height: 12),
+                            SizedBox(height: widget.isFocusMode ? 8 : 16),
+                            if (!widget.isFocusMode) ...[
+                              const Divider(),
+                              const SizedBox(height: 12),
+                            ],
 
                             // Info Grid
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                _buildInfoItem(
-                                  LucideIcons.mapPin,
-                                  'Distância',
-                                  '${widget.travelInfo?['distance'] ?? '--'} km',
-                                ),
-                                _buildInfoItem(
-                                  LucideIcons.clock,
-                                  'Tempo',
-                                  '${widget.travelInfo?['duration'] ?? '--'} min',
-                                ),
-                              ],
-                            ),
+                            if (!widget.isFocusMode)
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildInfoItem(
+                                    LucideIcons.mapPin,
+                                    'Distância',
+                                    '${widget.travelInfo?['distance'] ?? '--'} km',
+                                  ),
+                                  _buildInfoItem(
+                                    LucideIcons.clock,
+                                    'Tempo',
+                                    '${widget.travelInfo?['duration'] ?? '--'} min',
+                                  ),
+                                ],
+                              ),
 
-                            const SizedBox(height: 16),
+                            SizedBox(height: widget.isFocusMode ? 8 : 16),
 
                             // Mini Map (Only shown if coords exist)
-                            if (s['latitude'] != null && s['longitude'] != null)
+                            if (!hideMapInFocusMode &&
+                                s['latitude'] != null &&
+                                s['longitude'] != null)
                               Container(
-                                height: 150,
+                                height: widget.isFocusMode
+                                    ? _focusMapHeight(context)
+                                    : 150,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey[200]!),
+                                  border: widget.isFocusMode
+                                      ? null
+                                      : Border.all(color: Colors.grey[200]!),
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: FlutterMap(
+                                  mapController: _mapController,
                                   options: MapOptions(
                                     onMapReady: () {
                                       if (_routePoints.isNotEmpty) _fitBounds();
@@ -456,13 +806,8 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                                         ), // Allow interaction
                                   ),
                                   children: [
-                                    TileLayer(
-                                      urlTemplate:
-                                          'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env["MAPBOX_TOKEN"] ?? ""}',
-                                      userAgentPackageName: 'com.play101.app',
-                                      tileDimension: 512,
-                                      zoomOffset: -1,
-                                      maxZoom: 22,
+                                    AppTileLayer.standard(
+                                      mapboxToken: SupabaseConfig.mapboxToken,
                                     ),
                                     if (_providerLocation != null)
                                       PolylineLayer(
@@ -497,8 +842,8 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                                                 ),
                                               ],
                                               strokeWidth: 3.0,
-                                              color: Colors.grey.withValues(
-                                                alpha: 0.5,
+                                              color: Colors.grey.withOpacity(
+                                                0.5,
                                               ),
                                             ),
                                         ],
@@ -515,8 +860,8 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                                             height: 40,
                                             child: Container(
                                               decoration: BoxDecoration(
-                                                color: Colors.green.withValues(
-                                                  alpha: 0.2,
+                                                color: Colors.green.withOpacity(
+                                                  0.2,
                                                 ),
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
@@ -547,7 +892,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                                           child: Container(
                                             decoration: BoxDecoration(
                                               color: AppTheme.primaryPurple
-                                                  .withValues(alpha: 0.2),
+                                                  .withOpacity(0.2),
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(
@@ -563,41 +908,114 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                                 ),
                               ),
 
-                            const SizedBox(height: 16),
+                            SizedBox(height: widget.isFocusMode ? 8 : 16),
                           ],
                         )
                       : const SizedBox.shrink(),
                 ),
 
                 // Actions (Always visible)
-                if (status == 'accepted' ||
-                    status == 'in_progress' ||
-                    status == 'waiting_payment_remaining') ...[
+                if (isAvailable &&
+                    (widget.onAccept != null || widget.onReject != null)) ...[
                   const SizedBox(height: 16),
-                  if (status == 'accepted' && s['arrived_at'] == null)
+                  Row(
+                    children: [
+                      if (widget.onAccept != null) ...[
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: widget.onAccept,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              elevation: 2,
+                              shadowColor: Colors.black.withOpacity(0.18),
+                            ),
+                            child: const Text('ACEITAR'),
+                          ),
+                        ),
+                        if (widget.onReject != null) const SizedBox(width: 12),
+                      ],
+                      if (widget.onReject != null)
+                        Expanded(
+                          child: TextButton(
+                            onPressed: widget.onReject,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red[700],
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'RECUSAR',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                if (isAcceptedPhase ||
+                    statusLower == 'in_progress' ||
+                    isWaitingSecurePayment) ...[
+                  SizedBox(height: widget.isFocusMode ? 8 : 16),
+                  if ((isAcceptedPhase ||
+                          isWaitingSecurePayment ||
+                          statusLower == 'client_arrived') &&
+                      s['arrived_at'] == null)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: widget.onArrive,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[600],
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          backgroundColor: widget.isFocusMode
+                              ? AppTheme.primaryYellow
+                              : Colors.blue[600],
+                          foregroundColor: widget.isFocusMode
+                              ? Colors.black
+                              : Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            vertical: widget.isFocusMode ? 18 : 16,
                           ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              widget.isFocusMode ? 14 : 8,
+                            ),
+                          ),
+                          textStyle: TextStyle(
+                            fontSize: widget.isFocusMode ? 24 : 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          elevation: widget.isFocusMode ? 8 : 2,
+                          shadowColor: Colors.black.withOpacity(0.25),
                         ),
-                        child: const Text('Cheguei no Local'),
+                        child: Text(
+                          widget.isFocusMode
+                              ? 'CHEGUEI NO SERVIÇO'
+                              : 'CHEGUEI NO LOCAL',
+                        ),
                       ),
                     ),
 
-                  if (status == 'waiting_payment_remaining' ||
-                      (status == 'accepted' &&
+                  if (isWaitingSecurePayment ||
+                      (statusLower == TripStatuses.inProgress &&
+                          !hasServiceStarted) ||
+                      (isAcceptedPhase &&
                           (s['arrived_at'] != null ||
                               s['client_arrived'] == true ||
                               s['client_arrived'] == 'true')))
                     Builder(
                       builder: (context) {
+                        final waitingSecurePayment =
+                            isWaitingSecurePayment && !isRemainingPaid;
+                        final securePaymentDone =
+                            (isWaitingSecurePayment && isRemainingPaid) ||
+                            (statusLower == TripStatuses.inProgress &&
+                                !hasServiceStarted);
                         final bool clientArrived =
                             s['arrived_at'] != null ||
                             s['client_arrived'] == true ||
@@ -607,12 +1025,20 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: clientArrived
-                                ? AppTheme.primaryBlue.withValues(alpha: 0.1)
-                                : Colors.orange.withValues(alpha: 0.1),
+                            color: waitingSecurePayment
+                                ? Colors.orange.withOpacity(0.1)
+                                : securePaymentDone
+                                ? Colors.green.withOpacity(0.1)
+                                : clientArrived
+                                ? AppTheme.primaryBlue.withOpacity(0.1)
+                                : Colors.orange.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: clientArrived
+                              color: waitingSecurePayment
+                                  ? Colors.orange
+                                  : securePaymentDone
+                                  ? Colors.green
+                                  : clientArrived
                                   ? AppTheme.primaryBlue
                                   : Colors.orange,
                             ),
@@ -620,22 +1046,38 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                           child: Column(
                             children: [
                               Icon(
-                                clientArrived
+                                waitingSecurePayment
+                                    ? LucideIcons.shield
+                                    : securePaymentDone
+                                    ? LucideIcons.badgeCheck
+                                    : clientArrived
                                     ? LucideIcons.userCheck
                                     : LucideIcons.hourglass,
-                                color: clientArrived
+                                color: waitingSecurePayment
+                                    ? Colors.orange
+                                    : securePaymentDone
+                                    ? Colors.green
+                                    : clientArrived
                                     ? AppTheme.primaryBlue
                                     : Colors.orange,
                                 size: 24,
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                clientArrived
+                                waitingSecurePayment
+                                    ? 'AGUARDANDO PAGAMENTO SEGURO'
+                                    : securePaymentDone
+                                    ? 'PAGAMENTO SEGURO REALIZADO'
+                                    : clientArrived
                                     ? 'CLIENTE NO LOCAL 📍'
                                     : 'Aguardando Pagamento Seguro',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: clientArrived
+                                  color: waitingSecurePayment
+                                      ? Colors.orange[800]
+                                      : securePaymentDone
+                                      ? Colors.green[800]
+                                      : clientArrived
                                       ? AppTheme.primaryBlue
                                       : Colors.orange[800],
                                   fontSize: 16,
@@ -643,7 +1085,11 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                clientArrived
+                                waitingSecurePayment
+                                    ? 'Aguardando o cliente pagar os 70% via PIX.'
+                                    : securePaymentDone
+                                    ? 'Pagamento confirmado. Você já pode iniciar o serviço.'
+                                    : clientArrived
                                     ? 'O cliente informou que já chegou ao seu estabelecimento.'
                                     : 'O cliente foi notificado para realizar o pagamento.',
                                 textAlign: TextAlign.center,
@@ -658,23 +1104,68 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                       },
                     ),
 
-                  if (status == 'in_progress')
+                  if (readyToStartExecution)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: widget.onFinish,
-                        icon: const Icon(LucideIcons.checkCircle, size: 18),
-                        label: const Text('FINALIZAR SERVIÇO'),
+                        onPressed: widget.onStart,
+                        icon: const Icon(LucideIcons.playCircle, size: 18),
+                        label: const Text('INICIAR SERVIÇO'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
+                          backgroundColor: Colors.green[700],
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
                     ),
+
+                  if (canShowFinishAction) ...[
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Quando terminar, pressione o botão abaixo',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: widget.onFinish,
+                        icon: const Icon(LucideIcons.checkCircle, size: 18),
+                        label: const Text(
+                          'SERVIÇO CONCLUÍDO',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            height: 1.2,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryBlue,
+                          foregroundColor: Colors.white,
+                          elevation: 6,
+                          shadowColor: AppTheme.primaryBlue.withOpacity(0.28),
+                          minimumSize: const Size.fromHeight(58),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 18,
+                            horizontal: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
 
-                if (status == 'waiting_client_confirmation') ...[
+                if (isAwaitingClientConfirmation) ...[
                   const SizedBox(height: 16),
                   Container(
                     width: double.infinity,
@@ -684,7 +1175,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blue.withValues(alpha: 0.2),
+                          color: Colors.blue.withOpacity(0.2),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -699,7 +1190,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Aguardando Confirmação do Cliente',
+                          'Pendente - aguardando confirmação do cliente',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -708,24 +1199,54 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'O cliente foi notificado para confirmar a conclusão do serviço. Se ele não confirmar em até 24h, o serviço será confirmado automaticamente pela plataforma.',
+                          remainingClientConfirmationLabel == null
+                              ? 'O cliente foi notificado para confirmar a conclusão do serviço. Se ele não registrar reclamação ou queixa em até 12h, o pagamento será liberado automaticamente. Se houver reclamação, o pagamento entra em análise.'
+                              : 'O cliente foi notificado para confirmar a conclusão do serviço. Se ele não registrar reclamação ou queixa, o pagamento será realizado em $remainingClientConfirmationLabel, contado dentro da janela de 12h após o serviço.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withOpacity(0.9),
                           ),
                         ),
+                        if (remainingClientConfirmationLabel != null) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Text(
+                              'Pagamento automático em $remainingClientConfirmationLabel',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 ],
 
                 // EXPANDED SCHEDULE BLOCK: depends on who proposed
-                if (status == 'schedule_proposed' && !_isScheduling) ...[
+                if (statusLower == ServiceStatusAliases.scheduleProposed &&
+                    !_isScheduling) ...[
                   const SizedBox(height: 16),
                   Builder(
                     builder: (_) {
-                      final proposedBy = s['schedule_proposed_by']?.toString();
+                      final proposedBy =
+                          s['schedule_proposed_by_user_id']?.toString() ??
+                          s['schedule_proposed_by']?.toString();
                       final providerId = s['provider_id']?.toString();
                       final isClientProposal =
                           proposedBy != null && proposedBy != providerId;
@@ -740,7 +1261,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blue.withValues(alpha: 0.3),
+                                color: Colors.blue.withOpacity(0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -820,10 +1341,10 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.08),
+                            color: Colors.orange.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.orange.withValues(alpha: 0.3),
+                              color: Colors.orange.withOpacity(0.3),
                             ),
                           ),
                           child: Row(
@@ -853,16 +1374,16 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                 ],
 
                 // SCHEDULING ACTION (only for open_for_schedule, NOT for schedule_proposed to avoid infinite loop)
-                if (status == 'open_for_schedule') ...[
+                if (canShowScheduleAction) ...[
                   const SizedBox(height: 16),
                   if (!_isScheduling)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => setState(() => _isScheduling = true),
+                        onPressed: _startSchedulingNow,
                         icon: const Icon(LucideIcons.calendar, size: 18),
                         label: Text(
-                          status == 'schedule_proposed'
+                          statusLower == ServiceStatusAliases.scheduleProposed
                               ? 'ALTERAR AGENDAMENTO'
                               : 'AGENDAR SERVIÇO',
                         ),
@@ -907,7 +1428,8 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
             itemCount: 7,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final date = DateTime.now().add(Duration(days: index));
+              final now = DateTime.now();
+              final date = DateTime(now.year, now.month, now.day + index);
               final isSelected =
                   _selectedDate.day == date.day &&
                   _selectedDate.month == date.month;
@@ -922,7 +1444,10 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
 
               return InkWell(
                 onTap: () {
-                  setState(() => _selectedDate = date);
+                  setState(() {
+                    _selectedDate = date;
+                    _syncScheduleSelectionWithMinimum();
+                  });
                   _updateDynamicMessage();
                 },
                 child: Container(
@@ -994,6 +1519,25 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                 _selectedTime.minute.toString().padLeft(2, '0'),
               ),
             ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _applyCurrentScheduleNow,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blue[700],
+                  side: BorderSide(color: Colors.blue[200]!),
+                  backgroundColor: Colors.blue[50],
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Agora',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 24),
@@ -1013,13 +1557,18 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
               flex: 2,
               child: ElevatedButton(
                 onPressed: () {
-                  final finalDate = DateTime(
-                    _selectedDate.year,
-                    _selectedDate.month,
-                    _selectedDate.day,
-                    _selectedTime.hour,
-                    _selectedTime.minute,
+                  final finalDate = _normalizedScheduleDateTimeForSubmit(
+                    _composeSelectedScheduleDateTime(),
                   );
+                  setState(() {
+                    _selectedDate = DateTime(
+                      finalDate.year,
+                      finalDate.month,
+                      finalDate.day,
+                    );
+                    _selectedTime = TimeOfDay.fromDateTime(finalDate);
+                  });
+                  _updateDynamicMessage();
                   widget.onSchedule?.call(finalDate, '');
                 },
                 style: ElevatedButton.styleFrom(
@@ -1063,7 +1612,14 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
     showDialog(
       context: context,
       builder: (context) {
-        TimeOfDay tempTime = _selectedTime;
+        final minimum = _minimumScheduleDateTime();
+        final selectedDateTime = _composeSelectedScheduleDateTime();
+        final selectedIsToday = _isSameCalendarDay(_selectedDate, minimum);
+        final initialDateTime =
+            selectedIsToday && selectedDateTime.isBefore(minimum)
+            ? minimum
+            : selectedDateTime;
+        TimeOfDay tempTime = TimeOfDay.fromDateTime(initialDateTime);
         return Center(
           child: Container(
             margin: const EdgeInsets.all(24),
@@ -1091,11 +1647,16 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                         2024,
                         1,
                         1,
-                        _selectedTime.hour,
-                        _selectedTime.minute,
+                        initialDateTime.hour,
+                        initialDateTime.minute,
                       ),
+                      minimumDate: selectedIsToday
+                          ? DateTime(2024, 1, 1, minimum.hour, minimum.minute)
+                          : null,
                       use24hFormat: true,
                       onDateTimeChanged: (DateTime newDate) {
+                        HapticFeedback.selectionClick();
+                        SystemSound.play(SystemSoundType.click);
                         tempTime = TimeOfDay(
                           hour: newDate.hour,
                           minute: newDate.minute,
@@ -1108,7 +1669,10 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        setState(() => _selectedTime = tempTime);
+                        setState(() {
+                          _selectedTime = tempTime;
+                          _syncScheduleSelectionWithMinimum();
+                        });
                         _updateDynamicMessage();
                         Navigator.pop(context);
                       },

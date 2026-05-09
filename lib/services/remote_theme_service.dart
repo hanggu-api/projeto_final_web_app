@@ -167,7 +167,7 @@ class RemoteThemeService {
     if (_currentTheme == null) {
       return [
         BoxShadow(
-          color: Colors.black.withValues(alpha: customOpacity ?? 0.08),
+          color: Colors.black.withOpacity(customOpacity ?? 0.08),
           blurRadius: customBlur ?? 6,
           offset: const Offset(0, 3),
         ),
@@ -178,7 +178,7 @@ class RemoteThemeService {
       BoxShadow(
         color: _hexToColor(
           s.shadowColor,
-        ).withValues(alpha: customOpacity ?? s.shadowOpacity),
+        ).withOpacity(customOpacity ?? s.shadowOpacity),
         blurRadius: customBlur ?? s.shadowBlur,
         offset: Offset(s.shadowOffsetX, s.shadowOffsetY),
       ),
@@ -250,22 +250,92 @@ class RemoteThemeService {
         style: ElevatedButton.styleFrom(
           backgroundColor: _hexToColor(theme.colors.buttonPrimaryBg),
           foregroundColor: _hexToColor(theme.colors.buttonPrimaryText),
+          disabledBackgroundColor: _hexToColor(
+            theme.colors.buttonPrimaryBg,
+          ).withOpacity(0.55),
+          disabledForegroundColor: _hexToColor(
+            theme.colors.buttonPrimaryText,
+          ).withOpacity(0.7),
+          minimumSize: const Size(double.infinity, 54),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(theme.borders.radiusMedium),
+            borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
+          ),
+          textStyle: TextStyle(
+            fontSize: theme.typography.sizeMedium,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: _hexToColor(theme.colors.textPrimary),
+          backgroundColor: _hexToColor(theme.colors.surface),
+          minimumSize: const Size(double.infinity, 54),
           side: BorderSide(
             color: _hexToColor(theme.borders.color),
-            width: theme.borders.width,
+            width: theme.borders.width <= 0 ? 1.2 : theme.borders.width,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(theme.borders.radiusMedium),
+            borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
           ),
         ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: _hexToColor(theme.colors.surface),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
+          borderSide: BorderSide(
+            color: _hexToColor(theme.borders.color),
+            width: theme.borders.width <= 0 ? 1.2 : theme.borders.width,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
+          borderSide: BorderSide(
+            color: _hexToColor(theme.borders.color),
+            width: theme.borders.width <= 0 ? 1.2 : theme.borders.width,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
+          borderSide: BorderSide(
+            color: _hexToColor(theme.colors.primary),
+            width: 2,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
+          borderSide: BorderSide(
+            color: _hexToColor(theme.colors.error).withOpacity(0.75),
+            width: 1.4,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
+          borderSide: BorderSide(
+            color: _hexToColor(theme.colors.error),
+            width: 1.8,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 18,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: _hexToColor(theme.colors.surface),
+        elevation: 0,
+        shadowColor: Colors.black.withOpacity(0.08),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(theme.borders.radiusLarge),
+          side: BorderSide(
+            color: _hexToColor(theme.borders.color),
+            width: theme.borders.width <= 0 ? 1.2 : theme.borders.width,
+          ),
+        ),
+        margin: EdgeInsets.zero,
       ),
     );
   }

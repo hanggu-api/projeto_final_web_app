@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../services/api_service.dart';
+import '../../services/data_gateway.dart';
+import 'chat/open_chat_helper.dart';
 import '../../widgets/skeleton_loader.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -14,24 +16,28 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  final ApiService _api = ApiService();
   bool _isLoading = true;
   List<dynamic> _services = [];
+  String? _role;
 
   @override
   void initState() {
     super.initState();
+    _clearUnreadBadge();
     _loadServices();
+  }
+
+  Future<void> _clearUnreadBadge() async {
+    final prefs = await SharedPreferences.getInstance();
+    _role = prefs.getString('user_role');
   }
 
   Future<void> _loadServices() async {
     try {
-      final services = await _api.getMyServices();
+      final services = await DataGateway().loadChatConversations();
       if (mounted) {
         setState(() {
-          _services = services.where((s) {
-            return s['provider'] != null || s['provider_id'] != null;
-          }).toList();
+          _services = services;
           _isLoading = false;
         });
       }
@@ -72,7 +78,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         color: Colors.grey[200],
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: Colors.black.withOpacity(0.05),
                             blurRadius: 2,
                             offset: const Offset(0, 2),
                           ),
@@ -88,7 +94,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       // (Simple heuristic: if I am the provider, show client. If I am client, show provider)
                       // Since we don't have easy access to "my id" here without async,
                       // we can check if the cached role in ApiService is 'provider'
-                      final isProvider = _api.role == 'provider';
+                      final isProvider = _role == 'provider';
 
                       if (isProvider) {
                         // Show Client
@@ -164,13 +170,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           ],
                         ),
                         onTap: () {
-                          context.push(
-                            '/chat/$serviceId',
-                            extra: {
-                              'serviceId': serviceId,
-                              'otherName': otherName,
-                              'otherAvatar': otherAvatar,
-                            },
+                          OpenChatHelper.push(
+                            context,
+                            serviceId: serviceId,
+                            service: Map<String, dynamic>.from(service),
+                            otherName: otherName,
+                            otherAvatar: otherAvatar,
+                            currentRole: _role,
                           );
                         },
                       );
@@ -192,13 +198,28 @@ class _ChatListScreenState extends State<ChatListScreen> {
         right: 24,
         bottom: 24,
       ),
-      child: const Text(
-        'Conversas',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/home');
+              }
+            },
+            child: const Icon(LucideIcons.chevronLeft, color: Colors.black87),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Conversas',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }

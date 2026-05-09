@@ -60,7 +60,10 @@ void main() {
       'user_role': 'provider',
       'user_id': 123,
     });
-    await SupabaseConfig.initialize();
+    await SupabaseConfig.initialize(
+      disableAuthAutoRefresh: true,
+      detectSessionInUri: false,
+    );
   });
 
   setUp(() {
@@ -82,10 +85,19 @@ void main() {
         home: ProviderHomeScreen(loadOnInit: false, connectRealtime: false),
       ),
     );
+    // Alguns widgets disparam async + timers curtos (ex.: 200ms) em initState.
+    // Fazemos alguns pumps para garantir que o timer seja criado e executado.
+    await tester.pump(); // microtasks
+    await tester.pump(const Duration(milliseconds: 500)); // avança relógio fake
+    await tester.pump(); // flush pós-timer
 
     // Verify basic structure
     expect(find.byType(Scaffold), findsOneWidget);
     // "Saldo disponível" should be present in the header
     expect(find.text('Saldo disponível'), findsOneWidget);
+
+    // Força dispose e dá mais um pump para não sobrar timer pendente.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 }

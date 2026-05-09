@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter/widgets.dart';
 import 'package:service_101/services/notification_service.dart';
 import 'package:service_101/services/api_service.dart';
 import '../core/utils/logger.dart';
+import 'network_status_service.dart';
+import 'provider_keepalive_service.dart';
 
-class RealtimeService {
+class RealtimeService with WidgetsBindingObserver {
   static RealtimeService? _mockInstance;
   static set mockInstance(RealtimeService? mock) => _mockInstance = mock;
 
@@ -22,39 +24,30 @@ class RealtimeService {
   }
 
   /// Inicializa o serviço (Singleton/Idempotente)
-  void init(int userId) {
+  void init(String userId) {
     if (_initialized && _currentUserId == userId) {
       return;
+    }
+
+    final previousUserId = _currentUserId;
+    if (previousUserId != null && previousUserId != userId) {
+      _disposeUserScopedChannels();
     }
 
     _initialized = true;
     _currentUserId = userId;
     AppLogger.sistema('RealtimeService inicializado para o usuário $userId');
+    unawaited(_networkStatus.ensureInitialized());
+    _registerLifecycleObserver();
 
-    // Setup Presence via Supabase Realtime
-    try {
-      final channel = Supabase.instance.client.channel(
-        'public:presence_status',
-      );
-
-      channel.onPresenceSync((payload) {
-        // AppLogger.sistema('Presence Sync event!');
-      });
-
-      channel.subscribe((status, [error]) async {
-        if (status == RealtimeSubscribeStatus.subscribed) {
-          await channel.track({
-            'user_id': userId,
-            'state': 'online',
-            'last_changed': DateTime.now().toIso8601String(),
-          });
-        }
-      });
-    } catch (e) {
-      AppLogger.erro('Erro ao configurar presença no Supabase', e);
+    if (mockMode) {
+      return;
     }
 
-    _listenToUserEvents(userId);
+    // Realtime agora vem de relay backend / eventos externos (FCM etc).
+    _userEventsDegraded = false;
+
+    unawaited(_listenToUserEvents(userId));
   }
 
   @visibleForTesting
@@ -70,9 +63,19 @@ class RealtimeService {
 
   // Timer? _locationTimer; // Replaced by StreamSubscription
   DateTime? _lastLocationUpdate;
-  int? _currentUserId;
+  String? _currentUserId;
+  Timer? _providerHeartbeatTimer;
   final Map<String, List<Function(dynamic)>> _eventListeners = {};
-  RealtimeChannel? _userEventsSub;
+  Timer? _userEventsRetryTimer;
+  int _userEventsRetryAttempt = 0;
+  bool _isReconnectingRealtime = false;
+  bool _userEventsDegraded = false;
+  DateTime? _lastUserEventsRetryLogAt;
+  String? _lastUserEventsRetrySignature;
+  bool _isAppInBackground = false;
+  bool _isObservingLifecycle = false;
+  bool get isUserEventsDegraded => _userEventsDegraded;
+  final NetworkStatusService _networkStatus = NetworkStatusService();
 
   /// Conecta ao serviço (Mantido para compatibilidade)
   void connect() {
@@ -81,15 +84,15 @@ class RealtimeService {
     );
   }
 
-  void authenticate(int userId) {
+  void authenticate(String userId) {
     // Redireciona para init que agora é Singleton-safe
     init(userId);
   }
 
   /// Retorna stream de localização do prestador (Ainda não migrado para stream Postgres)
-  Stream<dynamic>? getProviderLocationStream(int providerId) {
+  Stream<dynamic>? getProviderLocationStream(String providerId) {
     AppLogger.viagem(
-      'Supabase Realtime Location Stream não completamente migrado ainda.',
+      'Location stream dedicado será provido pelo relay backend.',
     );
     return null;
   }
@@ -144,85 +147,123 @@ class RealtimeService {
     }
   }
 
-  void _listenToUserEvents(int userId) {
+  Future<void> _listenToUserEvents(String userId) async {
     if (mockMode) return;
-
-    if (_userEventsSub != null) {
-      Supabase.instance.client.removeChannel(_userEventsSub!);
+    if (_networkStatus.isOffline) {
+      _userEventsDegraded = true;
+      AppLogger.info(
+        'ℹ️ [Realtime] user_events aguardando rede para religar userId=$userId',
+      );
+      _scheduleUserEventsResubscribe(userId, error: 'offline_dns_or_network');
+      return;
     }
 
+    _userEventsRetryTimer?.cancel();
+    _userEventsRetryTimer = null;
+    _removeUserEventsChannel();
+
     AppLogger.sistema(
-      'Ouvindo eventos Broadcast do Supabase para o usuário $userId',
+      '🔌 [Realtime] relay backend ativo (sem canal direto Supabase) userId=$userId',
     );
+    _userEventsRetryAttempt = 0;
+    _userEventsDegraded = false;
+    _networkStatus.markBackendRecovered();
+  }
 
-    _userEventsSub = Supabase.instance.client.channel('user_events_$userId');
+  Future<void> _reconnectRealtimeSocket() async {
+    if (_isReconnectingRealtime) return;
+    _isReconnectingRealtime = true;
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      AppLogger.sistema('🔌 [Realtime] reconnect via relay backend');
+    } catch (e) {
+      AppLogger.alerta('⚠️ [Realtime] falha ao reconectar socket: $e');
+    } finally {
+      _isReconnectingRealtime = false;
+    }
+  }
 
-    _userEventsSub!
-        .onBroadcast(
-          event: 'custom_event',
-          callback: (payload) {
-            final val = payload;
-            if (val.isNotEmpty) {
-              final type = val['type'];
-              final eventPayload = val['payload'];
-              final timestampRaw = val['timestamp'];
+  Future<void> requestSocketReconnect() => _reconnectRealtimeSocket();
 
-              AppLogger.notificacao(
-                'Evento Supabase Broadcast detectado: $type',
-              );
+  void _scheduleUserEventsResubscribe(String userId, {String? error}) {
+    if (mockMode) return;
+    _userEventsRetryTimer?.cancel();
+    _userEventsRetryTimer = null;
 
-              final Map<String, dynamic> normalizedPayload = eventPayload is Map
-                  ? Map<String, dynamic>.from(eventPayload)
-                  : {};
+    if (_networkStatus.isOffline) {
+      _userEventsDegraded = true;
+      AppLogger.info(
+        'ℹ️ [Realtime] user_events offline; retry passivo em 15s userId=$userId',
+      );
+      _userEventsRetryTimer = Timer(const Duration(seconds: 15), () {
+        unawaited(() async {
+          await _networkStatus.refreshConnectivity();
+          if (_networkStatus.canAttemptSupabase) {
+            await _reconnectRealtimeSocket();
+          }
+          await _listenToUserEvents(userId);
+        }());
+      });
+      return;
+    }
 
-              _allEventsController.add({
-                'type': type,
-                'payload': normalizedPayload,
-                'source': 'supabase_broadcast',
-                'timestamp':
-                    timestampRaw ?? DateTime.now().millisecondsSinceEpoch,
-              });
+    // Exponential backoff capped at 60s.
+    _userEventsRetryAttempt = (_userEventsRetryAttempt + 1).clamp(1, 10);
+    final seconds = (2 << (_userEventsRetryAttempt - 1)).clamp(2, 60);
+    _logUserEventsRetry(userId: userId, seconds: seconds, error: error);
 
-              if (type == 'service.scheduled_started') {
-                AppLogger.notificacao(
-                  '⚡ Interceptando START agendado -> NotificationService',
-                );
-                NotificationService().handleNotificationTap({
-                  'type': 'scheduled_started',
-                  'id':
-                      normalizedPayload['service_id'] ??
-                      normalizedPayload['id'],
-                  ...normalizedPayload,
-                });
-              }
+    _userEventsRetryTimer = Timer(Duration(seconds: seconds), () {
+      unawaited(() async {
+        await _reconnectRealtimeSocket();
+        _removeUserEventsChannel();
+        await _listenToUserEvents(userId);
+      }());
+    });
+  }
 
-              if (type != null && _eventListeners.containsKey(type)) {
-                AppLogger.sistema('Executando handlers para o evento: $type');
-                for (final h in _eventListeners[type]!) {
-                  try {
-                    h(normalizedPayload);
-                  } catch (e) {
-                    AppLogger.erro('Erro no handler do evento $type: $e');
-                  }
-                }
-              } else if (type != 'service.scheduled_started' &&
-                  type != 'client.arrived' &&
-                  type != 'client.departed') {
-                AppLogger.alerta(
-                  'Nenhum handler registrado para o tipo de evento: $type',
-                );
-              }
-            }
-          },
-        )
-        .subscribe();
+  void _logUserEventsRetry({
+    required String userId,
+    required int seconds,
+    String? error,
+  }) {
+    final signature = '$userId|$seconds|${error ?? ""}';
+    final now = DateTime.now();
+    final shouldThrottle =
+        _lastUserEventsRetrySignature == signature &&
+        _lastUserEventsRetryLogAt != null &&
+        now.difference(_lastUserEventsRetryLogAt!) <
+            const Duration(seconds: 20);
+    if (shouldThrottle) return;
+    _lastUserEventsRetrySignature = signature;
+    _lastUserEventsRetryLogAt = now;
+    AppLogger.sistema(
+      '🔁 [Realtime] retry user_events in ${seconds}s attempt=$_userEventsRetryAttempt userId=$userId err=${error ?? ""}',
+    );
+  }
+
+  void _removeUserEventsChannel() {
+    // Sem canal direto no cliente (relay backend).
+  }
+
+  void _disposeUserScopedChannels() {
+    _removeUserEventsChannel();
   }
 
   // --- Lógica de Localização ---
 
-  void startLocationUpdates(int userId) {
+  void startLocationUpdates(String userId, {String? userUid}) {
     _locationSub?.cancel();
     _currentUserId = userId;
+    _registerLifecycleObserver();
+    _persistKeepaliveContext(userId, userUid: userUid);
+
+    if (kIsWeb) {
+      AppLogger.info(
+        'ℹ️ [Realtime] startLocationUpdates ignorado no web para evitar falhas do geolocator stream.',
+      );
+      _startProviderHeartbeat(forceImmediate: true);
+      return;
+    }
 
     // Configuração de Stream com filtro de distância
     const settings = LocationSettings(
@@ -237,12 +278,18 @@ class RealtimeService {
     _locationSub = Geolocator.getPositionStream(locationSettings: settings).listen((
       position,
     ) {
+      unawaited(
+        ProviderKeepaliveService.cacheLastKnownCoords(
+          position.latitude,
+          position.longitude,
+        ),
+      );
       final now = DateTime.now();
       // Debounce/Throttle manual de 10 segundos para RTDB
       if (_lastLocationUpdate == null ||
           now.difference(_lastLocationUpdate!).inSeconds >= 10) {
         _lastLocationUpdate = now;
-        _updateLocationInSupabase(position);
+        unawaited(_sendProviderPresenceWithCoords(position));
 
         // Check if we moved significantly (> 500m) to update the D1 Registry
         if (ApiService().isLoggedIn) {
@@ -267,33 +314,124 @@ class RealtimeService {
         }
       }
     });
+
+    _startProviderHeartbeat(forceImmediate: true);
   }
 
   void stopLocationUpdates() {
     _locationSub?.cancel();
     _locationSub = null;
+    _providerHeartbeatTimer?.cancel();
+    _providerHeartbeatTimer = null;
+    _userEventsRetryTimer?.cancel();
+    _userEventsRetryTimer = null;
+    _disposeUserScopedChannels();
+    _unregisterLifecycleObserver();
+    _isAppInBackground = false;
+    unawaited(ProviderKeepaliveService.clearKeepaliveContext());
     AppLogger.viagem('Atualizações de localização encerradas');
   }
 
-  Future<void> _updateLocationInSupabase(Position position) async {
-    if (_currentUserId == null) return;
+  void _startProviderHeartbeat({bool forceImmediate = false}) {
+    _providerHeartbeatTimer?.cancel();
+    _providerHeartbeatTimer = null;
 
-    // Só envia para provider_locations se o usuário for um prestador
-    // Motoristas (uber) são gerenciados pelas funções específicas na DriverHomeScreen
-    final api = ApiService();
-    if (api.role != 'provider' && !api.isMedical && !api.isFixedLocation) {
+    if (!_isProviderSession()) {
       return;
     }
 
-    try {
-      await Supabase.instance.client.from('provider_locations').upsert({
-        'provider_id': _currentUserId,
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      AppLogger.erro('Erro ao enviar localização para o Supabase', e);
+    if (_isAppInBackground) {
+      return;
+    }
+
+    Future<void> tick() async {
+      final result = await ProviderKeepaliveService.sendHeartbeatTick(
+        source: 'foreground',
+      );
+      AppLogger.viagem(
+        '🫀 [Heartbeat] provider presence tick result=${result.name}',
+      );
+    }
+
+    if (forceImmediate) {
+      unawaited(tick());
+    }
+
+    _providerHeartbeatTimer = Timer.periodic(
+      ProviderKeepaliveService.heartbeatInterval,
+      (_) => unawaited(tick()),
+    );
+  }
+
+  Future<void> _sendProviderPresenceWithCoords(Position position) async {
+    final result = await ProviderKeepaliveService.sendHeartbeatWithCoords(
+      lat: position.latitude,
+      lon: position.longitude,
+      source: 'location_stream',
+    );
+    AppLogger.viagem(
+      '🛰️ [Heartbeat] location stream presence result=${result.name}',
+    );
+  }
+
+  bool _isProviderSession() {
+    final api = ApiService();
+    return api.role == 'provider';
+  }
+
+  void _registerLifecycleObserver() {
+    if (_isObservingLifecycle) return;
+    WidgetsBinding.instance.addObserver(this);
+    _isObservingLifecycle = true;
+  }
+
+  void _unregisterLifecycleObserver() {
+    if (!_isObservingLifecycle) return;
+    WidgetsBinding.instance.removeObserver(this);
+    _isObservingLifecycle = false;
+  }
+
+  Future<void> _persistKeepaliveContext(
+    String userId, {
+    String? userUid,
+  }) async {
+    final api = ApiService();
+    await ProviderKeepaliveService.persistKeepaliveContext(
+      onlineForDispatch: true,
+      userId: userId,
+      userUid: userUid ?? ApiService().userData?['supabase_uid']?.toString(),
+      isFixedLocation: api.isFixedLocation,
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _isAppInBackground = true;
+      if (!_isProviderSession()) return;
+      _providerHeartbeatTimer?.cancel();
+      _providerHeartbeatTimer = null;
+      unawaited(ProviderKeepaliveService.startBackgroundService());
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      _isAppInBackground = false;
+      final userId = _currentUserId?.trim();
+      if (userId != null && userId.isNotEmpty && !mockMode) {
+        unawaited(() async {
+          await _networkStatus.refreshConnectivity();
+          if (_networkStatus.canAttemptSupabase) {
+            await _reconnectRealtimeSocket();
+            await _listenToUserEvents(userId);
+          }
+        }());
+      }
+      if (!_isProviderSession()) return;
+      unawaited(ProviderKeepaliveService.stopBackgroundService());
+      _startProviderHeartbeat(forceImmediate: true);
     }
   }
 
@@ -301,12 +439,12 @@ class RealtimeService {
 
   // --- Presença ---
 
-  void checkStatus(int userId, void Function(bool isOnline) callback) {
+  void checkStatus(String userId, void Function(bool isOnline) callback) {
     // Verificação simples via API ou Presence
     callback(false);
   }
 
-  void onPresenceUpdate(void Function(int userId, bool isOnline) handler) {
+  void onPresenceUpdate(void Function(String userId, bool isOnline) handler) {
     // Escutar mudanças globais de status seria custoso aqui.
     // Idealmente, escutar status de usuários específicos.
   }

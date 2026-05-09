@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -8,8 +9,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/profile/backend_profile_api.dart';
+import '../../core/utils/input_formatters.dart';
 import '../../services/api_service.dart';
 import '../../services/media_service.dart';
+import '../../widgets/edit_profile_sheet.dart';
 
 class ClientSettingsScreen extends StatefulWidget {
   const ClientSettingsScreen({super.key});
@@ -20,10 +24,17 @@ class ClientSettingsScreen extends StatefulWidget {
 
 class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
   final ApiService _api = ApiService();
+  final BackendProfileApi _backendProfileApi = const BackendProfileApi();
   final MediaService _mediaService = MediaService();
   Map<String, dynamic>? _user;
   bool _isLoading = true;
   bool _isUploadingAvatar = false;
+
+  void _notAvailable(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -33,7 +44,11 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
 
   Future<void> _loadProfile() async {
     try {
-      final profile = await _api.getMyProfile();
+      final profileState = await _backendProfileApi.fetchMyProfile();
+      if (profileState == null) {
+        throw Exception('Perfil canônico indisponível.');
+      }
+      final profile = profileState.toApiUserMap();
       if (mounted) {
         setState(() {
           _user = profile;
@@ -92,7 +107,29 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
         return;
       }
 
-      final file = await _mediaService.pickImageMobile(ImageSource.gallery);
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Usar câmera'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Escolher da galeria'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (source == null) return;
+
+      final file = await _mediaService.pickImageMobile(source);
       if (file != null) {
         setState(() => _isUploadingAvatar = true);
         final bytes = await file.readAsBytes();
@@ -126,7 +163,7 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _EditProfileSheet(
+      builder: (context) => EditProfileSheet(
         user: _user,
         onSave: _updateProfile,
         onPickAvatar: _pickAndUploadAvatar,
@@ -167,14 +204,14 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             GestureDetector(
-                              onTap: () => context.pop(),
+                              onTap: () => context.go('/home'),
                               child: const Icon(
                                 LucideIcons.chevronLeft,
                                 color: AppTheme.textDark,
                               ),
                             ),
                             Text(
-                              'Profile',
+                              'Perfil',
                               style: GoogleFonts.manrope(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,
@@ -197,9 +234,7 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryYellow.withValues(
-                                  alpha: 0.2,
-                                ),
+                                color: AppTheme.primaryYellow.withOpacity(0.2),
                                 shape: BoxShape.circle,
                               ),
                               child: CircleAvatar(
@@ -279,12 +314,12 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(
                       padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
+                      decoration: AppTheme.surfacedCardDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
+                        radius: 24,
+                        shadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Colors.black.withOpacity(0.04),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -317,7 +352,9 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                             ],
                           ),
                           ElevatedButton.icon(
-                            onPressed: () {},
+                            onPressed: () => _notAvailable(
+                              'Adicionar saldo estará disponível em breve.',
+                            ),
                             icon: const Icon(LucideIcons.plusCircle, size: 18),
                             label: Text(
                               'ADICIONAR',
@@ -350,9 +387,9 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(
-                      decoration: BoxDecoration(
+                      decoration: AppTheme.surfacedCardDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
+                        radius: 24,
                         border: Border.all(color: Colors.grey.shade100),
                       ),
                       child: Column(
@@ -377,18 +414,22 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                           ),
                           _buildSettingItem(
                             icon: LucideIcons.creditCard,
-                            label: 'Payment Methods',
-                            onTap: () {},
+                            label: 'Formas de Pagamento',
+                            onTap: () => context.push('/payment-methods'),
                           ),
                           _buildSettingItem(
                             icon: LucideIcons.mapPin,
                             label: 'My Addresses',
-                            onTap: () {},
+                            onTap: () => _notAvailable(
+                              'Cadastro de endereços estará disponível em breve.',
+                            ),
                           ),
                           _buildSettingItem(
                             icon: LucideIcons.shieldCheck,
                             label: 'Security & Privacy',
-                            onTap: () {},
+                            onTap: () => _notAvailable(
+                              'Segurança e privacidade estarão disponíveis em breve.',
+                            ),
                             isLast: true,
                           ),
                         ],
@@ -409,7 +450,9 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
                       child: _buildSettingItem(
                         icon: LucideIcons.helpCircle,
                         label: 'Help & Support',
-                        onTap: () {},
+                        onTap: () => _notAvailable(
+                          'Central de ajuda estará disponível em breve.',
+                        ),
                         isLast: true,
                       ),
                     ),
@@ -483,7 +526,7 @@ class _ClientSettingsScreenState extends State<ClientSettingsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: (color ?? AppTheme.textDark).withValues(alpha: 0.05),
+                color: (color ?? AppTheme.textDark).withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, size: 20, color: color ?? AppTheme.textDark),
@@ -540,7 +583,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     super.initState();
     _nameController = TextEditingController(text: widget.user?['name']);
     _emailController = TextEditingController(text: widget.user?['email']);
-    _phoneController = TextEditingController(text: widget.user?['phone']);
+    _phoneController = TextEditingController(
+      text: formatPhoneDisplay(widget.user?['phone']?.toString()),
+    );
   }
 
   @override
@@ -557,7 +602,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       await widget.onSave(
         _nameController.text,
         _emailController.text,
-        _phoneController.text,
+        phoneDigitsOnly(_phoneController.text),
       );
       if (mounted) setState(() => _isSaving = false);
     }
@@ -611,6 +656,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               label: 'TELEFONE',
               icon: LucideIcons.phone,
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                PhoneInputFormatter(),
+              ],
             ),
 
             const SizedBox(height: 40),
@@ -655,6 +704,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,6 +722,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: GoogleFonts.manrope(
             fontWeight: FontWeight.w700,
             fontSize: 16,

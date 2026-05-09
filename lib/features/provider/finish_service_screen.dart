@@ -1,7 +1,10 @@
 import 'dart:io';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:video_player/video_player.dart';
@@ -9,6 +12,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
 import '../shared/in_app_camera_screen.dart';
+import 'service_video_upload_screen.dart';
 
 class FinishServiceScreen extends StatefulWidget {
   final String serviceId;
@@ -25,12 +29,17 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
   final ImagePicker _picker = ImagePicker();
 
   XFile? _video;
+  Uint8List? _videoBytesInMemory;
+  String? _videoFilenameInMemory;
   VideoPlayerController? _videoController;
   String? _error;
   bool? _isCodeValid;
   bool _validating = false;
   bool _submitting = false;
   double _uploadProgress = 0.0;
+  static const Duration _maxEvidenceDuration = Duration(seconds: 45);
+  static const int _maxVideoBytes = 20 * 1024 * 1024; // 20MB
+  bool _requestedCompletionCode = false;
 
   // Código é opcional: só exige vídeo
   bool get _isFormValid => _video != null && !_submitting;
@@ -39,6 +48,7 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
   void initState() {
     super.initState();
     _retrieveLostData();
+    _ensureCompletionCodeRequested();
   }
 
   @override
@@ -58,12 +68,49 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     }
   }
 
+  Future<void> _ensureCompletionCodeRequested() async {
+    if (_requestedCompletionCode) return;
+    _requestedCompletionCode = true;
+    try {
+      final details = await _api.getServiceDetails(widget.serviceId);
+      final existingCode =
+          (details['completion_code'] ?? details['verification_code'] ?? '')
+              .toString()
+              .trim();
+      if (existingCode.isNotEmpty) return;
+      await _api.requestServiceCompletion(widget.serviceId);
+    } catch (_) {
+      // best effort: fluxo continua mesmo sem gerar código.
+    }
+  }
+
   Future<void> _setVideo(XFile video) async {
     try {
-      final controller = VideoPlayerController.file(File(video.path));
+      final bytes = await video.readAsBytes();
+      final controller = kIsWeb
+          ? VideoPlayerController.networkUrl(Uri.parse(video.path))
+          : VideoPlayerController.file(File(video.path));
       await controller.initialize();
+      if (controller.value.duration > _maxEvidenceDuration) {
+        await controller.dispose();
+        setState(() {
+          _error =
+              'Vídeo muito longo. Grave no máximo ${_maxEvidenceDuration.inSeconds}s.';
+        });
+        return;
+      }
+
+      if (bytes.length > _maxVideoBytes) {
+        await controller.dispose();
+        setState(() {
+          _error = 'Vídeo muito pesado. Limite: 20MB.';
+        });
+        return;
+      }
       setState(() {
         _video = video;
+        _videoBytesInMemory = bytes;
+        _videoFilenameInMemory = video.name;
         _videoController = controller;
         _error = null;
       });
@@ -111,16 +158,41 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
 
   Future<void> _pickVideo() async {
     try {
-      final video = await Navigator.push<XFile>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const InAppCameraScreen(initialVideoMode: true),
-        ),
-      );
+      XFile? video;
+      if (kIsWeb) {
+        try {
+          video = await _picker.pickVideo(source: ImageSource.camera);
+        } catch (_) {
+          video = await _picker.pickVideo(source: ImageSource.gallery);
+        }
+      } else {
+        video = await Navigator.push<XFile>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const InAppCameraScreen(
+              initialVideoMode: true,
+              maxVideoDuration: _maxEvidenceDuration,
+              videoResolutionPreset: ResolutionPreset.medium,
+            ),
+          ),
+        );
+      }
       if (video != null) await _setVideo(video);
     } catch (e) {
       setState(() => _error = 'Erro ao abrir câmera: $e');
     }
+  }
+
+  Future<void> _removeVideo() async {
+    await _videoController?.dispose();
+    if (!mounted) return;
+    setState(() {
+      _video = null;
+      _videoBytesInMemory = null;
+      _videoFilenameInMemory = null;
+      _videoController = null;
+      _error = null;
+    });
   }
 
   Future<void> _submit() async {
@@ -128,30 +200,47 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     setState(() {
       _submitting = true;
       _error = null;
+      _uploadProgress = 0;
     });
     try {
-      String? videoKey;
-
-      if (_video != null) {
-        videoKey = await _api.uploadServiceVideoFromPath(
-          _video!.path,
-          filename: _video!.name,
-          onProgress: (p) => setState(() => _uploadProgress = p),
-        );
+      final videoBytes = _videoBytesInMemory;
+      if (videoBytes == null || videoBytes.isEmpty) {
+        setState(() {
+          _error = 'Envie um vídeo do serviço para finalizar.';
+          _submitting = false;
+        });
+        return;
       }
 
-      await _api.confirmServiceCompletion(
-        widget.serviceId,
-        code: _codeController.text,
-        proofVideo: videoKey,
+      final enteredCode = _codeController.text.trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preparando envio do vídeo...')),
+      );
+      final uploaded = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => ServiceVideoUploadScreen(
+            serviceId: widget.serviceId,
+            videoBytes: videoBytes,
+            filename:
+                _videoFilenameInMemory ?? _video?.name ?? 'evidence_video.mp4',
+            completionCode: enteredCode.isEmpty ? null : enteredCode,
+          ),
+        ),
       );
 
       if (!mounted) return;
-
-      await _showSuccessDialog();
-
-      if (!mounted) return;
-      Navigator.pop(context, true);
+      if (uploaded == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Serviço finalizado. Voltando para a home.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.go('/provider-home');
+        return;
+      } else {
+        setState(() => _submitting = false);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -162,77 +251,9 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     }
   }
 
-  Future<void> _showSuccessDialog() async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 40),
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  LucideIcons.check,
-                  color: Colors.green,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Serviço Concluído!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Tudo certo. O registro foi enviado e o saldo será creditado conforme o ciclo.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.grey,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[600],
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('OK'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -241,46 +262,59 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            _buildMissionHeader(),
-            const SizedBox(height: 32),
-            _buildCodeSection(),
-            const SizedBox(height: 32),
-            _buildVideoSection(),
-            if (_error != null) ...[
-              const SizedBox(height: 24),
-              _buildErrorBadge(),
-            ],
-            const SizedBox(height: 48),
-            _buildSubmitButton(),
-          ],
-        ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 760;
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              compact ? 16 : 24,
+              compact ? 12 : 24,
+              compact ? 16 : 24,
+              (compact ? 16 : 24) + media.viewPadding.bottom,
+            ),
+            child: Column(
+              children: [
+                _buildMissionHeader(compact: compact),
+                SizedBox(height: compact ? 18 : 32),
+                _buildCodeSection(compact: compact),
+                SizedBox(height: compact ? 18 : 32),
+                _buildVideoSection(compact: compact),
+                if (_error != null) ...[
+                  SizedBox(height: compact ? 12 : 24),
+                  _buildErrorBadge(),
+                ],
+                SizedBox(height: compact ? 18 : 48),
+                _buildSubmitButton(compact: compact),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildMissionHeader() {
+  Widget _buildMissionHeader({bool compact = false}) {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(compact ? 14 : 20),
           decoration: BoxDecoration(
-            color: AppTheme.primaryPurple.withValues(alpha: 0.1),
+            color: AppTheme.primaryPurple.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
             LucideIcons.rocket,
             color: AppTheme.primaryPurple,
-            size: 32,
+            size: compact ? 24 : 32,
           ),
         ),
-        const SizedBox(height: 16),
-        const Text(
+        SizedBox(height: compact ? 10 : 16),
+        Text(
           'Quase lá!',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            fontSize: compact ? 20 : 24,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const Text(
           'Envie as evidências para finalizar o atendimento.',
@@ -290,7 +324,7 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     );
   }
 
-  Widget _buildCodeSection() {
+  Widget _buildCodeSection({bool compact = false}) {
     Color? borderColor;
     String? helperText = 'Opcional: informe se o cliente possuir o código.';
     Widget? suffix;
@@ -343,14 +377,14 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: compact ? 8 : 12),
         TextField(
           controller: _codeController,
           maxLength: 6,
           keyboardType: TextInputType.number,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             letterSpacing: 8,
           ),
@@ -387,16 +421,16 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             }
           },
         ),
-        const SizedBox(height: 8),
-        const Text(
+        SizedBox(height: compact ? 4 : 8),
+        Text(
           'Você pode finalizar o serviço sem o código.',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: compact ? 11 : 12, color: Colors.grey),
         ),
       ],
     );
   }
 
-  Widget _buildVideoSection() {
+  Widget _buildVideoSection({bool compact = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -409,26 +443,27 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             color: Colors.grey,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: compact ? 8 : 12),
         if (_video != null && _videoController != null)
-          _buildVideoPlayer()
+          _buildVideoPlayer(compact: compact)
         else
-          _buildEmptyVideoState(),
+          _buildEmptyVideoState(compact: compact),
       ],
     );
   }
 
-  Widget _buildVideoPlayer() {
+  Widget _buildVideoPlayer({bool compact = false}) {
+    final previewHeight = compact ? 220.0 : 300.0;
     return Column(
       children: [
-        AspectRatio(
-          aspectRatio: _videoController!.value.aspectRatio,
+        SizedBox(
+          height: previewHeight,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -438,7 +473,16 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                VideoPlayer(_videoController!),
+                SizedBox.expand(
+                  child: FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: _videoController!.value.size.width,
+                      height: _videoController!.value.size.height,
+                      child: VideoPlayer(_videoController!),
+                    ),
+                  ),
+                ),
                 Positioned.fill(
                   child: Material(
                     color: Colors.black26,
@@ -455,7 +499,7 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
                           _videoController!.value.isPlaying
                               ? LucideIcons.pause
                               : LucideIcons.play,
-                          size: 64,
+                          size: compact ? 52 : 64,
                           color: Colors.white,
                         ),
                       ),
@@ -466,18 +510,33 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        TextButton.icon(
-          onPressed: _pickVideo,
-          icon: const Icon(LucideIcons.refreshCw, size: 16),
-          label: const Text('Gravar outro vídeo'),
-          style: TextButton.styleFrom(foregroundColor: AppTheme.primaryPurple),
+        SizedBox(height: compact ? 10 : 16),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            TextButton.icon(
+              onPressed: _pickVideo,
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              label: const Text('Gravar outro vídeo'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryPurple,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _submitting ? null : _removeVideo,
+              icon: const Icon(LucideIcons.trash2, size: 16),
+              label: const Text('Remover vídeo'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildEmptyVideoState() {
+  Widget _buildEmptyVideoState({bool compact = false}) {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
@@ -486,7 +545,7 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           width: double.infinity,
-          height: 160,
+          height: compact ? 132 : 160,
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey[200]!),
             borderRadius: BorderRadius.circular(20),
@@ -494,11 +553,7 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                LucideIcons.camera,
-                color: AppTheme.primaryPurple.withValues(alpha: 0.4),
-                size: 40,
-              ),
+              _buildPhoneVideoIcon(size: compact ? 42 : 48),
               const SizedBox(height: 12),
               const Text(
                 'Toque para gravar o vídeo',
@@ -514,6 +569,54 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneVideoIcon({double size = 48}) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size * 0.62,
+            height: size,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(size * 0.16),
+              border: Border.all(
+                color: AppTheme.primaryBlue.withOpacity(0.85),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              Icons.phone_android_rounded,
+              size: size * 0.64,
+              color: AppTheme.primaryBlue,
+            ),
+          ),
+          Positioned(
+            right: -3,
+            bottom: 1,
+            child: Container(
+              width: size * 0.5,
+              height: size * 0.5,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryYellow,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Icon(
+                Icons.videocam_rounded,
+                size: size * 0.31,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -540,14 +643,14 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
     );
   }
 
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton({bool compact = false}) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         boxShadow: _isFormValid
             ? [
                 BoxShadow(
-                  color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                  color: AppTheme.primaryBlue.withOpacity(0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -557,8 +660,9 @@ class _FinishServiceScreenState extends State<FinishServiceScreen> {
       child: ElevatedButton(
         onPressed: _isFormValid ? _submit : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryPurple,
-          minimumSize: const Size(double.infinity, 60),
+          backgroundColor: AppTheme.primaryBlue,
+          foregroundColor: Colors.white,
+          minimumSize: Size(double.infinity, compact ? 54 : 60),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

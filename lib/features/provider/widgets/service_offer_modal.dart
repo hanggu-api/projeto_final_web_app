@@ -14,8 +14,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../../../core/config/supabase_config.dart';
+import '../../../core/maps/app_tile_layer.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_alert.dart';
 import '../../../services/api_service.dart';
+import '../../../services/app_config_service.dart';
+import '../../../services/data_gateway.dart';
 import '../../../services/notification_service.dart';
 import '../../../widgets/skeleton_loader.dart';
 
@@ -39,6 +44,7 @@ class ServiceOfferModal extends StatefulWidget {
 
 class _ServiceOfferModalState extends State<ServiceOfferModal>
     with WidgetsBindingObserver {
+  static const int _providerResponseTimeoutSeconds = 30;
   final _api = ApiService();
   final MapController _mapController = MapController();
 
@@ -49,6 +55,11 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
   String _routeDistance = '--';
   String _routeDuration = '--';
   bool _isLoadingAction = false;
+  LatLng? _providerPoint;
+  LatLng? _servicePoint;
+  String? _providerAddress;
+  String? _serviceAddress;
+  bool _isLoadingAddresses = false;
 
   // Media State
   List<String> _photoUrls = [];
@@ -61,13 +72,163 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
   Duration _audioDuration = Duration.zero;
   Duration _audioPosition = Duration.zero;
 
-  // Timer for auto-close (30 seconds)
+  // Timer for auto-close alinhado ao backend (default 30 seconds)
   Timer? _autoCloseTimer;
+  Timer? _forceCloseTimer;
+  Timer? _queueStatePollTimer;
   int _secondsRemaining = 30;
+  int _initialTimeoutSeconds = 30;
+  DateTime? _offerEndsAt;
   bool _hasResponded = false;
+  bool _closed = false;
 
   // Notification Sound Player
   final AudioPlayer _notificationPlayer = AudioPlayer();
+
+  String _friendlyAcceptErrorMessage(Object error) {
+    int? statusCode;
+    String rawMessage = error.toString();
+    if (error is ApiException) {
+      statusCode = error.statusCode;
+      rawMessage = error.message;
+    }
+    final msg = rawMessage.toLowerCase();
+
+    if (statusCode == 409 ||
+        msg.contains('já foi aceito por outro prestador') ||
+        msg.contains('ja foi aceito por outro prestador')) {
+      return 'Oferta já aceita por outro prestador.';
+    }
+    if (statusCode == 410 ||
+        msg.contains('oferta expirada') ||
+        msg.contains('timeout')) {
+      return 'Oferta expirada por tempo.';
+    }
+    if (statusCode == 403 ||
+        msg.contains('rls') ||
+        msg.contains('acesso negado') ||
+        msg.contains('tentativa de modificar dado alheio')) {
+      return 'Sem permissão para aceitar esta oferta (RLS).';
+    }
+    return 'Erro ao aceitar: $rawMessage';
+  }
+
+  bool _isLateReject(Object error) {
+    if (error is ApiException && error.statusCode == 409) return true;
+    final msg = error.toString().toLowerCase();
+    return msg.contains('oferta não pôde ser recusada') ||
+        msg.contains('oferta nao pode ser recusada') ||
+        msg.contains('não pôde ser recusada a tempo') ||
+        msg.contains('nao pode ser recusada a tempo');
+  }
+
+  String _friendlyRejectErrorMessage(Object error) {
+    if (_isLateReject(error)) {
+      return 'Oferta já não está mais disponível para recusa.';
+    }
+    if (error is ApiException && error.statusCode == 410) {
+      return 'Oferta expirada por tempo.';
+    }
+    return 'Não foi possível confirmar a recusa. Tente novamente.';
+  }
+
+  double _resolveProviderNetAmount(Map<String, dynamic> s) {
+    final direct =
+        double.tryParse((s['provider_amount'] ?? '').toString()) ?? 0.0;
+    if (direct > 0) return direct;
+
+    final gross =
+        double.tryParse(
+          (s['price_estimated'] ?? s['price'] ?? s['total_price'] ?? 0)
+              .toString(),
+        ) ??
+        0.0;
+    if (gross <= 0) return 0.0;
+
+    // Regra oficial: valor líquido do prestador = valor do serviço - comissão.
+    final cfg = AppConfigService();
+    final net = cfg.calculateNetGain(gross);
+    if (net > 0) return double.parse(net.toStringAsFixed(2));
+
+    // Fallback defensivo para não exibir zero quando houver valor bruto.
+    return double.parse((gross * 0.85).toStringAsFixed(2));
+  }
+
+  DateTime? _parseExpiresAt(Map<String, dynamic>? data) {
+    final raw = data?['expires_at'];
+    if (raw == null) return null;
+    try {
+      if (raw is String) return DateTime.parse(raw).toUtc();
+      if (raw is DateTime) return raw.toUtc();
+    } catch (_) {}
+    return null;
+  }
+
+  Future<int> _resolveTimeoutSeconds() async {
+    final expiresAt = _parseExpiresAt(_serviceData);
+    if (expiresAt != null) {
+      final diff = expiresAt.difference(DateTime.now().toUtc()).inSeconds;
+      return diff > 0 ? diff : 0;
+    }
+    return _providerResponseTimeoutSeconds;
+  }
+
+  Future<void> _initOfferTimeout() async {
+    final expiresAt = _parseExpiresAt(_serviceData);
+    if (expiresAt != null) {
+      _offerEndsAt = expiresAt;
+    } else {
+      final timeoutSeconds = await _resolveTimeoutSeconds();
+      _initialTimeoutSeconds = timeoutSeconds.clamp(1, 600);
+      _offerEndsAt = DateTime.now().toUtc().add(
+        Duration(seconds: _initialTimeoutSeconds),
+      );
+    }
+
+    final remaining = _offerEndsAt == null
+        ? _initialTimeoutSeconds
+        : _offerEndsAt!.difference(DateTime.now().toUtc()).inSeconds;
+
+    if (!mounted) return;
+    setState(() {
+      _secondsRemaining = remaining.clamp(0, 600);
+      if (_secondsRemaining > 0) {
+        _initialTimeoutSeconds = _secondsRemaining;
+      }
+    });
+
+    debugPrint(
+      '⏱️ [ServiceOfferModal] timeout init: serviceId=${widget.serviceId} expires_at=${expiresAt?.toIso8601String()} initial=$_initialTimeoutSeconds remaining=$_secondsRemaining',
+    );
+
+    _scheduleForceCloseFromDeadline();
+  }
+
+  void _scheduleForceCloseFromDeadline() {
+    _forceCloseTimer?.cancel();
+    final endsAt = _offerEndsAt;
+    if (endsAt == null) return;
+
+    final delay = endsAt.difference(DateTime.now().toUtc());
+    if (delay <= Duration.zero) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _closed || _hasResponded) return;
+        debugPrint(
+          '⏱️ [ServiceOfferModal] deadline local já vencido. Forçando fechamento serviceId=${widget.serviceId}',
+        );
+        _autoReject();
+      });
+      return;
+    }
+
+    _forceCloseTimer = Timer(delay, () {
+      if (!mounted || _closed || _hasResponded) return;
+      debugPrint(
+        '⏱️ [ServiceOfferModal] force-close timer disparou. serviceId=${widget.serviceId}',
+      );
+      _autoReject();
+    });
+  }
 
   Future<void> _loadDetails() async {
     try {
@@ -77,6 +238,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
           _serviceData = data;
           _isLoadingDetails = false;
         });
+        await _ensureTaskName();
         _loadRoute();
         _loadMedia();
       }
@@ -103,13 +265,17 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     _serviceData = widget.initialData;
     if (_serviceData != null && _serviceData!.containsKey('latitude')) {
       _isLoadingDetails = false;
+      // Best-effort to resolve task name even when opened from push payload.
+      _ensureTaskName();
       _loadRoute();
       _loadMedia();
     } else {
       _loadDetails();
     }
     _setupAudioPlayer();
+    _initOfferTimeout();
     _startAutoCloseTimer();
+    _startQueueStateMonitor();
 
     // Keep screen on
     WakelockPlus.enable();
@@ -123,69 +289,109 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       debugPrint(
-        '🚨 [ServiceOfferModal] App minimized during offer. Triggering auto-skip.',
+        '🚨 [ServiceOfferModal] App minimized during offer. Closing modal locally and keeping backend timeout active.',
       );
       _handleBackgroundSkip();
     }
   }
 
   Future<void> _handleBackgroundSkip() async {
-    if (_hasResponded) return;
-    _hasResponded = true;
-
-    // Notify backend and close modal
-    await _api.rejectService(widget.serviceId);
-
-    if (mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-      widget.onRejected?.call();
-    }
+    _closeModalLocal('background_skip', accepted: false);
+    widget.onRejected?.call();
   }
 
   void _startAutoCloseTimer() {
     _autoCloseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          if (_secondsRemaining > 0) {
-            _secondsRemaining--;
-          } else {
-            _autoCloseTimer?.cancel();
-            _autoReject();
-          }
-        });
+      if (!mounted) return;
+      if (_hasResponded) {
+        _autoCloseTimer?.cancel();
+        return;
+      }
+
+      final endsAt =
+          _offerEndsAt ??
+          DateTime.now().toUtc().add(Duration(seconds: _secondsRemaining));
+      final remaining = endsAt.difference(DateTime.now().toUtc()).inSeconds;
+
+      if (remaining <= 0) {
+        setState(() => _secondsRemaining = 0);
+        _autoCloseTimer?.cancel();
+        _autoReject();
+        return;
+      }
+
+      setState(() {
+        _offerEndsAt = endsAt;
+        _secondsRemaining = remaining;
+      });
+
+      if (_secondsRemaining % 5 == 0) {
+        debugPrint(
+          '⏱️ [ServiceOfferModal] tick: serviceId=${widget.serviceId} remaining=$_secondsRemaining',
+        );
       }
     });
   }
 
-  Future<void> _autoReject() async {
-    if (_hasResponded) return;
+  void _closeModalLocal(String reason, {bool accepted = false}) {
+    if (_closed) return;
+    _closed = true;
     _hasResponded = true;
+    _autoCloseTimer?.cancel();
+    _forceCloseTimer?.cancel();
+    _queueStatePollTimer?.cancel();
+    _notificationPlayer.stop();
 
     debugPrint(
-      '⏱️ [ServiceOfferModal] Offer timed out. Closing modal locally.',
+      '⏱️ [ServiceOfferModal] closing modal: reason=$reason serviceId=${widget.serviceId}',
     );
+
+    if (!mounted) return;
+
+    void tryPop() {
+      if (!mounted) return;
+
+      final localNavigator = Navigator.maybeOf(context);
+      if (localNavigator != null && localNavigator.canPop()) {
+        localNavigator.pop(accepted);
+        return;
+      }
+
+      final rootNavigator = Navigator.maybeOf(context, rootNavigator: true);
+      if (rootNavigator != null && rootNavigator.canPop()) {
+        rootNavigator.pop(accepted);
+      }
+    }
+
+    tryPop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => tryPop());
+  }
+
+  Future<void> _autoReject() async {
+    if (_hasResponded) return;
+    _closeModalLocal('timeout', accepted: false);
 
     // REMOVED: await _api.post('/services/${widget.serviceId}/skip', {});
     // Reason: Backend Alarm handles the timeout. Sending skip here cancels the alarm
     // and causes immediate re-dispatch (spam).
 
     // --- Log REJECTED Event (Audit v11) ---
-    try {
-      await _api.logServiceEvent(
-        widget.serviceId,
-        'REJECTED',
-        'Offer Modal - Timeout (Auto-Close)',
-      );
-    } catch (e) {
-      debugPrint(
-        '⚠️ [ServiceOfferModal] Erro ao registrar REJECTED no timeout: $e',
-      );
-    }
+    unawaited(
+      _api
+          .logServiceEvent(
+            widget.serviceId,
+            'REJECTED',
+            'Offer Modal - Timeout (Auto-Close)',
+          )
+          .timeout(const Duration(seconds: 2))
+          .catchError((e) {
+            debugPrint(
+              '⚠️ [ServiceOfferModal] Erro ao registrar REJECTED no timeout: $e',
+            );
+          }),
+    );
 
-    if (mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-      widget.onRejected?.call();
-    }
+    widget.onRejected?.call();
   }
 
   Future<void> _playNotificationSound() async {
@@ -208,6 +414,8 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     _notificationPlayer.dispose();
 
     _autoCloseTimer?.cancel();
+    _forceCloseTimer?.cancel();
+    _queueStatePollTimer?.cancel();
     _videoController?.dispose();
     _audioPlayer.dispose();
 
@@ -218,6 +426,72 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     WidgetsBinding.instance.removeObserver(this);
 
     super.dispose();
+  }
+
+  void _startQueueStateMonitor() {
+    _queueStatePollTimer?.cancel();
+    _queueStatePollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      unawaited(_syncQueueState());
+    });
+    unawaited(_syncQueueState());
+  }
+
+  Future<void> _syncQueueState() async {
+    if (!mounted || _closed || _hasResponded) return;
+
+    try {
+      final offerState = await _api.dispatch.getActiveProviderOfferState(
+        widget.serviceId,
+      );
+
+      if (!mounted || _closed || _hasResponded) return;
+
+      if (offerState == null) {
+        debugPrint(
+          '⏱️ [ServiceOfferModal] queue row ausente. Fechando modal serviceId=${widget.serviceId}',
+        );
+        _closeModalLocal('queue_row_missing', accepted: false);
+        widget.onRejected?.call();
+        return;
+      }
+
+      final status = offerState.status;
+      final deadlineAt = offerState.responseDeadlineAt?.toUtc();
+      final now = DateTime.now().toUtc();
+
+      if (status != 'notified') {
+        debugPrint(
+          '⏱️ [ServiceOfferModal] queue status mudou para $status. Fechando modal serviceId=${widget.serviceId}',
+        );
+        _closeModalLocal('queue_status_$status', accepted: false);
+        widget.onRejected?.call();
+        return;
+      }
+
+      if (deadlineAt != null) {
+        final remaining = deadlineAt.difference(now).inSeconds;
+        if (remaining <= 0) {
+          debugPrint(
+            '⏱️ [ServiceOfferModal] deadline expirado no banco. Fechando modal serviceId=${widget.serviceId}',
+          );
+          _closeModalLocal('queue_deadline_elapsed', accepted: false);
+          widget.onRejected?.call();
+          return;
+        }
+
+        if (mounted && !_closed) {
+          setState(() {
+            _offerEndsAt = deadlineAt;
+            _secondsRemaining = remaining.clamp(0, 600);
+          });
+          _scheduleForceCloseFromDeadline();
+        }
+      }
+    } catch (e) {
+      debugPrint(
+        '⚠️ [ServiceOfferModal] Falha ao sincronizar estado da fila: $e',
+      );
+    }
   }
 
   void _setupAudioPlayer() {
@@ -239,9 +513,54 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     });
   }
 
+  Future<void> _ensureTaskName() async {
+    try {
+      final s = _serviceData;
+      if (s == null) return;
+      final existing = (s['task_name'] ?? s['task_title'] ?? '')
+          .toString()
+          .trim();
+      if (existing.isNotEmpty) return;
+
+      final dynamic taskIdRaw = s['task_id'];
+      final int? taskId = taskIdRaw is int
+          ? taskIdRaw
+          : int.tryParse(taskIdRaw?.toString() ?? '');
+      if (taskId == null) return;
+
+      final name = await DataGateway().loadTaskNameById(taskId) ?? '';
+      if (name.isEmpty) return;
+
+      if (!mounted) return;
+      setState(() {
+        _serviceData = {...s, 'task_name': name};
+      });
+    } catch (_) {
+      // ignore best-effort
+    }
+  }
+
   Future<void> _loadRoute() async {
     try {
       final s = _serviceData!;
+      final payloadDistanceKm =
+          double.tryParse(s['distance_km']?.toString() ?? '') ?? 0;
+      final payloadEstimatedMinutes =
+          int.tryParse(s['estimated_minutes']?.toString() ?? '') ?? 0;
+
+      if (mounted) {
+        setState(() {
+          if (payloadDistanceKm > 0) {
+            _routeDistance = payloadDistanceKm >= 1
+                ? '${payloadDistanceKm.toStringAsFixed(1)} km'
+                : '${(payloadDistanceKm * 1000).round()} m';
+          }
+          if (payloadEstimatedMinutes > 0) {
+            _routeDuration = '$payloadEstimatedMinutes min';
+          }
+        });
+      }
+
       // Coordinates from service (Destination)
       final destLat = double.tryParse(s['latitude']?.toString() ?? '0') ?? 0;
       final destLng = double.tryParse(s['longitude']?.toString() ?? '0') ?? 0;
@@ -283,6 +602,21 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
       if (destLat == 0 || destLng == 0 || provLat == 0 || provLon == 0) {
         return;
       }
+
+      if (mounted) {
+        setState(() {
+          _providerPoint = LatLng(provLat, provLon);
+          _servicePoint = LatLng(destLat, destLng);
+        });
+      }
+
+      // Best-effort: resolve readable addresses for both points (provider + service).
+      _loadAddressesIfNeeded(
+        providerLat: provLat,
+        providerLon: provLon,
+        serviceLat: destLat,
+        serviceLon: destLng,
+      );
 
       final url = Uri.parse(
         'http://router.project-osrm.org/route/v1/driving/$provLon,$provLat;$destLng,$destLat?overview=full&geometries=geojson',
@@ -331,10 +665,130 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
             }
           }
         }
+      } else {
+        // Fallback distance only (no polyline)
+        final distM = Geolocator.distanceBetween(
+          provLat,
+          provLon,
+          destLat,
+          destLng,
+        );
+        if (mounted) {
+          setState(() {
+            _routeDistance = distM >= 1000
+                ? '${(distM / 1000).toStringAsFixed(1)} km'
+                : '${distM.round()} m';
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading route in modal: $e');
       // if (mounted) setState(() => _isLoadingRoute = false);
+    }
+  }
+
+  String _formatReverseGeocode(Map<String, dynamic> result) {
+    final road = (result['road'] ?? result['street'] ?? '').toString().trim();
+    final houseNumber = (result['house_number'] ?? result['number'] ?? '')
+        .toString()
+        .trim();
+    final suburb =
+        (result['suburb'] ??
+                result['neighbourhood'] ??
+                result['district'] ??
+                '')
+            .toString()
+            .trim();
+
+    final line1 = <String>[];
+    if (road.isNotEmpty) line1.add(road);
+    if (houseNumber.isNotEmpty) line1.add(houseNumber);
+    final firstLine = line1.join(', ').trim();
+
+    if (firstLine.isNotEmpty && suburb.isNotEmpty) {
+      return '$firstLine • $suburb';
+    }
+    if (firstLine.isNotEmpty) return firstLine;
+    if (suburb.isNotEmpty) return suburb;
+
+    final displayName = (result['display_name'] ?? '').toString().trim();
+    if (displayName.isNotEmpty) {
+      final tokens = displayName
+          .split(',')
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList();
+      if (tokens.isNotEmpty) {
+        return tokens.take(3).join(' • ');
+      }
+      return displayName;
+    }
+    return 'Endereço não disponível';
+  }
+
+  Future<void> _loadAddressesIfNeeded({
+    required double providerLat,
+    required double providerLon,
+    required double serviceLat,
+    required double serviceLon,
+  }) async {
+    if (_isLoadingAddresses) return;
+    if (_providerAddress != null && _serviceAddress != null) return;
+    if (!mounted) return;
+
+    setState(() => _isLoadingAddresses = true);
+    try {
+      final providerPoint = LatLng(providerLat, providerLon);
+      final servicePoint = LatLng(serviceLat, serviceLon);
+
+      // Service address: prefer DB field when it is informative.
+      final s = _serviceData;
+      final String existingServiceAddr = (s?['address'] ?? '')
+          .toString()
+          .trim();
+      if (existingServiceAddr.isNotEmpty &&
+          existingServiceAddr.toLowerCase() != 'localização atual') {
+        _serviceAddress ??= existingServiceAddr;
+      }
+
+      final futures = <Future<void>>[];
+      if (_providerAddress == null) {
+        futures.add(() async {
+          try {
+            final res = await _api.reverseGeocode(
+              providerPoint.latitude,
+              providerPoint.longitude,
+            );
+            if (!mounted) return;
+            setState(() => _providerAddress = _formatReverseGeocode(res));
+          } catch (_) {
+            if (!mounted) return;
+            setState(() => _providerAddress = _formatReverseGeocode({}));
+          }
+        }());
+      }
+
+      if (_serviceAddress == null) {
+        futures.add(() async {
+          try {
+            final res = await _api.reverseGeocode(
+              servicePoint.latitude,
+              servicePoint.longitude,
+            );
+            if (!mounted) return;
+            setState(() => _serviceAddress = _formatReverseGeocode(res));
+          } catch (_) {
+            if (!mounted) return;
+            setState(() => _serviceAddress = _formatReverseGeocode({}));
+          }
+        }());
+      }
+
+      if (futures.isNotEmpty) {
+        await Future.wait(futures);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingAddresses = false);
     }
   }
 
@@ -428,7 +882,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
   }
 
   Future<void> _acceptService() async {
-    if (_hasResponded) return;
+    if (_hasResponded || _isLoadingAction) return;
 
     // ✅ PARAR SOM IMEDIATAMENTE
     _notificationPlayer.stop();
@@ -444,39 +898,74 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     try {
       debugPrint('ServiceOfferModal: Calling API acceptService...');
 
-      // ✅ REGISTRAR ACCEPTED ANTES DA CHAMADA DA API (Feedback imediato para o Maestro parar o ciclo)
-      await _api.logServiceEvent(
-        serviceId,
-        'ACCEPTED',
-        'Offer Modal - User Tapped Accept',
+      // Não bloquear o aceite principal por causa de log auxiliar.
+      unawaited(
+        _api
+            .logServiceEvent(
+              serviceId,
+              'ACCEPTED',
+              'Offer Modal - User Tapped Accept',
+            )
+            .timeout(const Duration(seconds: 2))
+            .catchError((e) {
+              debugPrint(
+                '⚠️ [ServiceOfferModal] Erro ao registrar ACCEPTED pré-aceite: $e',
+              );
+            }),
       );
 
-      await _api.acceptService(serviceId);
+      const maxAttempts = 2;
+      Object? lastError;
+      for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await _api.dispatch
+              .acceptService(serviceId)
+              .timeout(const Duration(seconds: 8));
+          lastError = null;
+          break;
+        } catch (e) {
+          lastError = e;
+          debugPrint(
+            '⚠️ [ServiceOfferModal] acceptService falhou '
+            'attempt=$attempt/$maxAttempts serviceId=$serviceId erro=$e',
+          );
+          if (attempt < maxAttempts) {
+            await Future.delayed(const Duration(milliseconds: 250));
+          }
+        }
+      }
+      if (lastError != null) {
+        throw lastError;
+      }
 
       debugPrint('ServiceOfferModal: API acceptService success!');
       _hasResponded = true;
 
-      // Stop persistent notifications & clear status bar
-      final ns = NotificationService();
-      ns.stopPersistentNotification(serviceId);
-      await ns.cancelAll();
-
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // Close modal
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        _closeModalLocal('accepted', accepted: true);
+        messenger?.showSnackBar(
           const SnackBar(
             content: Text('Serviço aceito com sucesso!'),
             backgroundColor: Colors.green,
           ),
         );
-        widget.onAccepted?.call();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          widget.onAccepted?.call();
+        });
       }
+
+      // Stop persistent notifications in background (não bloquear fechamento do modal).
+      final ns = NotificationService();
+      ns.stopPersistentNotification(serviceId);
+      unawaited(ns.cancelAll());
     } catch (e) {
       debugPrint('ServiceOfferModal: Error accepting service: $e');
       if (mounted) {
+        final friendly = _friendlyAcceptErrorMessage(e);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao aceitar: $e')));
+        ).showSnackBar(SnackBar(content: Text(friendly)));
       }
     } finally {
       if (mounted) setState(() => _isLoadingAction = false);
@@ -485,7 +974,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
 
   Future<void> _rejectService() async {
     final serviceId = widget.serviceId;
-    // if (serviceId == null) return;
+    if (_isLoadingAction) return;
 
     final confirm = await CustomAlert.show(
       context: context,
@@ -494,41 +983,77 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
       confirmText: 'Recusar',
       cancelText: 'Cancelar',
       isDestructive: true,
-      confirmColor: const Color(0xFFFFD700), // Amarelo
+      confirmColor: AppTheme.primaryYellow,
       confirmTextColor: Colors.black, // Prerto
 
       icon: LucideIcons.xCircle,
     );
 
     if (confirm == true) {
-      _hasResponded = true;
+      if (mounted) setState(() => _isLoadingAction = true);
+      _autoCloseTimer?.cancel();
+      _forceCloseTimer?.cancel();
+      _queueStatePollTimer?.cancel();
 
       // ✅ PARAR SOM IMEDIATAMENTE
       _notificationPlayer.stop();
 
       try {
-        await _api.rejectService(serviceId);
+        await _api.dispatch
+            .rejectService(serviceId)
+            .timeout(const Duration(seconds: 4));
+
+        _hasResponded = true;
 
         // --- Log REJECTED Event (Audit v11) ---
-        _api.logServiceEvent(
-          serviceId,
-          'REJECTED',
-          'Offer Modal - User Tapped Reject',
+        unawaited(
+          _api
+              .logServiceEvent(
+                serviceId,
+                'REJECTED',
+                'Offer Modal - User Tapped Reject',
+              )
+              .timeout(const Duration(seconds: 2))
+              .catchError((e) {
+                debugPrint(
+                  '⚠️ [ServiceOfferModal] Erro ao registrar REJECTED manual: $e',
+                );
+              }),
         );
 
         // Stop persistent notifications
         NotificationService().stopPersistentNotification(serviceId);
 
         if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
+          _closeModalLocal('rejected', accepted: false);
           widget.onRejected?.call();
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Erro ao recusar: $e')));
+        if (_isLateReject(e)) {
+          _hasResponded = true;
+          NotificationService().stopPersistentNotification(serviceId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(_friendlyRejectErrorMessage(e))),
+            );
+            _closeModalLocal('late_reject', accepted: false);
+            widget.onRejected?.call();
+          }
+          return;
         }
+
+        if (!_closed) {
+          _startQueueStateMonitor();
+          _scheduleForceCloseFromDeadline();
+          _startAutoCloseTimer();
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_friendlyRejectErrorMessage(e))),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoadingAction = false);
       }
     }
   }
@@ -577,6 +1102,33 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     final lat = double.tryParse(s['latitude']?.toString() ?? '0') ?? 0;
     final lon = double.tryParse(s['longitude']?.toString() ?? '0') ?? 0;
     final hasMap = lat != 0 && lon != 0;
+    final String serviceTitle =
+        [
+              s['task_name'],
+              s['task_title'],
+              s['service_name'],
+              s['category_name'],
+              s['profession'],
+            ]
+            .map((value) => (value ?? '').toString().trim())
+            .firstWhere((value) => value.isNotEmpty, orElse: () => 'Serviço');
+    final String? clientNote =
+        (s['description'] ?? '').toString().trim().isNotEmpty
+        ? (s['description']).toString().trim()
+        : null;
+    final String serviceSubtitle =
+        [s['category_name'], s['profession'], s['service_name']]
+            .map((value) => (value ?? '').toString().trim())
+            .firstWhere((value) => value.isNotEmpty, orElse: () => 'Serviço');
+    final String providerAddressText =
+        _providerAddress?.trim().isNotEmpty == true
+        ? _providerAddress!.trim()
+        : 'Sua localização atual';
+    final String serviceAddressText = _serviceAddress?.trim().isNotEmpty == true
+        ? _serviceAddress!.trim()
+        : ((s['address'] ?? '').toString().trim().isNotEmpty
+              ? (s['address']).toString().trim()
+              : 'Endereço do serviço não informado');
 
     return PopScope(
       canPop: false,
@@ -609,7 +1161,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
+                        color: Colors.green.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -630,7 +1182,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                             ),
                           ),
                           Text(
-                            'Responda rápido!',
+                            'Revise os detalhes e responda à solicitação.',
                             style: TextStyle(
                               color: Colors.black87,
                               fontSize: 12,
@@ -673,14 +1225,8 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                                 ),
                               ),
                               children: [
-                                TileLayer(
-                                  urlTemplate:
-                                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                                  subdomains: const ['a', 'b', 'c', 'd'],
-                                  userAgentPackageName: 'com.play101.app',
-                                  tileDimension: 512,
-                                  zoomOffset: -1,
-                                  maxZoom: 22,
+                                AppTileLayer.standard(
+                                  mapboxToken: SupabaseConfig.mapboxToken,
                                 ),
                                 PolylineLayer(
                                   polylines: [
@@ -694,14 +1240,33 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                                 ),
                                 MarkerLayer(
                                   markers: [
-                                    Marker(
-                                      point: LatLng(lat, lon),
-                                      child: const Icon(
-                                        Icons.location_on,
-                                        color: Colors.red,
-                                        size: 30,
+                                    if (_providerPoint != null)
+                                      Marker(
+                                        point: _providerPoint!,
+                                        child: const Icon(
+                                          Icons.location_on,
+                                          color: Colors.green,
+                                          size: 30,
+                                        ),
                                       ),
-                                    ),
+                                    if (_servicePoint != null)
+                                      Marker(
+                                        point: _servicePoint!,
+                                        child: const Icon(
+                                          Icons.location_on,
+                                          color: Colors.blue,
+                                          size: 30,
+                                        ),
+                                      )
+                                    else
+                                      Marker(
+                                        point: LatLng(lat, lon),
+                                        child: const Icon(
+                                          Icons.location_on,
+                                          color: Colors.blue,
+                                          size: 30,
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ],
@@ -711,7 +1276,7 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
 
                       // Title & Description
                       Text(
-                        s['description'] ?? 'Sem descrição',
+                        serviceTitle,
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -719,9 +1284,39 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        s['category_name'] ?? 'Serviço',
+                        serviceSubtitle,
                         style: TextStyle(color: Colors.grey[600]),
                       ),
+                      if (clientNote != null && clientNote != serviceTitle) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Observação do cliente',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                clientNote,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
 
                       // Stats Row
@@ -729,31 +1324,18 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                         children: [
                           Expanded(
                             child: () {
-                              final double upfront =
-                                  double.tryParse(
-                                    s['price_upfront']?.toString() ?? '0',
-                                  ) ??
-                                  0;
-                              final double net =
-                                  double.tryParse(
-                                    s['provider_amount']?.toString() ??
-                                        s['price']?.toString() ??
-                                        '0',
-                                  ) ??
-                                  0;
+                              final double net = _resolveProviderNetAmount(s);
 
                               return _buildStatItem(
                                 LucideIcons.wallet,
-                                'Seu Ganho Líquido',
+                                'Seu Ganho',
                                 'R\$ ${net.toStringAsFixed(2)}',
                                 Colors.black,
                                 textColor: Colors.black,
-                                backgroundColor: const Color(0xFFFFD700),
+                                backgroundColor: AppTheme.primaryYellow,
                                 valueFontSize: 28,
-                                subtitle: upfront > 0
-                                    ? 'Entrada: R\$ ${upfront.toStringAsFixed(2)}'
-                                    : 'Aguardando Início',
-                                subtitleIcon: LucideIcons.checkCircle,
+                                subtitle: null,
+                                subtitleIcon: null,
                               );
                             }(),
                           ),
@@ -779,20 +1361,47 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                       ),
                       const SizedBox(height: 16),
 
-                      // Address
-                      Row(
+                      // Addresses (provider + service) with distinct markers
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            LucideIcons.map,
-                            size: 16,
-                            color: Colors.grey,
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 18,
+                                color: Colors.green,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _isLoadingAddresses &&
+                                          _providerAddress == null
+                                      ? 'Carregando seu endereço...'
+                                      : providerAddressText,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              s['address'] ?? 'Endereço não informado',
-                              style: const TextStyle(fontSize: 13),
-                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 18,
+                                color: Colors.blue,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _isLoadingAddresses && _serviceAddress == null
+                                      ? 'Carregando endereço do serviço...'
+                                      : serviceAddressText,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -920,7 +1529,11 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                                           alignment: Alignment.center,
                                           children: [
                                             CircularProgressIndicator(
-                                              value: _secondsRemaining / 30.0,
+                                              value: _initialTimeoutSeconds <= 0
+                                                  ? 0
+                                                  : (_secondsRemaining /
+                                                            _initialTimeoutSeconds)
+                                                        .clamp(0.0, 1.0),
                                               strokeWidth: 3,
                                               color: Colors.white,
                                               backgroundColor: Colors.white24,
@@ -964,14 +1577,14 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
     IconData? subtitleIcon,
   }) {
     final effectiveTextColor = textColor ?? color;
-    final effectiveBgColor = backgroundColor ?? color.withValues(alpha: 0.1);
+    final effectiveBgColor = backgroundColor ?? color.withOpacity(0.1);
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: effectiveBgColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1003,14 +1616,14 @@ class _ServiceOfferModalState extends State<ServiceOfferModal>
                   Icon(
                     subtitleIcon,
                     size: 12,
-                    color: effectiveTextColor.withValues(alpha: 0.8),
+                    color: effectiveTextColor.withOpacity(0.8),
                   ),
                   const SizedBox(width: 4),
                 ],
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: effectiveTextColor.withValues(alpha: 0.8),
+                    color: effectiveTextColor.withOpacity(0.8),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),

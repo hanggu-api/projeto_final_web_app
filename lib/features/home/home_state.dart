@@ -4,110 +4,102 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 mixin HomeStateMixin<T extends StatefulWidget> on State<T> {
-  // --- MAP & LOCATION ---
+  // --- CORE UI & STATE ---
   final MapController mapController = MapController();
-  LatLng currentPosition = const LatLng(-5.5262, -47.4746);
-  bool isMapReady = false;
-  bool isLocating = false;
-  String? locationError;
-
-  // --- TRIP MODE (CLIENT) ---
-  bool isInTripMode = false;
-  bool isSearchExpanded = false;
-  bool isPickingOnMap = false;
-  bool isMapAnimating = false;
-
-  LatLng? pickupLocation;
-  LatLng? dropoffLocation;
-  LatLng? pickedLocation;
-
   final TextEditingController pickupController = TextEditingController();
   final TextEditingController destinationController = TextEditingController();
   final FocusNode pickupFocus = FocusNode();
   final FocusNode destinationFocus = FocusNode();
-
-  List<dynamic> searchResults = [];
-  bool isSearching = false;
-
+  
+  bool isMapReady = false;
+  LatLng currentPosition = const LatLng(-5.5262, -47.4747);
   List<LatLng> routePolyline = [];
-  List<LatLng> arrivalPolyline = []; // Rota Verde (Motorista -> Pickup)
-  String? routeDistance;
-  String? routeDuration;
+  List<LatLng> arrivalPolyline = [];
+  
+  LatLng? pickupLocation;
+  LatLng? dropoffLocation;
 
-  Map<String, dynamic>? fareEstimate = {};
-  final Map<int, dynamic> fareEstimatesByVehicle = {};
-  int selectedVehicleTypeId = 1; // Default
-  String selectedPaymentMethod = 'PIX';
-  bool isRequestingTrip = false;
+  // --- LOCATION STATUS ---
+  bool isLocating = false;
+  String? locationError;
 
-  // --- ACTIVE TRIP ---
+  // --- TRIP & DRIVER STATE ---
   Map<String, dynamic>? activeTrip;
   String? activeTripStatus;
   StreamSubscription? tripSubscription;
   StreamSubscription? driverLocationSubscription;
   double? distanceToDriver;
+  bool isPickingOnMap = false;
   LatLng? driverLatLng;
 
   // --- SERVICE MODE (AI / TASK) ---
+  String? aiCategoryId;
+  String? aiSubCategoryId;
+  String? aiPrompt;
+  bool isInTripMode = false;
   bool isInServiceMode = false;
-  final TextEditingController servicePromptController = TextEditingController();
-  bool isServiceAiClassifying = false;
-
-  String? aiProfessionName;
-  String? aiTaskName;
-  double? aiTaskPrice;
-  String? aiServiceType;
-
-  bool isLoadingServiceCandidates = false;
   bool isCreatingService = false;
+  String? aiServiceType;
+  String? aiProfessionName;
+  String? aiTaskId;
+  double? aiTaskPrice;
+  String? aiTaskName;
+  bool isFixedService = false;
+  bool isMatchingAI = false;
+  
+  // -- Variaveis de Candidatos IA --
+  String? aiLogId;
   List<Map<String, dynamic>> serviceCandidates = [];
-  int? aiCategoryId;
+  bool isLoadingServiceCandidates = false;
+  
+  final TextEditingController servicePromptController = TextEditingController();
+
+  // Compatibilidade com callbacks da interface de IA e Realtime
   Timer? serviceAiDebounce;
-
-  // --- SERVICES LIST & NOTIFICATIONS ---
-  List<dynamic> servicesList = [];
-  bool isLoadingServices = true;
-  Map<String, String> lastStatuses = {};
-  int unreadCountCount = 0;
-  final List<Map<String, dynamic>> notificationsList = [];
-  late AnimationController bellController;
-
+  bool isServiceAiClassifying = false;
+  
+  // -- Variaveis de Estado da Lista de Servicos --
+  List<Map<String, dynamic>> servicesList = [];
+  bool isLoadingServices = false;
   Timer? refreshTimer;
+  LatLng? pickedLocation;
+  bool isMapAnimating = false;
+  int unreadCountCount = 0;
+  
+  // --- SEARCH & AUTOCOMPLETE ---
+  List<Map<String, dynamic>> searchResults = [];
+  List<Map<String, dynamic>> savedPlacesList = [];
+  bool isSearchExpanded = false;
+  bool isSearching = false;
   Timer? debouncer;
 
-  // --- VEHICLE TYPES ---
-  final List<Map<String, dynamic>> vehicleTypesList = [
-    {
-      'id': 1,
-      'name': 'economic',
-      'display_name': 'Carro',
-      'icon': Icons.directions_car,
-      'asset': 'assets/icons/036-car.png',
-    },
-    {
-      'id': 3,
-      'name': 'moto',
-      'display_name': 'Moto',
-      'icon': Icons.directions_bike,
-      'asset': 'assets/icons/034-motorbike.png',
-    },
-  ];
+  // --- MISC ---
+  late AnimationController bellController;
 
-  // --- SAVED PLACES ---
-  List<Map<String, dynamic>> savedPlacesList = [];
+  // --- CONFIG ---
+  bool get enableUberRuntime => false;
 
-  // --- DISPOSE LOGIC ---
-  void disposeHomeState() {
-    bellController.dispose();
-    refreshTimer?.cancel();
+  @override
+  void dispose() {
     debouncer?.cancel();
+    tripSubscription?.cancel();
+    driverLocationSubscription?.cancel();
     pickupController.dispose();
     destinationController.dispose();
     servicePromptController.dispose();
     pickupFocus.dispose();
     destinationFocus.dispose();
+    super.dispose();
+  }
+
+  void disposeHomeState() {
+    debouncer?.cancel();
     tripSubscription?.cancel();
     driverLocationSubscription?.cancel();
-    serviceAiDebounce?.cancel();
+    pickupController.dispose();
+    destinationController.dispose();
+    servicePromptController.dispose();
+    pickupFocus.dispose();
+    destinationFocus.dispose();
   }
 }

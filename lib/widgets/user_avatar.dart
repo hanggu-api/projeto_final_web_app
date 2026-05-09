@@ -9,7 +9,7 @@ import '../services/realtime_service.dart';
 class UserAvatar extends StatefulWidget {
   final String? avatar;
   final String name;
-  final int? userId;
+  final String? userId;
   final double radius;
   final bool showOnlineStatus;
 

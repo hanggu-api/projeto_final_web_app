@@ -12,16 +12,17 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/config/supabase_config.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/custom_alert.dart';
+import '../../core/maps/app_tile_layer.dart';
+import '../shared/chat/open_chat_helper.dart';
 import '../../services/api_service.dart';
+import '../../services/data_gateway.dart';
 import '../../services/realtime_service.dart';
 import '../../widgets/skeleton_loader.dart';
-import 'finish_service_screen.dart';
 import '../../widgets/proof_video_player.dart';
 
 class ServiceDetailsScreen extends StatefulWidget {
@@ -48,6 +49,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
   String? _error;
   Map<String, dynamic>? _service;
   Timer? _refreshTimer;
+  StreamSubscription<Map<String, dynamic>>? _clientTrackingSub;
 
   // Route & Map State
   final MapController _mapController = MapController();
@@ -68,81 +70,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
   Duration _audioDuration = Duration.zero;
   Duration _audioPosition = Duration.zero;
   Timer? _timeoutTimer;
-
-  bool _isNavigatingToPayment = false;
-  bool _hasShownPaymentDialog = false;
-
-  void _checkClientAutoNavigation() {
-    // Safety check: Only run for clients
-    if (_api.role != 'client') return;
-
-    if (_service != null) {
-      final status = _service!['status'];
-      // Never show payment dialog for canceled services
-      if (status == 'canceled' || status == 'cancelled') return;
-
-      final paymentStatus = _service!['payment_remaining_status'];
-
-      // Check if we need to pay remaining 70%
-      if (status == 'in_progress' && paymentStatus != 'paid') {
-        final total =
-            double.tryParse(_service!['price_estimated']?.toString() ?? '0') ??
-            0.0;
-        final upfront =
-            double.tryParse(_service!['price_upfront']?.toString() ?? '0') ??
-            (total * 0.3);
-        final remaining = total - upfront;
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!_isNavigatingToPayment && !_hasShownPaymentDialog) {
-            _hasShownPaymentDialog = true;
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Pagamento Restante'),
-                content: Text(
-                  'O serviço está em andamento. Deseja realizar o pagamento do valor restante (R\$ ${remaining.toStringAsFixed(2)}) agora?',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Depois'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _navigateToPayment(remaining, total);
-                    },
-                    child: const Text('Pagar Agora'),
-                  ),
-                ],
-              ),
-            );
-          }
-        });
-      }
-    }
-  }
-
-  void _navigateToPayment(double remaining, double total) {
-    if (!_isNavigatingToPayment) {
-      _isNavigatingToPayment = true;
-      context
-          .push(
-            '/payment/${widget.serviceId}',
-            extra: {
-              'serviceId': widget.serviceId,
-              'type': 'remaining',
-              'amount': remaining,
-              'total': total,
-            },
-          )
-          .then((_) {
-            _isNavigatingToPayment = false;
-            _loadDetails(); // Reload when coming back
-          });
-    }
-  }
 
   @override
   void initState() {
@@ -224,9 +151,31 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _timeoutTimer?.cancel();
+    _clientTrackingSub?.cancel();
     _audioPlayer.dispose();
     _videoController?.dispose();
     super.dispose();
+  }
+
+  void _startWatchingClientLocation() {
+    _clientTrackingSub?.cancel();
+    _clientTrackingSub = DataGateway().watchClientLocation(widget.serviceId).listen(
+      (row) {
+        if (!mounted || row.isEmpty || _service == null) return;
+        setState(() {
+          _service!['client_latitude'] =
+              row['latitude'] ?? _service!['client_latitude'];
+          _service!['client_longitude'] =
+              row['longitude'] ?? _service!['client_longitude'];
+          _service!['client_tracking_status'] =
+              row['tracking_status'] ?? _service!['client_tracking_status'];
+          _service!['client_tracking_updated_at'] =
+              row['updated_at'] ?? _service!['client_tracking_updated_at'];
+          _service!['client_tracking_active'] = true;
+        });
+      },
+      onError: (_) {},
+    );
   }
 
   Future<void> _loadRoute() async {
@@ -347,16 +296,19 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     }
 
     try {
-      final data = await _api.getServiceDetails(widget.serviceId);
+      final data = await _api.getServiceDetails(
+        widget.serviceId,
+        scope: ServiceDataScope.fixedOnly,
+      );
       if (mounted) {
         setState(() {
           _service = data;
           _isLoading = false;
         });
         // Load route after loading details
+        _startWatchingClientLocation();
         _loadRoute();
         _loadMedia(data);
-        _checkClientAutoNavigation();
       }
     } catch (e) {
       if (mounted) {
@@ -464,10 +416,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
         return Colors.orange;
       case 'accepted':
         return Colors.blue;
-      case 'in_progress':
-        return Colors.purple;
-      case 'waiting_client_confirmation':
-        return Colors.orange;
+      case 'scheduled':
+      case 'confirmed':
+        return Colors.blue;
+      case 'client_departing':
+        return Colors.indigo;
+      case 'client_arrived':
+        return Colors.teal;
       case 'completed':
         return Colors.green;
       case 'canceled':
@@ -483,12 +438,15 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
         return 'Pendente';
       case 'accepted':
         return 'Aceito';
-      case 'in_progress':
-        return 'Em Andamento';
-      case 'waiting_client_confirmation':
-        return 'Aguardando Validação';
+      case 'scheduled':
+      case 'confirmed':
+        return 'Confirmado';
+      case 'client_departing':
+        return 'Cliente a Caminho';
+      case 'client_arrived':
+        return 'Cliente no Local';
       case 'completed':
-        return 'Concluído';
+        return 'Agendamento Finalizado';
       case 'canceled':
         return 'Cancelado';
       default:
@@ -496,125 +454,19 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
     }
   }
 
-  Future<void> _rejectService() async {
-    final confirm = await CustomAlert.show(
-      context: context,
-      title: 'Recusar Serviço',
-      content:
-          'Tem certeza que deseja recusar este serviço? Ele não aparecerá mais para você.',
-      confirmText: 'Recusar',
-      cancelText: 'Cancelar',
-      isDestructive: true,
-      icon: LucideIcons.xCircle,
-    );
-
-    if (confirm == true) {
-      try {
-        await _api.rejectService(widget.serviceId);
-        if (mounted) {
-          context.pop(true); // Return true to indicate change
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Erro ao recusar: $e')));
-        }
-      }
-    }
-  }
-
-  Future<void> _acceptService() async {
-    setState(() => _isLoading = true);
-    try {
-      await _api.acceptService(widget.serviceId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Serviço aceito com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Close screen after accepting, so provider goes back to home/list
-        if (mounted) {
-          context.pop(true);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao aceitar: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _startService() async {
+  Future<void> _completeFixedBooking() async {
     if (_service == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 1. Check permissions
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw 'Permissão de localização negada. Necessário para iniciar o serviço.';
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw 'Permissões de localização permanentemente negadas. Habilite nas configurações.';
-      }
-
-      // 2. Get current position
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
-      // 3. Check distance
-      final requireLocationCheck =
-          _service!['config_require_location_start'] == true;
-
-      if (requireLocationCheck) {
-        final serviceLat =
-            double.tryParse(_service!['latitude']?.toString() ?? '0') ?? 0;
-        final serviceLng =
-            double.tryParse(_service!['longitude']?.toString() ?? '0') ?? 0;
-
-        if (serviceLat == 0 && serviceLng == 0) {
-          throw 'Localização do serviço inválida.';
-        }
-
-        final distanceInMeters = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          serviceLat,
-          serviceLng,
-        );
-
-        debugPrint('Distance to service: $distanceInMeters meters');
-
-        final precision = position.accuracy;
-        final tolerance = precision > 50 ? precision * 1.5 : 100.0;
-
-        // Tolerance based on precision (min 100m)
-        if (distanceInMeters > tolerance) {
-          throw 'Você está a ${distanceInMeters.round()}m do local. Aproxime-se mais (limite de ${tolerance.round()}m para sua precisão atual de ${precision.round()}m).';
-        }
-      }
-
-      await _api.updateServiceStatus(widget.serviceId, 'in_progress');
+      await _api.completeService(widget.serviceId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Serviço iniciado com sucesso!')),
+          const SnackBar(
+            content: Text('Agendamento finalizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
         );
         _loadDetails();
       }
@@ -622,7 +474,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao iniciar: $e'),
+            content: Text('Erro ao finalizar agendamento: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -632,86 +484,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _notifyArrival() async {
-    setState(() => _isLoading = true);
-    try {
-      await _api.arriveService(widget.serviceId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cliente notificado da sua chegada!')),
-        );
-        _loadDetails();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao notificar chegada: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _startNavigationToClient() async {
-    setState(() => _isLoading = true);
-    try {
-      // 1. Update status to 'on_way'
-      await _api.updateServiceStatus(widget.serviceId, 'on_way');
-
-      // 2. Start location tracking
-      if (_api.userId != null) {
-        _realtime.startLocationUpdates(_api.userId!);
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Status atualizado para: A Caminho. Compartilhamento de local ativado.',
-            ),
-          ),
-        );
-        _loadDetails();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao iniciar deslocamento: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _requestCompletion() async {
-    if (_service == null) return;
-    _showCompletionDialog();
-  }
-
-  Future<void> _showCompletionDialog() async {
-    // Stop tracking when finishing
-    _realtime.stopLocationUpdates();
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FinishServiceScreen(serviceId: widget.serviceId),
-      ),
-    );
-
-    if (result == true) {
-      _loadDetails();
     }
   }
 
@@ -795,7 +567,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
         actions: [
           if (_service != null &&
               _api.role == 'provider' &&
-              _service!['status'] != 'pending')
+              ![
+                'pending',
+                'cancelled',
+                'canceled',
+              ].contains((_service!['status'] ?? '').toString()))
             IconButton(
               icon: const Icon(LucideIcons.messageCircle),
               onPressed: () {
@@ -810,13 +586,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
                         ? (client['avatar'] ?? client['photo'])
                         : null);
 
-                context.push(
-                  '/chat/${widget.serviceId}',
-                  extra: {
-                    'serviceId': widget.serviceId,
-                    'otherName': otherName,
-                    'otherAvatar': otherAvatar,
-                  },
+                OpenChatHelper.push(
+                  context,
+                  serviceId: widget.serviceId,
+                  service: _service,
+                  otherName: otherName?.toString(),
+                  otherAvatar: otherAvatar?.toString(),
+                  currentRole: 'provider',
                 );
               },
             ),
@@ -883,7 +659,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _getStatusColor(status).withValues(alpha: 0.1),
+              color: _getStatusColor(status).withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: _getStatusColor(status)),
             ),
@@ -961,13 +737,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
                     ),
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
-                      userAgentPackageName: 'com.play101.app',
-                      tileDimension: 512,
-                      zoomOffset: -1,
-                      maxZoom: 22,
+                    AppTileLayer.standard(
+                      mapboxToken: SupabaseConfig.mapboxToken,
                     ),
                     PolylineLayer(
                       polylines: [
@@ -1044,7 +815,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
               leading: CircleAvatar(
                 backgroundColor: Theme.of(
                   context,
-                ).primaryColor.withValues(alpha: 0.1),
+                ).primaryColor.withOpacity(0.1),
                 backgroundImage: s['client_avatar'] != null
                     ? NetworkImage(s['client_avatar'])
                     : null,
@@ -1091,7 +862,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blue.withValues(alpha: 0.2),
+                  color: Colors.blue.withOpacity(0.2),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -1399,137 +1170,108 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
   }
 
   Widget? _buildBottomAction() {
-    final status = _service!['status'];
-    final arrivedAt = _service!['arrived_at'];
+    final status = (_service!['status'] ?? '').toString();
+    final paymentStatus = (_service!['payment_remaining_status'] ?? '')
+        .toString();
+    final trackingUpdatedAt = DateTime.tryParse(
+      '${_service!['client_tracking_updated_at'] ?? ''}',
+    )?.toLocal();
+    final trackingStatus = (_service!['client_tracking_status'] ?? '')
+        .toString()
+        .toLowerCase()
+        .trim();
+    final trackingIsStale =
+        trackingUpdatedAt != null &&
+        DateTime.now().difference(trackingUpdatedAt) >
+            const Duration(minutes: 2);
 
-    if (status == 'pending') {
+    if ([
+      'accepted',
+      'scheduled',
+      'confirmed',
+      'client_departing',
+    ].contains(status)) {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _acceptService,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+            if (status == 'accepted' ||
+                status == 'scheduled' ||
+                status == 'confirmed' ||
+                status == 'client_departing') ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: trackingIsStale
+                      ? Colors.orange[50]
+                      : Colors.indigo[50],
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: trackingIsStale
+                        ? Colors.orange.shade200
+                        : Colors.indigo.shade100,
+                  ),
                 ),
-                child: const Text(
-                  'ACEITAR SERVIÇO',
+                child: Text(
+                  trackingStatus == 'permission_denied'
+                      ? 'Cliente sem permissao de localizacao no momento.'
+                      : trackingIsStale
+                      ? 'Rastreamento do cliente temporariamente desatualizado.'
+                      : 'Deslocamento do cliente sendo acompanhado automaticamente.',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                    color: trackingIsStale
+                        ? Colors.orange.shade900
+                        : Colors.indigo.shade900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
+            ],
+            if (paymentStatus == 'pending')
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey[50],
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.blueGrey.shade100),
+                ),
+                child: Text(
+                  'Pagamento restante pendente fora do app. Confirme com o cliente antes de prosseguir.',
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            Container(
               width: double.infinity,
-              child: TextButton(
-                onPressed: _rejectService,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: Colors.red,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: status == 'client_departing'
+                    ? Colors.indigo[50]
+                    : Colors.blue[50],
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: status == 'client_departing'
+                      ? Colors.indigo.shade100
+                      : Colors.blue.shade100,
                 ),
-                child: const Text('RECUSAR SERVIÇO'),
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      );
-    }
-
-    if (status == 'waiting_payment_remaining') {
-      if (_api.role == 'client') {
-        final total =
-            double.tryParse(_service!['price_estimated']?.toString() ?? '0') ??
-            0.0;
-        final upfront =
-            double.tryParse(_service!['price_upfront']?.toString() ?? '0') ??
-            (total * 0.3);
-        final remaining = total - upfront;
-
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _navigateToPayment(remaining, total),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[600], // Premium Blue action
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text(
-                'REALIZE PAGAMENTO',
+              child: Text(
+                status == 'client_departing'
+                    ? 'Cliente a caminho. Quando ele chegar, o card ficará verde no painel.'
+                    : 'Agendamento confirmado. Aguarde a chegada do cliente ao salão.',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                  color: status == 'client_departing'
+                      ? Colors.indigo.shade900
+                      : Colors.blue.shade900,
+                  fontWeight: FontWeight.w600,
                 ),
-              ),
-            ),
-          ),
-        );
-      }
-
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: const Text(
-              'AGUARDANDO PAGAMENTO SEGURO',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (status == 'waiting_client_confirmation') {
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.blue[600],
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withValues(alpha: 0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            const Icon(LucideIcons.clock, color: Colors.white, size: 32),
-            const SizedBox(height: 12),
-            const Text(
-              'Aguardando Confirmação do Cliente',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'O cliente já recebeu a prova de conclusão. Caso ele não confirme em até 24 horas, o sistema fará a confirmação automática para liberar seu pagamento.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white.withValues(alpha: 0.9),
-                height: 1.4,
               ),
             ),
           ],
@@ -1537,269 +1279,67 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen>
       );
     }
 
-    if (status == 'accepted') {
-      final isFlowB = _service!['location_type'] == 'provider';
-      final isPaid = _service!['payment_remaining_status'] == 'paid';
-
-      if (isFlowB && !isPaid) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text(
-                'AGUARDANDO CLIENTE/PAGAMENTO',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-        );
-      }
-
-      if (!isFlowB) {
-        if (status == 'accepted') {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _startNavigationToClient, // New method
-                  icon: const Icon(LucideIcons.navigation),
-                  label: const Text(
-                    'INICIAR DESLOCAMENTO',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: _startService,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
-                  child: const Text(
-                    'JÁ ESTOU NO LOCAL (INICIAR)',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (status == 'on_way') {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Compartilhando localização...',
-                          style: TextStyle(color: Colors.blue[800]),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _notifyArrival,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[600], // Premium Blue arrival
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
-                  child: const Text(
-                    'CHEGUEI NO LOCAL',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: _startService,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: BorderSide(color: Colors.purple),
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
-                  child: const Text(
-                    'Pular e Iniciar Serviço',
-                    style: TextStyle(color: Colors.purple),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (arrivedAt == null && status != 'on_way' && status != 'accepted') {
-          // Fallback
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Confirme sua chegada na aba "Meus Serviços" da tela inicial.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-      }
-
-      // Keep existing logic for Flow B or paid checks...
-      if (!isFlowB && !isPaid) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text(
-                'AGUARDANDO CLIENTE/PAGAMENTO',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-        );
-      }
-
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: ElevatedButton(
-          onPressed: _startService,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purple,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          child: const Text(
-            'INICIAR SERVIÇO',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      );
-    }
-
-    if (status == 'awaiting_confirmation') {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _showCompletionDialog,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: const Text(
-              'INSERIR CÓDIGO DE VALIDAÇÃO',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (status == 'in_progress') {
-      final isPaid = _service!['payment_remaining_status'] == 'paid';
-
-      if (!isPaid) {
-        if (_api.role == 'client') {
-          final total =
-              double.tryParse(
-                _service!['price_estimated']?.toString() ?? '0',
-              ) ??
-              0.0;
-          final upfront =
-              double.tryParse(_service!['price_upfront']?.toString() ?? '0') ??
-              (total * 0.3);
-          final remaining = total - upfront;
-
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: ElevatedButton(
-              onPressed: () => _navigateToPayment(remaining, total),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text(
-                'PAGAR RESTANTE (70%)',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey,
-              disabledBackgroundColor: Colors.grey,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: const Text(
-              'AGUARDANDO PAGAMENTO (70%)',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        );
-      }
-
+    if (status == 'client_arrived') {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: const Text(
+                'Cliente no local. Atendimento presencial segue normalmente no salão.',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _requestCompletion,
+                onPressed: _completeFixedBooking,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: const Text(
-                  'CONCLUIR SERVIÇO',
+                  'FINALIZAR AGENDAMENTO',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    if (status == 'completed') {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          child: const Text(
+            'Agendamento finalizado. O horário já foi encerrado na agenda do salão.',
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       );
     }

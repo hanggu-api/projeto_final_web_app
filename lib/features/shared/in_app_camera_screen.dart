@@ -10,8 +10,15 @@ import 'package:flutter/foundation.dart'; // for kIsWeb
 
 class InAppCameraScreen extends StatefulWidget {
   final bool initialVideoMode;
+  final Duration maxVideoDuration;
+  final ResolutionPreset? videoResolutionPreset;
 
-  const InAppCameraScreen({super.key, this.initialVideoMode = false});
+  const InAppCameraScreen({
+    super.key,
+    this.initialVideoMode = false,
+    this.maxVideoDuration = const Duration(minutes: 2),
+    this.videoResolutionPreset,
+  });
 
   @override
   State<InAppCameraScreen> createState() => _InAppCameraScreenState();
@@ -31,7 +38,6 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
   FlashMode _flashMode = FlashMode.off;
 
   // Video Limits
-  static const Duration _maxDuration = Duration(minutes: 2);
   Timer? _recordingTimer;
   Timer? _progressTimer;
   double _progress = 0.0;
@@ -74,19 +80,59 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
 
     _controller = CameraController(
       cameraDescription,
-      ResolutionPreset.high,
+      _isVideoMode
+          ? (widget.videoResolutionPreset ?? ResolutionPreset.medium)
+          : ResolutionPreset.high,
       enableAudio: true,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
 
     try {
       await _controller!.initialize();
-      await _controller!.setFlashMode(_flashMode);
+      await _applyFlashModeSafely(_flashMode);
       if (mounted) {
         setState(() => _isInitialized = true);
       }
     } catch (e) {
+      if (e is CameraException) {
+        final code = e.code.toLowerCase();
+        if (code.contains('torchmodenotsupported') ||
+            code.contains('flash') ||
+            code.contains('notsupported')) {
+          _flashMode = FlashMode.off;
+          if (mounted) {
+            setState(() => _isInitialized = true);
+          }
+          debugPrint(
+            '⚠️ Câmera iniciada sem flash (torch não suportado neste aparelho).',
+          );
+          return;
+        }
+      }
       debugPrint('Error initializing controller: $e');
+    }
+  }
+
+  Future<void> _applyFlashModeSafely(FlashMode mode) async {
+    if (_controller == null) return;
+    try {
+      await _controller!.setFlashMode(mode);
+      _flashMode = mode;
+    } on CameraException catch (e) {
+      final code = e.code.toLowerCase();
+      if (code.contains('torchmodenotsupported') ||
+          code.contains('flash') ||
+          code.contains('notsupported')) {
+        try {
+          await _controller!.setFlashMode(FlashMode.off);
+        } catch (_) {}
+        _flashMode = FlashMode.off;
+        debugPrint(
+          '⚠️ Flash/torch não suportado nesta câmera. Continuando com flash desligado.',
+        );
+        return;
+      }
+      rethrow;
     }
   }
 
@@ -102,8 +148,8 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
         newMode = FlashMode.off;
       }
 
-      await _controller!.setFlashMode(newMode);
-      setState(() => _flashMode = newMode);
+      await _applyFlashModeSafely(newMode);
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Error toggling flash: $e');
     }
@@ -176,7 +222,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
       });
 
       // Start timers
-      _recordingTimer = Timer(_maxDuration, () {
+      _recordingTimer = Timer(widget.maxVideoDuration, () {
         if (_isRecording) _stopRecording();
       });
 
@@ -189,7 +235,8 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
         }
         final elapsed = DateTime.now().difference(_recordingStartedAt!);
         setState(() {
-          _progress = elapsed.inMilliseconds / _maxDuration.inMilliseconds;
+          _progress =
+              elapsed.inMilliseconds / widget.maxVideoDuration.inMilliseconds;
           if (_progress > 1.0) _progress = 1.0;
         });
       });
@@ -256,6 +303,9 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
       );
     }
 
+    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+    final bottomControlsOffset = bottomSafeArea + 28;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -275,7 +325,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.6),
+                        Colors.black.withOpacity(0.6),
                         Colors.transparent,
                       ],
                     ),
@@ -289,7 +339,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.8),
+                        Colors.black.withOpacity(0.8),
                         Colors.transparent,
                       ],
                     ),
@@ -336,7 +386,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.8),
+                    color: Colors.red.withOpacity(0.8),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -357,7 +407,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
 
           // 5. Bottom Controls
           Positioned(
-            bottom: 30,
+            bottom: bottomControlsOffset,
             left: 0,
             right: 0,
             child: Column(

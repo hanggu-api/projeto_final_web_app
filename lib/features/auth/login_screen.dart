@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,18 +9,23 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../core/theme/app_theme.dart';
+import '../../core/config/supabase_config.dart';
+import '../../domains/auth/presentation/auth_controller.dart';
 import '../../services/api_service.dart';
+import '../../services/device_capability_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/theme_service.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  static const double _heroImageAspectRatio = 1059 / 1486;
+
   bool _isLoginForm = true;
   bool _isLoading = false;
 
@@ -52,6 +58,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    if (!SupabaseConfig.isInitialized) {
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            'Conexao com o servidor indisponivel. Reinicie o app ou verifique a configuracao do ambiente.';
+      });
+      return;
+    }
+
     final email = _emailController.text.trim();
     if (email.isEmpty || _passwordController.text.isEmpty) {
       setState(() {
@@ -70,27 +85,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() {
-      _isLoading = true;
       _hasError = false;
       _errorMessage = null;
     });
     try {
-      final authResponse = await Supabase.instance.client.auth
-          .signInWithPassword(email: email, password: _passwordController.text);
+      await ref
+          .read(authControllerProvider.notifier)
+          .login(email: email, password: _passwordController.text);
 
-      final session = authResponse.session;
-
-      if (session == null || session.accessToken.isEmpty) {
-        throw Exception('Falha ao obter token do Supabase');
-      }
-
-      await _api.loginWithFirebase(
-        session.accessToken,
-        name: authResponse.user?.userMetadata?['full_name'],
-      );
+      await _api.syncUserProfile('', name: null);
       if (!mounted) return;
 
-      await NotificationService().syncToken();
+      // Garante role atualizado antes do redirecionamento
+      try {
+        await _api.getMyProfile();
+        // ✅ Verifica se role foi atualizado corretamente
+        debugPrint('🔍 [LoginScreen] Role após getMyProfile: ${_api.role}');
+      } catch (e) {
+        debugPrint('⚠️ [LoginScreen] Erro ao carregar profile: $e');
+      }
+
       if (!mounted) return;
 
       _redirectUserBasedOnRole();
@@ -113,12 +127,19 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erro ao entrar: $e')));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleGoogleLogin() async {
+    if (!SupabaseConfig.isInitialized) {
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            'Login indisponivel no momento. Supabase nao foi inicializado.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _hasError = false;
@@ -137,12 +158,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // 📱 FLUXO MOBILE (Nativo usando google_sign_in)
-      const webClientId =
-          '478559853980-bd63tr459gslb0ish8t53c4e7gehjmi9.apps.googleusercontent.com';
-
-      // No Android/iOS, o serverClientId é necessário para obter o idToken para o Supabase
-      if (kIsWeb) {
-        await GoogleSignIn.instance.initialize(clientId: webClientId);
+      final webClientId = SupabaseConfig.googleWebClientId.trim();
+      if (webClientId.isEmpty) {
+        debugPrint(
+          '⚠️ [Login] GOOGLE_WEB_CLIENT_ID ausente; usando configuração nativa do Android/iOS quando disponível.',
+        );
+        await GoogleSignIn.instance.initialize();
       } else {
         await GoogleSignIn.instance.initialize(serverClientId: webClientId);
       }
@@ -160,40 +181,46 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (idToken == null) throw 'Nenhum Id Token retornado pelo Google.';
 
-      // Tenta obter o accessToken (opcional no Supabase mas útil para logs)
-      String? accessToken;
+      // O Supabase requer accessToken junto com idToken para Google native sign-in.
+      String? googleAccessToken;
       try {
         final authz = await googleUser.authorizationClient.authorizeScopes([
           'email',
           'profile',
           'openid',
         ]);
-        accessToken = authz.accessToken;
+        googleAccessToken = authz.accessToken;
         debugPrint(
-          '🔵 [Login] accessToken recebido (length: ${accessToken.length})',
+          '🔵 [Login] accessToken recebido (length: ${googleAccessToken.length})',
         );
       } catch (e) {
-        debugPrint('⚠️ [Login] Erro ao obter accessToken (não crítico): $e');
+        debugPrint('⚠️ [Login] Erro ao obter accessToken: $e');
+      }
+
+      if (googleAccessToken == null || googleAccessToken.isEmpty) {
+        throw 'Nenhum Access Token retornado pelo Google.';
       }
 
       debugPrint('🚀 [Login] Chamando Supabase.signInWithIdToken...');
-      final authResponse = await Supabase.instance.client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        // accessToken: accessToken, // Comentado para testar se resolve erro 401 (Audience mismatch)
-      );
+      final authResponse = await Supabase.instance.client.auth
+          .signInWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: idToken,
+            accessToken: googleAccessToken,
+          );
 
       debugPrint(
         '✅ [Login] Supabase Auth Sucesso: ${authResponse.user?.email}',
       );
 
       final session = authResponse.session;
-      if (session == null || session.accessToken.isEmpty) {
-        throw Exception('Falha ao obter sessão do Supabase.');
+      final sessionAccessToken = session?.accessToken;
+      if (sessionAccessToken == null) {
+        throw AuthException('Sessao invalida: accessToken ausente');
       }
 
-      await _api.loginWithFirebase(
-        session.accessToken,
+      await _api.syncUserProfile(
+        sessionAccessToken,
         name: authResponse.user?.userMetadata?['full_name'],
       );
       if (!mounted) return;
@@ -201,7 +228,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await NotificationService().syncToken();
       if (!mounted) return;
 
-      _redirectUserBasedOnRole();
+      // Verifica CPF antes de redirecionar (Google não coleta CPF no cadastro)
+      await _checkCpfAndRedirect();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -213,112 +241,268 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _redirectUserBasedOnRole() {
+  /// Verifica se o usuário tem CPF cadastrado.
+  /// Se não tiver → /cpf-completion
+  /// Se tiver → rota normal baseada no role
+  Future<void> _checkCpfAndRedirect() async {
+    if (!mounted) return;
+    try {
+      final row = await _api.getUserData();
+      if (row == null) {
+        _redirectUserBasedOnRole();
+        return;
+      }
+
+      final cpf = row['document_value'] as String?;
+      final birthDate = row['birth_date'] as String?;
+
+      final hasCpf = cpf != null && cpf.isNotEmpty;
+      final hasBirthDate = birthDate != null && birthDate.isNotEmpty;
+
+      if (!hasCpf || !hasBirthDate) {
+        debugPrint(
+          '⚠️ [Login] Usuário Google sem CPF/nascimento → /cpf-completion',
+        );
+        if (mounted) context.go('/cpf-completion');
+        return;
+      }
+
+      debugPrint('✅ [Login] CPF verificado → redirecionando normalmente');
+      _redirectUserBasedOnRole();
+    } catch (e) {
+      debugPrint('⚠️ [Login] Erro ao verificar CPF (fallback normal): $e');
+      _redirectUserBasedOnRole();
+    }
+  }
+
+  Future<void> _redirectUserBasedOnRole() async {
     if (!mounted) return;
 
     final role = _api.role;
     debugPrint('🚀 [Login] Redirecionando usuário com role: $role');
 
-    if (role == 'driver') {
-      ThemeService().setProviderMode(true);
-      context.go('/uber-driver');
-    } else if (role == 'provider') {
+    // O papel de driver foi removido. Caso algum usuário legado ainda tenha esse role,
+    // tratamos como provider por segurança ou redirecionamos para home.
+    if (role == 'driver' || role == 'provider') {
       ThemeService().setProviderMode(true);
       if (_api.isMedical) {
         context.go('/medical-home');
       } else {
-        context.go('/provider-home');
+        final activeServiceRoute = await _findProviderActiveServiceRoute();
+        if (!mounted) return;
+        if (activeServiceRoute != null && activeServiceRoute.isNotEmpty) {
+          context.go(activeServiceRoute);
+        } else {
+          context.go('/provider-home');
+        }
       }
     } else {
       ThemeService().setProviderMode(false);
-      context.go('/home');
+      debugPrint('🚀 [Login] Redirecionando como cliente (Standard flow)');
+
+      if (mounted) context.go('/home');
     }
+  }
+
+  Future<String?> _findProviderActiveServiceRoute() async {
+    try {
+      final service = await _api.findActiveService();
+      if (service == null) return null;
+
+      final serviceId = service['id']?.toString().trim() ?? '';
+      if (serviceId.isEmpty) return null;
+
+      final serviceScope = _api.getServiceScopeTag(service);
+      if (serviceScope == 'fixed') {
+        return '/provider-home';
+      }
+      return '/provider-active/$serviceId';
+    } catch (e) {
+      debugPrint(
+        '⚠️ [Login] Falha ao verificar serviço ativo do prestador: $e',
+      );
+    }
+    return null;
+  }
+
+  ImageProvider _buildHeroImageProvider(BuildContext context) {
+    const asset = AssetImage('assets/images/fundo.png');
+    final capability = DeviceCapabilityService.instance;
+    if (!capability.prefersLowResolutionImages) {
+      return asset;
+    }
+
+    final mediaQuery = MediaQuery.of(context);
+    final targetWidth = (mediaQuery.size.width * mediaQuery.devicePixelRatio)
+        .round()
+        .clamp(360, 720);
+    final targetHeight = (targetWidth / _heroImageAspectRatio).round().clamp(
+      420,
+      960,
+    );
+
+    return ResizeImage(
+      asset,
+      width: targetWidth,
+      height: targetHeight,
+      allowUpscaling: false,
+    );
+  }
+
+  Widget _buildHeroSection(
+    BuildContext context,
+    DeviceCapabilityService capability,
+    ImageProvider heroImageProvider,
+    double heroHeight,
+  ) {
+    return SizedBox(
+      width: double.infinity,
+      height: heroHeight,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: heroImageProvider,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  filterQuality: capability.prefersLowResolutionImages
+                      ? FilterQuality.low
+                      : FilterQuality.medium,
+                ),
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x00FFFFFF),
+                    Color(0x33FFFFFF),
+                    Color(0xB3FFFFFF),
+                    Color(0xFFFFFFFF),
+                  ],
+                  stops: [0.0, 0.45, 0.82, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final capability = DeviceCapabilityService.instance;
+    final heroImageProvider = _buildHeroImageProvider(context);
     return PopScope(
       canPop: _isLoginForm,
       onPopInvokedWithResult: (didPop, result) {
+        if (!mounted) return;
         if (didPop) return;
         if (!_isLoginForm) setState(() => _isLoginForm = true);
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark.copyWith(
-          statusBarColor: Colors.transparent,
-        ),
+        value: SystemUiOverlayStyle.dark.copyWith(),
         child: Scaffold(
           backgroundColor: AppTheme.primaryYellow,
-          body: Column(
-            children: [
-              Expanded(
-                flex: 4,
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage(
-                        'assets/images/workers_illustration.png',
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final mediaQuery = MediaQuery.of(context);
+              final screenHeight = mediaQuery.size.height;
+              final safeBottom = mediaQuery.padding.bottom;
+              final preferredHeroMinHeight = capability.isLowEndDevice
+                  ? 420.0
+                  : 440.0;
+              final preferredHeroMaxHeight =
+                  screenHeight * (capability.isLowEndDevice ? 0.64 : 0.68);
+              final preferredHeroLowerBound =
+                  preferredHeroMinHeight <= preferredHeroMaxHeight
+                  ? preferredHeroMinHeight
+                  : preferredHeroMaxHeight;
+              final preferredHeroUpperBound =
+                  preferredHeroMaxHeight >= preferredHeroLowerBound
+                  ? preferredHeroMaxHeight
+                  : preferredHeroLowerBound;
+              final preferredHeroHeight =
+                  (mediaQuery.size.width / _heroImageAspectRatio)
+                      .clamp(preferredHeroLowerBound, preferredHeroUpperBound)
+                      .toDouble();
+              final formEstimatedHeight = _isLoginForm ? 370.0 : 420.0;
+              const overlapHeight = 26.0;
+              const desiredBottomGap = 40.0;
+              final availableHeroHeight =
+                  constraints.maxHeight -
+                  formEstimatedHeight +
+                  overlapHeight -
+                  safeBottom -
+                  desiredBottomGap;
+              final minHeroHeight = capability.isLowEndDevice ? 300.0 : 320.0;
+              final maxHeroHeight = availableHeroHeight > minHeroHeight
+                  ? availableHeroHeight.toDouble()
+                  : minHeroHeight;
+              final heroHeight = preferredHeroHeight
+                  .clamp(minHeroHeight, maxHeroHeight)
+                  .toDouble();
+
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    children: [
+                      _buildHeroSection(
+                        context,
+                        capability,
+                        heroImageProvider,
+                        heroHeight,
                       ),
-                      fit: BoxFit.contain,
-                      alignment: Alignment.bottomCenter,
-                    ),
-                  ),
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '101',
-                            style: GoogleFonts.manrope(
-                              fontSize: 40,
-                              fontWeight: FontWeight.w900,
-                              color: AppTheme.textDark,
-                              letterSpacing: -2,
-                            ),
+                      Transform.translate(
+                        offset: const Offset(0, -26),
+                        child: Container(
+                          width: double.infinity,
+                          margin: EdgeInsets.zero,
+                          padding: EdgeInsets.fromLTRB(
+                            24,
+                            22,
+                            24,
+                            34 + safeBottom + desiredBottomGap,
                           ),
-                          Text(
-                            'SERVICE',
-                            style: GoogleFonts.manrope(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textDark,
-                              letterSpacing: 2,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(32),
+                              topRight: Radius.circular(32),
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0x14000000),
+                                blurRadius: 20,
+                                offset: Offset(0, -2),
+                              ),
+                            ],
                           ),
-                        ],
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: _isLoginForm
+                                ? _buildLoginForm()
+                                : _buildSelectionForm(),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              ),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(32),
-                    topRight: Radius.circular(32),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x1A000000),
-                      blurRadius: 20,
-                      offset: Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: _isLoginForm
-                      ? _buildLoginForm()
-                      : _buildSelectionForm(),
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
@@ -368,13 +552,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        _buildTypeButton(
-          label: 'Motorista (Carro ou Moto)',
-          icon: LucideIcons.car,
-          isFullWidth: true,
-          onTap: () => context.push('/register', extra: 'driver'),
-        ),
         const SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
@@ -402,7 +579,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 16),
         Center(
           child: TextButton(
-            onPressed: () => context.push('/agency'),
+            onPressed: () => context.push('/admin'),
             child: Text(
               'Agência & Investidores',
               style: GoogleFonts.manrope(
@@ -417,85 +594,79 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLoginForm() {
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = _isLoading || authState.isLoading;
+
     return Column(
       key: const ValueKey('login'),
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Fazer Login',
-          style: GoogleFonts.manrope(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.textDark,
-          ),
-        ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 1),
         TextField(
+          key: const ValueKey('login-email-field'),
           controller: _emailController,
           focusNode: _emailFocus,
-          style: GoogleFonts.manrope(color: AppTheme.textDark),
-          decoration: AppTheme.inputDecoration('Email', LucideIcons.mail)
-              .copyWith(
-                enabledBorder: _hasError
-                    ? OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Colors.red,
-                          width: 1,
-                        ),
-                      )
-                    : null,
-              ),
+          style: GoogleFonts.manrope(
+            color: AppTheme.textDark,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
+          decoration: AppTheme.authInputDecoration(
+            'Email',
+            LucideIcons.mail,
+            hasError: _hasError,
+          ),
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         TextField(
+          key: const ValueKey('login-password-field'),
           controller: _passwordController,
           focusNode: _passwordFocus,
-          style: GoogleFonts.manrope(color: AppTheme.textDark),
+          style: GoogleFonts.manrope(
+            color: AppTheme.textDark,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
           obscureText: !_isPasswordVisible,
-          decoration: AppTheme.inputDecoration('Senha', LucideIcons.lock)
-              .copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _isPasswordVisible ? LucideIcons.eye : LucideIcons.eyeOff,
-                    size: 20,
-                  ),
-                  onPressed: () =>
-                      setState(() => _isPasswordVisible = !_isPasswordVisible),
-                ),
-                enabledBorder: _hasError
-                    ? OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Colors.red,
-                          width: 1,
-                        ),
-                      )
-                    : null,
+          decoration: AppTheme.authInputDecoration(
+            'Senha',
+            LucideIcons.lock,
+            hasError: _hasError,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _isPasswordVisible ? LucideIcons.eye : LucideIcons.eyeOff,
+                size: 20,
+                color: AppTheme.accentBlue,
               ),
+              onPressed: () =>
+                  setState(() => _isPasswordVisible = !_isPasswordVisible),
+            ),
+          ),
           onSubmitted: (_) => _handleLogin(),
         ),
         if (_hasError && _errorMessage != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             _errorMessage!,
             style: GoogleFonts.manrope(
-              color: Colors.red,
+              color: Colors.red.shade800,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
           ),
         ],
-        const SizedBox(height: 32),
+        const SizedBox(height: 22),
         SizedBox(
           width: double.infinity,
-          height: 56,
+          height: 54,
           child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleLogin,
-            child: _isLoading
+            key: const ValueKey('login-submit-button'),
+            onPressed: isLoading ? null : _handleLogin,
+            style: AppTheme.primaryActionButtonStyle(),
+            child: isLoading
                 ? const SizedBox(
                     width: 24,
                     height: 24,
@@ -504,18 +675,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 : const Text('ENTRAR'),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         SizedBox(
           width: double.infinity,
-          height: 56,
+          height: 54,
           child: OutlinedButton(
-            onPressed: _isLoading ? null : _handleGoogleLogin,
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade300),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
+            key: const ValueKey('login-google-button'),
+            onPressed: isLoading ? null : _handleGoogleLogin,
+            style: AppTheme.secondaryActionButtonStyle(),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -536,7 +703,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
         Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -544,8 +711,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 'Ainda não tem conta?',
                 style: GoogleFonts.manrope(
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textDark.withOpacity(0.82),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               TextButton(
@@ -553,7 +720,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Text(
                   'CADASTRAR',
                   style: GoogleFonts.manrope(
-                    color: AppTheme.primaryYellow,
+                    color: const Color(0xFFB48A00),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -579,8 +746,9 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppTheme.backgroundLight,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(18),
+          border: AppTheme.cardBorder,
+          boxShadow: AppTheme.cardShadow,
         ),
         child: isFullWidth
             ? Row(

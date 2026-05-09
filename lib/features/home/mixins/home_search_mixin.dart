@@ -9,7 +9,7 @@ import '../../../services/theme_service.dart';
 
 mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
   final ApiService _api = ApiService();
-  final Map<String, List<dynamic>> _autocompleteCache = {};
+  final Map<String, List<Map<String, dynamic>>> _autocompleteCache = {};
 
   void onSearchChanged(String query, bool isPickup) {
     if (debouncer?.isActive ?? false) debouncer!.cancel();
@@ -28,7 +28,7 @@ mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
 
       if (_autocompleteCache.containsKey(trimmedQuery)) {
         if (mounted) {
-          setState(() => searchResults = _autocompleteCache[trimmedQuery]!);
+          setState(() => searchResults = List<Map<String, dynamic>>.from(_autocompleteCache[trimmedQuery]!));
         }
         return;
       }
@@ -197,18 +197,24 @@ mixin HomeSearchMixin<T extends StatefulWidget> on State<T>, HomeStateMixin<T> {
 
         if (pickupLocation != null && dropoffLocation != null) {
           routePolyline = [pickupLocation!, dropoffLocation!];
-          final bounds = LatLngBounds(pickupLocation!, dropoffLocation!);
-          mapController.fitCamera(
-            CameraFit.bounds(
-              bounds: bounds,
-              padding: const EdgeInsets.only(
-                top: 150,
-                bottom: 540,
-                left: 60,
-                right: 60,
-              ),
-            ),
-          );
+          if (isMapReady) {
+            final bounds = LatLngBounds(pickupLocation!, dropoffLocation!);
+            try {
+              mapController.fitCamera(
+                CameraFit.bounds(
+                  bounds: bounds,
+                  padding: const EdgeInsets.only(
+                    top: 150,
+                    bottom: 540,
+                    left: 60,
+                    right: 60,
+                  ),
+                ),
+              );
+            } catch (e) {
+              debugPrint('🗺️ [HomeMap] fitCamera ignorado (mapa não pronto): $e');
+            }
+          }
         }
       });
     }

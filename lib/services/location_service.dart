@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
@@ -7,6 +8,7 @@ import 'api_service.dart';
 /// - Captura GPS a cada 10m de movimento ou 30s (máximo)
 /// - Envia batches a cada 5s ou 10 posições
 /// - Otimizado para economizar bateria
+/// - Desabilitado em Web e Desktop (Linux/macOS/Windows)
 class LocationService {
   static final LocationService _instance = LocationService._internal();
 
@@ -18,12 +20,21 @@ class LocationService {
 
   StreamSubscription<Position>? _positionStream;
   final List<Map<String, dynamic>> _locationBuffer = [];
+  static const int _maxBufferSize = 50; // evita crescimento ilimitado em caso de falha no servidor
   Timer? _batchTimer;
   String? _activeServiceId;
   bool _isTracking = false;
 
   /// Solicitar permissões e iniciar rastreamento contínuo
   Future<void> startTracking(String serviceId) async {
+    // Geolocator não é suportado em Web ou Desktop
+    if (kIsWeb || Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+      debugPrint(
+        '[Location] Rastreamento desabilitado em ${kIsWeb ? "Web" : Platform.operatingSystem}',
+      );
+      return;
+    }
+
     if (_isTracking && _activeServiceId == serviceId) {
       debugPrint('[Location] Já está rastreando serviço $serviceId');
       return;
@@ -53,9 +64,8 @@ class LocationService {
 
       // 2. Configurar stream de localização
       final LocationSettings locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.best, // GPS de alta precisão
-        distanceFilter: 10, // Atualizar se moveu 10 metros
-        timeLimit: Duration(seconds: 30), // Ou a cada 30 segundos
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 10,
       );
 
       // 3. Iniciar listening
@@ -83,6 +93,11 @@ class LocationService {
 
   /// Adicionar posição ao buffer
   void _addToBuffer(Position position, String serviceId) {
+    // Descarta posições mais antigas se o buffer atingir o limite máximo
+    if (_locationBuffer.length >= _maxBufferSize) {
+      _locationBuffer.removeAt(0);
+    }
+
     _locationBuffer.add({
       'lat': position.latitude,
       'lng': position.longitude,
@@ -117,11 +132,12 @@ class LocationService {
         'locations': batch,
         'service_id': serviceId,
       });
-
       debugPrint('[Location] Batch enviado: ${batch.length} posições');
     } catch (error) {
-      // Retentar no próximo batch
-      _locationBuffer.addAll(batch);
+      // Recoloca no buffer apenas se ainda houver espaço para evitar loop infinito
+      if (_locationBuffer.length + batch.length <= _maxBufferSize) {
+        _locationBuffer.addAll(batch);
+      }
       debugPrint('[Location] Falha ao enviar batch: $error');
     }
   }

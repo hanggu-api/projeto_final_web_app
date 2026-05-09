@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
@@ -30,9 +32,17 @@ class _ProfessionStepState extends State<ProfessionStep> {
     _searchController.addListener(_filterProfessions);
   }
 
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterProfessions);
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchProfessions() async {
     try {
       final professions = await ApiService().getProfessions();
+      if (!mounted) return;
       setState(() {
         _professions = List<Map<String, dynamic>>.from(professions);
         _filteredProfessions = []; // Start empty
@@ -120,6 +130,7 @@ class _ProfessionStepState extends State<ProfessionStep> {
   }
 
   void _filterProfessions() {
+    if (!mounted) return;
     final query = _removeDiacritics(
       _searchController.text.toLowerCase().trim(),
     );
@@ -253,7 +264,7 @@ class _ProfessionStepState extends State<ProfessionStep> {
     if (textToSearch.contains('baba') || textToSearch.contains('crianca')) {
       return Icons.child_care;
     }
-    if (textToSearch.contains('motorista') || textToSearch.contains('frete')) {
+    if (textToSearch.contains('entregador') || textToSearch.contains('frete')) {
       return Icons.local_shipping;
     }
     if (textToSearch.contains('seguranca') ||
@@ -296,10 +307,23 @@ class _ProfessionStepState extends State<ProfessionStep> {
         TextField(
           key: const Key('profession_search_field'),
           controller: _searchController,
-          decoration: AppTheme.inputDecoration(
+          style: GoogleFonts.manrope(
+            color: AppTheme.textDark,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
+          textInputAction: TextInputAction.search,
+          decoration: AppTheme.authInputDecoration(
             'Buscar profissão...',
-            Icons.search,
-          ).copyWith(helperText: 'Digite pelo menos 3 letras para buscar'),
+            LucideIcons.search,
+          ).copyWith(
+            helperText: 'Digite pelo menos 3 letras para buscar',
+            helperStyle: GoogleFonts.manrope(
+              color: AppTheme.textMuted,
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -322,9 +346,11 @@ class _ProfessionStepState extends State<ProfessionStep> {
                   itemCount: _filteredProfessions.length,
                   separatorBuilder: (_, index) => const Divider(),
                   itemBuilder: (context, index) {
-                    final profession = _filteredProfessions[index];
-                    final isSelected =
-                        widget.selectedProfession?['id'] == profession['id'];
+                final profession = _filteredProfessions[index];
+                // Normalize id to string to keep consistency across flows
+                profession['id'] = profession['id']?.toString();
+                final isSelected = widget.selectedProfession?['id']?.toString() ==
+                    profession['id']?.toString();
 
                     return ListTile(
                       leading: CircleAvatar(

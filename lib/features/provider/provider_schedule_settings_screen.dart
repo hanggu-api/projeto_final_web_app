@@ -1,6 +1,9 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
+import '../../domains/scheduling/scheduling.dart';
+import '../../integrations/supabase/scheduling/supabase_scheduling_repository.dart';
 import '../../services/api_service.dart';
+import '../../widgets/ios_date_time_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class ProviderScheduleSettingsScreen extends StatefulWidget {
@@ -14,8 +17,11 @@ class ProviderScheduleSettingsScreen extends StatefulWidget {
 class _ProviderScheduleSettingsScreenState
     extends State<ProviderScheduleSettingsScreen> {
   final ApiService _api = ApiService();
+  late final SchedulingRepository _scheduling = SupabaseSchedulingRepository();
   bool _loading = true;
-  int _selectedDay = (DateTime.now().weekday == 7) ? 0 : DateTime.now().weekday;
+  int _selectedDay = DateTime.now().weekday % 7;
+  int? _providerId;
+  String? _providerUid;
 
   final Map<int, TimeOfDay> _startTimes = {};
   final Map<int, TimeOfDay> _endTimes = {};
@@ -42,10 +48,18 @@ class _ProviderScheduleSettingsScreenState
 
     setState(() => _loading = true);
     try {
-      final configs = await _api.getScheduleConfig();
-      final exceptions = await _api.getScheduleExceptions();
+      final identity = await _resolveProviderIdentity();
+      final providerId = identity.$1;
+      final providerUid = identity.$2;
+      final configResult = await _scheduling.getScheduleConfigResult(
+        providerId,
+      );
+      final configs = configResult.configs.map((config) => config.toMap());
+      final exceptions = await _scheduling.getScheduleExceptions(providerId);
 
       if (!mounted) return;
+      _providerId = providerId;
+      _providerUid = providerUid ?? configResult.providerUid;
 
       if (configs.isNotEmpty) {
         for (final conf in configs) {
@@ -56,10 +70,17 @@ class _ProviderScheduleSettingsScreenState
           _endTimes[day] =
               _parseTime(conf['end_time']) ??
               const TimeOfDay(hour: 18, minute: 0);
-          _lunchStarts[day] = _parseTime(conf['lunch_start']);
-          _lunchEnds[day] = _parseTime(conf['lunch_end']);
+          _lunchStarts[day] = _parseTime(
+            conf['lunch_start']?.toString() ?? conf['break_start']?.toString(),
+          );
+          _lunchEnds[day] = _parseTime(
+            conf['lunch_end']?.toString() ?? conf['break_end']?.toString(),
+          );
           _activeDays[day] =
-              conf['is_active'] == 1 || conf['is_active'] == true;
+              conf['is_active'] == 1 ||
+              conf['is_active'] == true ||
+              conf['is_enabled'] == 1 ||
+              conf['is_enabled'] == true;
         }
       }
 
@@ -70,6 +91,23 @@ class _ProviderScheduleSettingsScreenState
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<(int, String?)> _resolveProviderIdentity() async {
+    final cachedId = _api.userIdInt;
+    if (cachedId != null && cachedId > 0) {
+      return (cachedId, null);
+    }
+
+    final profile = await _api.getMyProfile();
+    final profileId = profile['id'] is num
+        ? (profile['id'] as num).toInt()
+        : int.tryParse('${profile['id'] ?? ''}');
+    if (profileId == null || profileId <= 0) {
+      throw Exception('Não foi possível identificar o prestador atual.');
+    }
+    final providerUid = (profile['supabase_uid'] ?? '').toString().trim();
+    return (profileId, providerUid.isEmpty ? null : providerUid);
   }
 
   TimeOfDay? _parseTime(String? t) {
@@ -174,8 +212,29 @@ class _ProviderScheduleSettingsScreenState
         });
       }
 
-      await _api.saveScheduleConfig(configs);
-      await _api.saveScheduleExceptions(_exceptions);
+      debugPrint(
+        '[ScheduleUI] payload configs=$configs exceptions=$_exceptions',
+      );
+
+      final providerId = _providerId;
+      if (providerId == null || providerId <= 0) {
+        throw Exception('Prestador não identificado para salvar agenda.');
+      }
+      final scheduleConfigs = configs
+          .map((config) => ScheduleConfig.fromMap(config))
+          .toList();
+      await _scheduling.saveScheduleConfig(
+        providerId,
+        _providerUid,
+        scheduleConfigs,
+      );
+      await _scheduling.saveScheduleExceptions(
+        providerId,
+        _exceptions
+            .whereType<Map>()
+            .map((exception) => exception.cast<String, dynamic>())
+            .toList(),
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -185,7 +244,9 @@ class _ProviderScheduleSettingsScreenState
         ),
       );
       Navigator.pop(context, true);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[ScheduleUI] erro ao salvar: $e');
+      debugPrint('[ScheduleUI] stack: $st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -335,7 +396,7 @@ class _ProviderScheduleSettingsScreenState
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.black
-                    : Colors.black.withValues(alpha: 0.1),
+                    : Colors.black.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected ? Colors.black : Colors.transparent,
@@ -499,64 +560,15 @@ class _ProviderScheduleSettingsScreenState
     bool canClear = false,
   }) {
     return GestureDetector(
-      onTap: () {
-        // CupertinoDatePicker works with DateTime, so we need to convert
-        final now = DateTime.now();
-        final initialDateTime = time != null
-            ? DateTime(now.year, now.month, now.day, time.hour, time.minute)
-            : DateTime(now.year, now.month, now.day, 9, 0);
-
-        showModalBottomSheet(
+      onTap: () async {
+        final picked = await AppCupertinoPicker.showTimePicker(
           context: context,
-          backgroundColor: Colors.white,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (BuildContext builder) {
-            return Container(
-              height: 300,
-              padding: const EdgeInsets.only(top: 6.0),
-              color: CupertinoColors.white,
-              child: Column(
-                children: [
-                  // Header with Done button
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text(
-                            'Concluído',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // The Spinner
-                  Expanded(
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.time,
-                      initialDateTime: initialDateTime,
-                      use24hFormat: true,
-                      onDateTimeChanged: (DateTime newDateTime) {
-                        onPick(TimeOfDay.fromDateTime(newDateTime));
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+          initialTime: time ?? const TimeOfDay(hour: 9, minute: 0),
+          title: label,
         );
+        if (picked != null) {
+          onPick(picked);
+        }
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,11 +675,12 @@ class _ProviderScheduleSettingsScreenState
   }
 
   Future<void> _addException() async {
-    final d = await showDatePicker(
+    final d = await AppCupertinoPicker.showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      title: 'Adicionar data especial',
     );
     if (d != null) {
       final s =

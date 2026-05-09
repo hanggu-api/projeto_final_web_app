@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../integrations/supabase/payment/supabase_payment_repository.dart';
 import '../../../services/api_service.dart';
 
 class WithdrawalDialog extends StatefulWidget {
@@ -19,6 +22,8 @@ class WithdrawalDialog extends StatefulWidget {
 }
 
 class _WithdrawalDialogState extends State<WithdrawalDialog> {
+  final SupabasePaymentRepository _paymentRepository =
+      SupabasePaymentRepository();
   final TextEditingController pixController = TextEditingController();
   final TextEditingController amountController = TextEditingController();
   bool isLoading = false;
@@ -170,7 +175,9 @@ class _WithdrawalDialogState extends State<WithdrawalDialog> {
                         });
 
                         try {
-                          await widget.api.requestWithdrawal(pix, amount);
+                          await _paymentRepository.requestWithdrawal(
+                            amount: amount,
+                          );
                           if (!mounted) return;
                           if (context.mounted) Navigator.pop(context, true);
                         } catch (e) {
@@ -317,9 +324,9 @@ class _SpecialtiesDialogState extends State<SpecialtiesDialog> {
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                     content: Text(
-                                      'Erro ao adicionar profissão',
+                                      'Erro ao adicionar profissão: $e',
                                     ),
                                     backgroundColor: Colors.red,
                                   ),
@@ -438,19 +445,16 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         children: [
           TextField(
             controller: nameController,
-            decoration: const InputDecoration(
-              labelText: 'Nome Completo',
-              prefixIcon: Icon(LucideIcons.user),
+            decoration: AppTheme.inputDecoration(
+              'Nome Completo',
+              LucideIcons.user,
             ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: phoneController,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Telefone',
-              prefixIcon: Icon(LucideIcons.phone),
-            ),
+            decoration: AppTheme.inputDecoration('Telefone', LucideIcons.phone),
           ),
           if (error != null)
             Padding(
@@ -489,6 +493,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     });
                   }
                 },
+          style: AppTheme.primaryActionButtonStyle(radius: 16, height: 48),
           child: isLoading
               ? const SizedBox(
                   width: 20,
@@ -499,6 +504,250 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         ),
       ],
     );
+  }
+}
+
+class EditBusinessDialog extends StatefulWidget {
+  final ApiService api;
+  final String currentCommercialName;
+  final String currentAddress;
+
+  const EditBusinessDialog({
+    super.key,
+    required this.api,
+    required this.currentCommercialName,
+    required this.currentAddress,
+  });
+
+  @override
+  State<EditBusinessDialog> createState() => _EditBusinessDialogState();
+}
+
+class _EditBusinessDialogState extends State<EditBusinessDialog> {
+  late TextEditingController commercialNameController;
+  late TextEditingController addressController;
+  bool isLoading = false;
+  bool isResolvingLocation = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    commercialNameController = TextEditingController(
+      text: widget.currentCommercialName,
+    );
+    addressController = TextEditingController(text: widget.currentAddress);
+  }
+
+  String _formatReadableAddressFromMap(Map<String, dynamic> data) {
+    final displayName = (data['display_name'] ?? '').toString().trim();
+    if (displayName.isNotEmpty) return displayName;
+
+    final parts = <String>[
+      if ((data['street'] ?? '').toString().trim().isNotEmpty)
+        (data['street']).toString().trim(),
+      if ((data['house_number'] ?? '').toString().trim().isNotEmpty)
+        (data['house_number']).toString().trim(),
+      if ((data['neighborhood'] ??
+              data['suburb'] ??
+              data['neighbourhood'] ??
+              '')
+          .toString()
+          .trim()
+          .isNotEmpty)
+        (data['neighborhood'] ?? data['suburb'] ?? data['neighbourhood'])
+            .toString()
+            .trim(),
+      if ((data['city'] ?? '').toString().trim().isNotEmpty)
+        (data['city']).toString().trim(),
+      if ((data['state_code'] ?? data['state'] ?? '')
+          .toString()
+          .trim()
+          .isNotEmpty)
+        (data['state_code'] ?? data['state']).toString().trim(),
+    ];
+
+    return parts.join(', ').trim();
+  }
+
+  @override
+  void dispose() {
+    commercialNameController.dispose();
+    addressController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar Estabelecimento'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: commercialNameController,
+            decoration: AppTheme.inputDecoration(
+              'Nome do estabelecimento',
+              LucideIcons.store,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: addressController,
+            minLines: 2,
+            maxLines: 3,
+            decoration: AppTheme.inputDecoration(
+              'Endereço',
+              LucideIcons.mapPin,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: isLoading || isResolvingLocation
+                  ? null
+                  : _useCurrentLocation,
+              icon: isResolvingLocation
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(LucideIcons.locateFixed, size: 16),
+              label: Text(
+                isResolvingLocation
+                    ? 'Obtendo localização...'
+                    : 'Usar minha localização atual',
+              ),
+            ),
+          ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                error!,
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: isLoading
+              ? null
+              : () async {
+                  setState(() {
+                    isLoading = true;
+                    error = null;
+                  });
+                  try {
+                    await widget.api.updateProviderProfile(
+                      commercialName: commercialNameController.text.trim(),
+                      address: addressController.text.trim(),
+                    );
+                    if (!mounted) return;
+                    Navigator.pop(context, true);
+                  } catch (e) {
+                    setState(() {
+                      isLoading = false;
+                      error = 'Erro ao atualizar: $e';
+                    });
+                  }
+                },
+          style: AppTheme.primaryActionButtonStyle(radius: 16, height: 48),
+          child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Salvar'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() {
+      isResolvingLocation = true;
+      error = null;
+    });
+
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Permissão de localização não concedida.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      String resolvedAddress = '';
+
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          final parts = <String>[
+            if ((place.street ?? '').trim().isNotEmpty)
+              (place.street ?? '').trim(),
+            if ((place.subLocality ?? '').trim().isNotEmpty)
+              (place.subLocality ?? '').trim(),
+            if ((place.locality ?? '').trim().isNotEmpty)
+              (place.locality ?? '').trim(),
+            if ((place.administrativeArea ?? '').trim().isNotEmpty)
+              (place.administrativeArea ?? '').trim(),
+          ];
+          resolvedAddress = parts.join(' - ').trim();
+        }
+      } catch (_) {
+        // Fallback tratado abaixo com reverseGeocode do ApiService.
+      }
+
+      if (resolvedAddress.isEmpty) {
+        final reverse = await widget.api.reverseGeocode(
+          position.latitude,
+          position.longitude,
+        );
+        resolvedAddress = _formatReadableAddressFromMap(reverse);
+      }
+
+      if (resolvedAddress.isEmpty) {
+        resolvedAddress =
+            'Loc.: ${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+      }
+
+      if (!mounted) return;
+      setState(() {
+        addressController.text = resolvedAddress;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = 'Não foi possível usar a localização atual: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          isResolvingLocation = false;
+        });
+      }
+    }
   }
 }
 

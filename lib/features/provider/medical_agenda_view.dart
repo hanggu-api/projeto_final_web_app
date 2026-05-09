@@ -185,7 +185,7 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -205,7 +205,7 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.primaryPurple.withValues(alpha: 0.6),
+                  color: AppTheme.primaryPurple.withOpacity(0.6),
                   letterSpacing: 1.2,
                 ),
               ),
@@ -375,7 +375,7 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
             height: 4,
             margin: const EdgeInsets.only(top: 4),
             decoration: BoxDecoration(
-              color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+              color: AppTheme.primaryPurple.withOpacity(0.3),
               shape: BoxShape.circle,
             ),
           ),
@@ -418,7 +418,7 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
         border: Border.all(color: Colors.grey[100]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withOpacity(0.02),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -458,13 +458,13 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
             gradient: LinearGradient(
               colors: [
                 AppTheme.primaryPurple,
-                AppTheme.primaryPurple.withValues(alpha: 0.8),
+                AppTheme.primaryPurple.withOpacity(0.8),
               ],
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                color: AppTheme.primaryPurple.withOpacity(0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -494,7 +494,7 @@ class _MedicalAgendaViewState extends State<MedicalAgendaView> {
                     Text(
                       appt['service_name'] ?? 'Procedimento Médico',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: Colors.white.withOpacity(0.8),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),

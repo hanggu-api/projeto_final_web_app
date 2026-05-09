@@ -66,7 +66,7 @@ class _CustomLoadingAnimationState extends State<CustomLoadingAnimation>
                     BoxShadow(
                       color: Theme.of(
                         context,
-                      ).primaryColor.withValues(alpha: 0.5),
+                      ).primaryColor.withOpacity(0.5),
                       blurRadius: 20 * _controller.value,
                       spreadRadius: 5 * _controller.value,
                     ),
@@ -115,7 +115,7 @@ class SplashScreen extends StatelessWidget {
             SizedBox(
               width: 160,
               child: LinearProgressIndicator(
-                backgroundColor: Colors.black.withValues(alpha: 0.1),
+                backgroundColor: Colors.black.withOpacity(0.1),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.black),
                 minHeight: 4,
               ),

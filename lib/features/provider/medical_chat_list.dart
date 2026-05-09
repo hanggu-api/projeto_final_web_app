@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/api_service.dart';
+import '../../services/data_gateway.dart';
 import '../../widgets/user_avatar.dart';
 
 class MedicalChatList extends StatefulWidget {
@@ -12,10 +11,8 @@ class MedicalChatList extends StatefulWidget {
 }
 
 class _MedicalChatListState extends State<MedicalChatList> {
-  final _api = ApiService();
   List<dynamic> _services = [];
   bool _loading = true;
-  int? _myUserId;
 
   @override
   void initState() {
@@ -25,17 +22,7 @@ class _MedicalChatListState extends State<MedicalChatList> {
 
   Future<void> _load() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _myUserId = prefs.getInt('user_id');
-
-      // Fallback if not in prefs
-      if (_myUserId == null) {
-        try {
-          _myUserId = await _api.getMyUserId();
-        } catch (_) {}
-      }
-
-      final list = await _api.getMyServices();
+      final list = await DataGateway().loadChatConversations();
       final filtered = list.where((s) {
         final status = (s['status'] ?? '').toString();
         // Medical professionals act as providers
@@ -90,16 +77,14 @@ class _MedicalChatListState extends State<MedicalChatList> {
                       s['client']['image']?.toString())
                 : null);
 
-        int? otherId;
+        String? otherId;
         if (s['client_id'] != null) {
-          otherId = s['client_id'] is int
-              ? s['client_id']
-              : int.tryParse(s['client_id'].toString());
+          otherId = s['client_id'].toString();
         }
         if (otherId == null && s['client'] is Map) {
           final cId = s['client']['id'];
           if (cId != null) {
-            otherId = cId is int ? cId : int.tryParse(cId.toString());
+            otherId = cId.toString();
           }
         }
 

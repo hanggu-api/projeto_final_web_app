@@ -33,13 +33,17 @@ This document tracks all implemented features and UI requirements to prevent reg
 - [x] **Real Driver Data**: Carregar e exibir o nome real e foto do motorista e detalhes do veículo na tela de acompanhamento a partir da tabela `users`.
 - [x] **Premium Driver Marker**: Ícone de carro/moto amarelo com fundo de círculo amarelo e borda branca.
 - [x] **Origin & Destination Pins**: Novos marcadores de pino premium (Azul para Origem e Vermelho para Destino) com hastes de precisão apontando no mapa.
-- [x] **Searching State Premium**: Tela de busca com barra de progresso amarela, botão de cancelar e exibição clara de partida/destino.
-- [x] **Data Persistence (Soft Delete)**: Desabilitada a remoção física de viagens no banco de dados para garantir estabilidade e histórico.
-- [x] **Map Visibility Fix**: TileLayer sincronizado entre telas para garantir carregamento de texturas (TileSize 512 + ZoomOffset -1).
-- [x] **Ultra-Compact Layout**: Otimização de paddings e sizedbox para maximizar a visibilidade da rota no mapa.
-- [x] **Standard Premium Route**: Rota azul sólida (`#2196F3`) implementada em todas as telas de pedido e rastreamento.
+- [x] **Dynamic Car Telemetry Balloon**: Balão informativo flutuante sobre o ícone do carro exibindo velocidade (km/h), tempo estimado (min) e distância (km).
+- [x] **Auto-Rotation Navigation**: Mapa gira e centraliza automaticamente no ícone do carro durante o deslocamento.
+- [x] **Pickup Trailing Route**: Rota verde destacada para o trajeto de busca, que desaparece gradualmente à medida que o motorista avança.
+- [x] **Smart Payment Flow**: Validação automática de cartão cadastrado ao selecionar "Cartão (Plataforma)" com redirecionamento para cadastro se necessário.
+- [x] **Auto-Home on Cancellation**: Navegação reativa para a tela inicial imediata após o cancelamento de uma viagem.
 
-## 💬 Uber Chat Integration
-- [x] **Universal Chat Access**: Passageiros e motoristas podem abrir o bate-papo a qualquer momento durante uma corrida ativa usando o ícone de mensagem.
-- [x] **Unified Chat Data**: Reutilização da lógica do `ChatScreen` original de "serviços", com fallback de consultas direcionadas à tabela `trips` se o ID não for encontrado em `service_requests_new`.
-- [x] **Real-time Messaging**: Mensagens trafegam usando os mesmos endpoints/streams Supabase de envio de mensagens do SuperApp, garantindo estabilidade e anexos.
+## 💳 Mercado Pago & KYC Integration
+- [x] **Automated Provisioning**: Mercado Pago collector account linked automatically when a driver goes online for the first time.
+- [x] **KYC Data Sync**: CNH and Selfie documents uploaded and validated for split payments.
+- [x] **OCR Pre-fill**: Driver information (Name, DOB, CPF) pre-filled from OCR results for account verification.
+- [x] **Secure Trigger**: Provisioning triggered via 'mp-onboarding-handler' Edge Function using user JWT.
+- [x] **Card Tokenization**: Credit cards tokenized via 'mp-tokenize-card' for platform payments.
+- [x] **Split Payments**: Automated 30/70 split handling for drivers via Mercado Pago.
+- [x] **Cash Payment Fix**: Corrigir erro 401 na confirmação de pagamento em dinheiro (Refazer deploy com `verify_jwt: false`).

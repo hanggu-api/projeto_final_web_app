@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -17,21 +18,28 @@ class CompassService {
   double get currentHeading => _smoothedHeading;
 
   void start() {
-    if (kIsWeb) return;
+    // Compass e Sensors não são suportados em Web ou Desktop
+    if (kIsWeb || Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+      return;
+    }
 
-    // 1. Ler a Bússola (Direção Magnética)
-    _compassSubscription = FlutterCompass.events?.listen((event) {
-      if (event.heading != null) {
-        _updateHeading(event.heading!);
-      }
-    });
+    try {
+      // 1. Ler a Bússola (Direção Magnética)
+      _compassSubscription = FlutterCompass.events?.listen((event) {
+        if (event.heading != null) {
+          _updateHeading(event.heading!);
+        }
+      });
 
-    // 2. Detectar se o usuário está em movimento (acelerômetro) para filtrar ruído
-    // Nota: sensores_plus 6.x usa userAccelerometerEventStream()
-    _userAccelSubscription = userAccelerometerEventStream().listen((event) {
-      final force = event.x * event.x + event.y * event.y + event.z * event.z;
-      _isMoving = force > 1.5; // Limiar simples de movimento
-    });
+      // 2. Detectar se o usuário está em movimento (acelerômetro) para filtrar ruído
+      // Nota: sensores_plus 6.x usa userAccelerometerEventStream()
+      _userAccelSubscription = userAccelerometerEventStream().listen((event) {
+        final force = event.x * event.x + event.y * event.y + event.z * event.z;
+        _isMoving = force > 1.5; // Limiar simples de movimento
+      });
+    } catch (e) {
+      // Se há erro ao inicializar sensores, apenas ignora
+    }
   }
 
   void _updateHeading(double newHeading) {

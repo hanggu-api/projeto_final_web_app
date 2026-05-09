@@ -22,23 +22,28 @@ import 'widgets/schedule_proposal_bubble.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/realtime_service.dart';
 import '../../services/data_gateway.dart';
-import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/user_avatar.dart';
 
 class ChatScreen extends StatefulWidget {
   final String serviceId;
   final String? otherName;
   final String? otherAvatar;
+  final List<Map<String, dynamic>> initialParticipants;
+  final String? participantContextLabelOverride;
   final bool isInline;
   final VoidCallback? onClose;
+  final bool showComposer;
 
   const ChatScreen({
     super.key,
     required this.serviceId,
     this.otherName,
     this.otherAvatar,
+    this.initialParticipants = const [],
+    this.participantContextLabelOverride,
     this.isInline = false,
     this.onClose,
+    this.showComposer = true,
   });
 
   static String? activeChatServiceId;
@@ -61,22 +66,78 @@ class _ChatScreenState extends State<ChatScreen>
   List<_NavigationAppOption> _availableNavigationApps = [];
   bool _isAttachmentMenuOpen = false;
 
-  double _inlineHeight() {
-    final totalMessages = messages.length + pendingMessages.length;
-    const baseHeight = 260.0;
-    const perMessageGrowth = 44.0;
-    final rawHeight = baseHeight + (totalMessages * perMessageGrowth);
-    final maxHeight =
-        MediaQuery.of(context).size.height -
-        MediaQuery.of(context).padding.top -
-        12;
-    return rawHeight.clamp(baseHeight, maxHeight).toDouble();
+  bool get _hasMessages =>
+      messages.isNotEmpty || pendingMessages.isNotEmpty || isUploading;
+
+  List<({String label, IconData icon})> _quickReplies() {
+    final isClient = role == 'client';
+    if (isClient) {
+      return const [
+        (label: 'Estou chegando', icon: LucideIcons.mapPin),
+        (label: 'Pode me confirmar o local?', icon: LucideIcons.map),
+        (label: 'Vou me atrasar alguns minutos', icon: LucideIcons.clock3),
+      ];
+    }
+    return const [
+      (label: 'Estou indo', icon: LucideIcons.messageSquare),
+      (label: 'Espere mais 1 minuto', icon: LucideIcons.clock3),
+      (label: 'Já estou no local', icon: LucideIcons.badgeCheck),
+    ];
+  }
+
+  String _emptyStateTitle() {
+    return role == 'client' ? 'Fale com o prestador' : 'Fale com o cliente';
+  }
+
+  String _emptyStateSubtitle(String otherName) {
+    if (role == 'client') {
+      return 'Use esta conversa para combinar detalhes com $otherName, confirmar chegada ou avisar qualquer ajuste no atendimento.';
+    }
+    return 'Use esta conversa para orientar $otherName, avisar sobre chegada e alinhar detalhes do atendimento.';
+  }
+
+  String? _participantContextLabel() {
+    if (widget.participantContextLabelOverride != null &&
+        widget.participantContextLabelOverride!.trim().isNotEmpty) {
+      return widget.participantContextLabelOverride!.trim();
+    }
+    if (chatParticipants.isEmpty) return null;
+    final beneficiary = chatParticipants
+        .cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (item) => item?['role'] == 'beneficiary',
+          orElse: () => null,
+        );
+    final requester = chatParticipants.cast<Map<String, dynamic>?>().firstWhere(
+      (item) => item?['role'] == 'requester',
+      orElse: () => null,
+    );
+    if (beneficiary == null) return null;
+    final beneficiaryName = '${beneficiary['display_name'] ?? ''}'.trim();
+    if (beneficiaryName.isEmpty) return null;
+    final requesterId = '${requester?['user_id'] ?? ''}'.trim();
+    final beneficiaryId = '${beneficiary['user_id'] ?? ''}'.trim();
+    if (requesterId.isNotEmpty && requesterId == beneficiaryId) return null;
+    if (role == 'provider') {
+      return 'Atendimento para $beneficiaryName';
+    }
+    return 'Pessoa atendida: $beneficiaryName';
   }
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialParticipants.isNotEmpty) {
+      chatParticipants = widget.initialParticipants
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    _clearUnreadBadge();
     _initChat();
+  }
+
+  Future<void> _clearUnreadBadge() async {
+    await DataGateway().loadUnreadChatCount();
   }
 
   Future<void> _initChat() async {
@@ -97,7 +158,35 @@ class _ChatScreenState extends State<ChatScreen>
       }
     });
 
-    var id = await api.getMyUserId();
+    if (chatParticipants.isEmpty) {
+      final cachedParticipants = await DataGateway()
+          .loadChatParticipantsSnapshot(widget.serviceId);
+      if (!mounted || initRun != _initVersion) return;
+      if (cachedParticipants.isNotEmpty) {
+        setState(() {
+          chatParticipants = cachedParticipants;
+        });
+      }
+
+      if (chatParticipants.isEmpty) {
+        final remoteParticipants = await DataGateway()
+            .loadChatParticipantsRemote(widget.serviceId);
+        if (!mounted || initRun != _initVersion) return;
+        if (remoteParticipants.isNotEmpty) {
+          setState(() {
+            chatParticipants = remoteParticipants;
+          });
+          unawaited(
+            DataGateway().saveChatParticipantsSnapshot(
+              widget.serviceId,
+              remoteParticipants,
+            ),
+          );
+        }
+      }
+    }
+
+    String? id = (await api.getMyUserId())?.toString();
     if (!mounted || initRun != _initVersion) return;
     debugPrint('[ChatScreen] getMyUserId returned: $id');
 
@@ -110,7 +199,11 @@ class _ChatScreenState extends State<ChatScreen>
     }
 
     if (!mounted || initRun != _initVersion) return;
-    if (mounted) setState(() => myUserId = id);
+    if (mounted) {
+      setState(() {
+        myUserId = id?.toString();
+      });
+    }
     if (id != null) {
       debugPrint('[ChatScreen] Authenticating RealtimeService with: $id');
       RealtimeService().authenticate(id);
@@ -177,13 +270,17 @@ class _ChatScreenState extends State<ChatScreen>
 
     // Procurar a mensagem mais recente que não seja do próprio usuário e
     // que ainda não esteja marcada como lida.
-    final unread = sortedMsgs.firstWhere((msg) {
+    dynamic unread;
+    for (final msg in sortedMsgs) {
       final senderId = msg['sender_id'];
       final readAt = msg['read_at'] ?? msg['readAt'];
-      return senderId != null &&
+      if (senderId != null &&
           senderId.toString() != myUserId.toString() &&
-          (readAt == null || readAt.toString().isEmpty);
-    }, orElse: () => null);
+          (readAt == null || readAt.toString().isEmpty)) {
+        unread = msg;
+        break;
+      }
+    }
 
     if (unread == null) return;
 
@@ -212,7 +309,6 @@ class _ChatScreenState extends State<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
-
     if (serviceDetails == null || myUserId == null) {
       debugPrint(
         '[ChatScreen] serviceDetails or myUserId is null. Showing loader.',
@@ -275,10 +371,10 @@ class _ChatScreenState extends State<ChatScreen>
 
     String otherName = 'Usuário';
     String? otherAvatar;
-    int? otherId;
+    String? otherId;
 
     if (isMeClient) {
-      // Tentar pegar do provider ou motorista
+      // Tentar pegar do provider ou contato operacional equivalente
       otherName =
           s['provider_name']?.toString() ??
           s['professional_name']?.toString() ??
@@ -302,9 +398,9 @@ class _ChatScreenState extends State<ChatScreen>
                     s['provider']['photo']?.toString())
               : null) ??
           widget.otherAvatar;
-      otherId = otherUserId;
+      otherId = primaryChatParticipant?['user_id']?.toString() ?? otherUserId;
     } else {
-      // Tentar pegar do client ou passageiro
+      // Tentar pegar do client ou contratante equivalente
       otherName =
           s['client_name']?.toString() ??
           s['user_name']?.toString() ??
@@ -322,69 +418,118 @@ class _ChatScreenState extends State<ChatScreen>
                     s['client']['photo']?.toString())
               : null) ??
           widget.otherAvatar;
-      otherId = otherUserId;
+      otherId = primaryChatParticipant?['user_id']?.toString() ?? otherUserId;
     }
 
+    final participantContextLabel = _participantContextLabel();
+
     final chatBody = _buildChatBody(otherName);
+    final media = MediaQuery.of(context);
 
     if (widget.isInline) {
-      return AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-        height: _inlineHeight(),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundLight,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      return AnimatedPadding(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Container(
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.backgroundLight,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
+                  top: Radius.circular(24),
                 ),
-                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      otherName,
-                      style: GoogleFonts.manrope(
-                        fontSize: 14,
-                        color: AppTheme.textDark,
-                        fontWeight: FontWeight.w800,
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (widget.onClose != null)
-                    GestureDetector(
-                      onTap: widget.onClose,
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 20,
-                        color: AppTheme.textDark,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Color(0xFFEEEEEE)),
                       ),
                     ),
+                    child: Row(
+                      children: [
+                        UserAvatar(
+                          avatar: otherAvatar,
+                          name: otherName,
+                          userId: otherId,
+                          radius: 16,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                otherName,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 15,
+                                  color: AppTheme.textDark,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (participantContextLabel != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  participantContextLabel,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (widget.onClose != null)
+                          IconButton(
+                            icon: const Icon(LucideIcons.x, size: 20),
+                            onPressed: widget.onClose,
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(LucideIcons.chevronDown, size: 20),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(child: chatBody),
                 ],
               ),
-            ),
-            Expanded(child: chatBody),
-          ],
+            );
+          },
         ),
       );
     }
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white.withValues(alpha: 0.9),
+        backgroundColor: Colors.white.withOpacity(0.9),
         elevation: 0,
         centerTitle: false,
         iconTheme: const IconThemeData(color: AppTheme.textDark),
@@ -440,289 +585,396 @@ class _ChatScreenState extends State<ChatScreen>
         ),
       ),
       body: chatBody,
-      bottomNavigationBar: const AppBottomNav(currentIndex: 1),
     );
   }
 
   Widget _buildChatBody(String otherName) {
-    return Stack(
-      children: [
-        Column(
-          children: [
-            Expanded(
+    final media = MediaQuery.of(context);
+    final listBottomPadding = bottomPadding + 16 + media.padding.bottom;
+    final composerBottomPadding = widget.isInline
+        ? 8 + media.padding.bottom
+        : 12 + media.padding.bottom;
+
+    return SafeArea(
+      top: false,
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [const Color(0xFFF9FAFC), Colors.white],
+                ),
+              ),
               child: Scrollbar(
                 controller: scrollController,
                 thumbVisibility: true,
-                child: ListView.builder(
-                  controller: scrollController,
-                  reverse: true,
-                  padding: EdgeInsets.only(
-                    left: widget.isInline ? 4 : 16,
-                    right: widget.isInline ? 4 : 16,
-                    top: 10,
-                    bottom:
-                        (widget.isInline ? 120 : 180) +
-                        MediaQuery.of(context)
-                            .padding
-                            .bottom, // Space for InputArea + system nav bar
-                  ),
-                  itemCount: messages.length + pendingMessages.length,
-                  itemBuilder: (context, index) {
-                    bool isPending = false;
-                    Map<String, dynamic> msg;
-                    dynamic localContent;
-
-                    if (index < pendingMessages.length) {
-                      isPending = true;
-                      msg = pendingMessages[pendingMessages.length - 1 - index];
-                      localContent = msg['localContent'];
-                    } else {
-                      msg = messages[index - pendingMessages.length];
-                    }
-
-                    final senderIdRaw = msg['sender_id'];
-                    final isMe = isPending
-                        ? true
-                        : (myUserId != null &&
-                              senderIdRaw.toString() == myUserId.toString());
-                    final type = (msg['type'] ?? 'text').toString();
-                    final ts = (msg['created_at'] ?? msg['sent_at'])
-                        ?.toString();
-                    String time = 'Agora';
-
-                    if (ts != null) {
-                      try {
-                        final date = DateTime.tryParse(ts);
-                        if (date != null) {
-                          time = DateFormat('HH:mm').format(date.toLocal());
-                        }
-                      } catch (_) {}
-                    }
-
-                    final isRead = (msg['read_at'] ?? msg['readAt']) != null;
-                    final isSent = msg['status'] == 'sent' || isPending;
-
-                    return _buildMessageBubble(
-                      (msg['content'] ?? '').toString(),
-                      type,
-                      isMe,
-                      time,
-                      isPending: isPending,
-                      isSent: isSent,
-                      isRead: isRead,
-                      localContent: localContent,
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        // Input Area explicitly aligned to bottom
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            key: inputAreaKey,
-            padding: EdgeInsets.fromLTRB(
-              widget.isInline ? 4 : 20,
-              12,
-              widget.isInline ? 4 : 20,
-              (widget.isInline ? 12 : 32) +
-                  MediaQuery.of(context).padding.bottom,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (messages.isEmpty && pendingMessages.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Row(
-                      children: [
-                        _buildActionChip(
-                          'Estou indo',
-                          LucideIcons.messageSquare,
+                child: _hasMessages
+                    ? ListView.builder(
+                        controller: scrollController,
+                        reverse: true,
+                        padding: EdgeInsets.only(
+                          left: widget.isInline ? 4 : 16,
+                          right: widget.isInline ? 4 : 16,
+                          top: 10,
+                          bottom: listBottomPadding,
                         ),
-                        const SizedBox(width: 8),
-                        _buildActionChip(
-                          'Espere mais 1 minuto',
-                          LucideIcons.clock3,
+                        itemCount: messages.length + pendingMessages.length,
+                        itemBuilder: (context, index) {
+                          bool isPending = false;
+                          Map<String, dynamic> msg;
+                          dynamic localContent;
+
+                          if (index < pendingMessages.length) {
+                            isPending = true;
+                            msg =
+                                pendingMessages[pendingMessages.length -
+                                    1 -
+                                    index];
+                            localContent = msg['localContent'];
+                          } else {
+                            msg = messages[index - pendingMessages.length];
+                          }
+
+                          final senderIdRaw = msg['sender_id'];
+                          final isMe = isPending
+                              ? true
+                              : (myUserId != null &&
+                                    senderIdRaw.toString() ==
+                                        myUserId.toString());
+                          final type = (msg['type'] ?? 'text').toString();
+                          final ts = (msg['created_at'] ?? msg['sent_at'])
+                              ?.toString();
+                          String time = 'Agora';
+
+                          if (ts != null) {
+                            try {
+                              final date = DateTime.tryParse(ts);
+                              if (date != null) {
+                                time = DateFormat(
+                                  'HH:mm',
+                                ).format(date.toLocal());
+                              }
+                            } catch (_) {}
+                          }
+
+                          final isRead =
+                              (msg['read_at'] ?? msg['readAt']) != null;
+                          final isSent = msg['status'] == 'sent' || isPending;
+
+                          return _buildMessageBubble(
+                            (msg['content'] ?? '').toString(),
+                            type,
+                            isMe,
+                            time,
+                            isPending: isPending,
+                            isSent: isSent,
+                            isRead: isRead,
+                            localContent: localContent,
+                          );
+                        },
+                      )
+                    : SingleChildScrollView(
+                        controller: scrollController,
+                        reverse: true,
+                        padding: EdgeInsets.only(
+                          left: widget.isInline ? 16 : 24,
+                          right: widget.isInline ? 16 : 24,
+                          top: widget.isInline ? 20 : 28,
+                          bottom: listBottomPadding,
                         ),
-                      ],
-                    ),
-                  ),
-                if (_isAttachmentMenuOpen)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildAttachmentMenu(),
-                  ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: _toggleAttachmentMenu,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundLight,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          LucideIcons.plus,
-                          color: AppTheme.textDark,
-                          size: 20,
-                        ),
+                        child: _buildEmptyConversation(otherName),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: isRecording
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundLight.withValues(
-                                  alpha: 0.6,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    LucideIcons.mic,
-                                    color: Colors.red,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Gravando... ${_formatElapsed()}',
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 14,
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : TextField(
-                              controller: messageController,
-                              minLines: 1,
-                              maxLines: 4,
-                              style: GoogleFonts.manrope(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Escreva sua mensagem...',
-                                hintStyle: GoogleFonts.manrope(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 14,
-                                ),
-                                filled: true,
-                                fillColor: AppTheme.backgroundLight.withValues(
-                                  alpha: 0.5,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide.none,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                              ),
-                              onTap: _closeAttachmentMenu,
-                            ),
-                    ),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () {
-                        _closeAttachmentMenu();
-                        if (isRecording) {
-                          toggleRecord(widget.serviceId, scrollToBottom);
-                        } else {
-                          sendMessage(widget.serviceId);
-                        }
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: isRecording
-                              ? Colors.redAccent
-                              : AppTheme.primaryYellow,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (isRecording
-                                      ? Colors.redAccent
-                                      : AppTheme.primaryYellow)
-                                  .withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isRecording ? LucideIcons.square : LucideIcons.send,
-                          color: AppTheme.textDark,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-        if (isUploading)
-          Container(
-            color: Colors.black12,
-            child: Center(
+
+          if (widget.showComposer)
+            Padding(
+              key: inputAreaKey,
+              padding: EdgeInsets.only(
+                left: widget.isInline ? 4 : 20,
+                right: widget.isInline ? 4 : 20,
+                bottom: composerBottomPadding,
+                top: 8,
+              ),
               child: Container(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.isInline ? 4 : 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Enviando $uploadingType...',
-                      style: const TextStyle(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.bold,
+                    if (!_hasMessages)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: _quickReplies().map((item) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: _buildActionChip(item.label, item.icon),
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       ),
+                    if (_isAttachmentMenuOpen)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildAttachmentMenu(),
+                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: _toggleAttachmentMenu,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundLight,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              LucideIcons.plus,
+                              color: AppTheme.textDark,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: isRecording
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundLight.withOpacity(
+                                      0.6,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.mic,
+                                        color: Colors.red,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Gravando... ${_formatElapsed()}',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 14,
+                                            color: Colors.black87,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : TextField(
+                                  controller: messageController,
+                                  minLines: 1,
+                                  maxLines: 4,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Escreva sua mensagem...',
+                                    hintStyle: GoogleFonts.manrope(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 14,
+                                    ),
+                                    filled: true,
+                                    fillColor: AppTheme.backgroundLight
+                                        .withOpacity(0.5),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  onTap: _closeAttachmentMenu,
+                                ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () {
+                            _closeAttachmentMenu();
+                            if (isRecording) {
+                              toggleRecord(widget.serviceId, scrollToBottom);
+                            } else {
+                              sendMessage(widget.serviceId);
+                            }
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: isRecording
+                                  ? Colors.redAccent
+                                  : AppTheme.primaryYellow,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      (isRecording
+                                              ? Colors.redAccent
+                                              : AppTheme.primaryYellow)
+                                          .withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              isRecording
+                                  ? LucideIcons.square
+                                  : LucideIcons.send,
+                              color: AppTheme.textDark,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
+
+          if (isUploading)
+            Container(
+              color: Colors.black12,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Enviando $uploadingType...',
+                        style: const TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyConversation(String otherName) {
+    final quickReplies = _quickReplies();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFF0E4A8)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  LucideIcons.messageCircle,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                _emptyStateTitle(),
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _emptyStateSubtitle(otherName),
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Mensagens rápidas',
+          style: GoogleFonts.manrope(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textDark,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: quickReplies
+              .map((item) => _buildActionChip(item.label, item.icon))
+              .toList(),
+        ),
       ],
     );
   }
@@ -788,7 +1040,7 @@ class _ChatScreenState extends State<ChatScreen>
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -827,40 +1079,41 @@ class _ChatScreenState extends State<ChatScreen>
   Widget _buildAttachmentMenu() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200.withOpacity(0.6)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildAttachmentMenuItem(
             'Imagem',
             LucideIcons.camera,
             _handleImageSelection,
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: Colors.grey.shade200),
           _buildAttachmentMenuItem(
             'Vídeo',
             LucideIcons.video,
             _handleVideoSelection,
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: Colors.grey.shade200),
           _buildAttachmentMenuItem(
             'Áudio',
             LucideIcons.mic,
             _handleAudioAction,
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: Colors.grey.shade200),
           _buildAttachmentMenuItem(
             'Localização',
             LucideIcons.mapPin,
@@ -1194,7 +1447,7 @@ class _ChatScreenState extends State<ChatScreen>
                     value: savePreference,
                     onChanged: (value) =>
                         setState(() => savePreference = value),
-                    activeColor: AppTheme.primaryYellow,
+                    activeThumbColor: AppTheme.primaryYellow,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1446,7 +1699,7 @@ class _ChatScreenState extends State<ChatScreen>
                     width: 220,
                     height: 140,
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.4),
+                      color: Colors.black.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -1506,13 +1759,11 @@ class _ChatScreenState extends State<ChatScreen>
               bottomRight: isMe ? Radius.zero : const Radius.circular(20),
             ),
             border: isMe
-                ? Border.all(
-                    color: const Color(0xFFC7D2FE).withValues(alpha: 0.5),
-                  )
+                ? Border.all(color: const Color(0xFFC7D2FE).withOpacity(0.5))
                 : Border.all(color: Colors.grey.shade100),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withOpacity(0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1544,10 +1795,13 @@ class _ChatScreenState extends State<ChatScreen>
                         ),
                       )
                     else if (isRead)
-                      const Icon(
-                        LucideIcons.checkCheck,
-                        size: 14,
-                        color: Colors.blueAccent,
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4CAF50), // Verde de destaque
+                          shape: BoxShape.circle,
+                        ),
                       )
                     else if (isSent)
                       Icon(

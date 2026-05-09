@@ -9,9 +9,17 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../core/config/supabase_config.dart';
+import '../../core/maps/app_tile_layer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/fixed_schedule_gate.dart';
 import '../../services/api_service.dart';
 
+/// Fluxo móvel usado pela rota `/servicos`.
+///
+/// O fluxo fixo/agendado permanece isolado em:
+/// - `home_prestador_fixo.dart`
+/// - `scheduled_service_screen.dart`
 class ServiceRequestScreenMobile extends StatefulWidget {
   final Function(Map<String, dynamic> data)? onSwitchToFixed;
   final Map<String, dynamic>? initialData;
@@ -73,9 +81,25 @@ class _ServiceRequestScreenMobileState
 
   bool get _isFixed {
     final nameLower = (_aiProfessionName ?? '').toLowerCase();
-    return _aiServiceType == 'at_provider' ||
+    final taskLower = (_aiTaskName ?? '').toLowerCase();
+
+    // Lógica refinada consistente com a HomeScreen
+    final isBeauty =
+        nameLower.contains('barba') ||
         nameLower.contains('barbeiro') ||
-        nameLower.contains('cabel');
+        nameLower.contains('cabelo') ||
+        nameLower.contains('estét') ||
+        nameLower.contains('beleza') ||
+        taskLower.contains('sobrancelha') ||
+        taskLower.contains('manicure') ||
+        taskLower.contains('pedicure') ||
+        taskLower.contains('unha');
+
+    return isCanonicalFixedServiceRecord(<String, dynamic>{
+      'service_type': _aiServiceType,
+      'profession_name': _aiProfessionName,
+      'task_name': _aiTaskName,
+    }) || isBeauty;
   }
 
   @override
@@ -280,13 +304,15 @@ class _ServiceRequestScreenMobileState
         'amount': upfront,
         'total': total,
         'type': 'deposit',
+        'entityType': 'service_fixed',
+        'isFixed': true,
       },
     );
   }
 
   void _tryAutoAdvanceFromStep1AfterLocationPick() {
     if (_currentStep != 1) return;
-    if (_aiServiceType == 'at_provider') {
+    if (_isFixed) {
       return; // Should not happen if correctly switched
     }
     if (!_locationPickedByUser) return;
@@ -338,7 +364,7 @@ class _ServiceRequestScreenMobileState
       }
 
       // TRATAMENTO PARA FLUXO FIXO (AGENDADO)
-      if (_aiServiceType == 'at_provider' && widget.onSwitchToFixed != null) {
+      if (_isFixed && widget.onSwitchToFixed != null) {
         widget.onSwitchToFixed!({
           'description': _descriptionController.text,
           'profession': _aiProfessionName,
@@ -410,10 +436,8 @@ class _ServiceRequestScreenMobileState
       }
 
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
       );
 
       setState(() {
@@ -498,8 +522,6 @@ class _ServiceRequestScreenMobileState
             _aiTaskPrice = null;
           }
         });
-
-        // REMOVIDO: Switch automático. Agora o usuário clica em "Seguir para Agenda" no botão.
       }
     } catch (e) {
       debugPrint('AI Error: $e');
@@ -553,28 +575,265 @@ class _ServiceRequestScreenMobileState
       child: Column(
         children: [
           if (!_isManualSearch) ...[
-            const Text(
-              'O que você precisa?',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _descriptionController,
-              maxLines: 3,
-              onChanged: _onDescriptionChanged,
-              enabled: !_isManualSearch, // Mantendo por segurança
-              decoration: InputDecoration(
-                hintText: 'Ex: Pneu furado na rua X...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            // 1. BANNER PRINCIPAL (DESTAQUE)
+            Stack(
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    image: const DecorationImage(
+                      image: AssetImage('assets/images/hero_destaque.jpg'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
-                filled: true,
-                fillColor: Colors.white,
+                Container(
+                  width: double.infinity,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.3),
+                        Colors.black.withValues(alpha: 0.7),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 20,
+                  left: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryYellow,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'DESTAQUE',
+                      style: TextStyle(
+                        color: AppTheme.darkBlueText,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Serviços onde você\nestiver',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Eletricistas, encanadores e mecânicos prontos para atender você agora mesmo.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // 2. SEÇÃO PAGAMENTO 30/70
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF9E4),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: AppTheme.darkBlueText,
+                    size: 32,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Pague 30% na reserva e 70%\nna conclusão',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.darkBlueText,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Transparência total e segurança para o seu bolso. Você só finaliza o pagamento quando o serviço estiver pronto.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.darkBlueText.withValues(alpha: 0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 24),
+
+            // 3. BARRA DE BUSCA (UNIFICADA)
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'O que você precisa hoje?',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descriptionController,
+              maxLines: 1,
+              onChanged: (val) {
+                _onDescriptionChanged(val);
+                final v = val.toLowerCase();
+                if (v.contains('barba') ||
+                    v.contains('corte') ||
+                    v.contains('unha') ||
+                    v.contains('manicure') ||
+                    v.contains('pedicure')) {
+                  Future.delayed(const Duration(milliseconds: 1500), () {
+                    if (mounted && _descriptionController.text.length > 3) {
+                      _showRedirectSuggestion('Beleza e Bem Estar');
+                    }
+                  });
+                }
+              },
+              decoration: InputDecoration(
+                hintText: 'Ex: Eletricista para trocar chuveiro...',
+                prefixIcon: Icon(Icons.search, color: AppTheme.darkBlueText),
+                filled: true,
+                fillColor: const Color(0xFFF2F3F7),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // 4. SEÇÃO SEGURANÇA GARANTIDA
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 15,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    child: Image.asset(
+                      'assets/images/security_tools.jpg',
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: Colors.amber,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Segurança garantida',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.darkBlueText,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Todos os nossos profissionais passam por uma verificação rigorosa de antecedentes e habilidades.',
+                          style: TextStyle(
+                            color: AppTheme.darkBlueText.withValues(alpha: 0.6),
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              setState(() => _isManualSearch = true);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryYellow,
+                              foregroundColor: AppTheme.darkBlueText,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              'Explorar Categorias',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
 
-          // --- Advanced Search Toggle (Redesigned) ---
+          // 5. BOTÃO DE BUSCA AVANÇADA / MANUAL
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: InkWell(
@@ -1336,14 +1595,8 @@ class _ServiceRequestScreenMobileState
                     },
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                      subdomains: const ['a', 'b', 'c', 'd'],
-                      userAgentPackageName: 'com.play101.app',
-                      tileDimension: 512,
-                      zoomOffset: -1,
-                      maxZoom: 22,
+                    AppTileLayer.standard(
+                      mapboxToken: SupabaseConfig.mapboxToken,
                     ),
                   ],
                 ),
@@ -1732,6 +1985,53 @@ class _ServiceRequestScreenMobileState
           padding: const EdgeInsets.all(16),
           child: _buildContent(),
         ),
+      ),
+    );
+  }
+
+  void _showRedirectSuggestion(String category) {
+    if (!mounted) return;
+
+    // Evita mostrar múltiplas vezes se já estiver visível
+    if (ScaffoldMessenger.of(context).mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.auto_awesome, color: AppTheme.primaryYellow),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Parece que você busca "$category". Deseja mudar de página?',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'MUDAR',
+          textColor: AppTheme.primaryYellow,
+          onPressed: () {
+            if (category == 'Beleza e Bem Estar') {
+              context.push(
+                '/beauty-booking',
+                extra: {'q': _descriptionController.text},
+              );
+            } else {
+              context.go(
+                '/servicos',
+                extra: {'description': _descriptionController.text},
+              );
+            }
+          },
+        ),
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppTheme.darkBlueText,
       ),
     );
   }

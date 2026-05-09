@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
-import '../../services/api_service.dart';
+import 'package:go_router/go_router.dart';
+import '../../services/data_gateway.dart';
 import '../../core/theme/app_theme.dart';
 
 class ActivityScreen extends StatefulWidget {
@@ -15,7 +16,6 @@ class ActivityScreen extends StatefulWidget {
 class _ActivityScreenState extends State<ActivityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final ApiService _api = ApiService();
   bool _isLoading = true;
   List<dynamic> _services = [];
 
@@ -28,7 +28,7 @@ class _ActivityScreenState extends State<ActivityScreen>
 
   Future<void> _loadData() async {
     try {
-      final data = await _api.getMyServices();
+      final data = await DataGateway().loadMyServices();
       if (mounted) {
         setState(() {
           _services = data;
@@ -47,6 +47,16 @@ class _ActivityScreenState extends State<ActivityScreen>
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
         title: Text(
           'Atividade',
           style: GoogleFonts.manrope(
@@ -112,6 +122,15 @@ class _ActivityScreenState extends State<ActivityScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () => context.go('/home'),
+              icon: const Icon(LucideIcons.home, size: 18),
+              label: const Text('Voltar para Início'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryYellow,
+              ),
+            ),
           ],
         ),
       );
@@ -151,7 +170,7 @@ class _ActivityScreenState extends State<ActivityScreen>
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -203,7 +222,7 @@ class _ActivityScreenState extends State<ActivityScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
+              color: statusColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(

@@ -3,8 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/config/supabase_config.dart';
+import '../../../core/maps/app_tile_layer.dart';
 import '../../../core/utils/input_formatters.dart';
 
 class BusinessInfoStep extends StatefulWidget {
@@ -118,13 +119,8 @@ class _BusinessInfoStepState extends State<BusinessInfoStep> {
                         },
                       ),
                       children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${dotenv.env['MAPBOX_TOKEN'] ?? ''}',
-                          userAgentPackageName: 'com.play101.app',
-                          tileDimension: 512,
-                          zoomOffset: -1,
-                          maxZoom: 22,
+                        AppTileLayer.standard(
+                          mapboxToken: SupabaseConfig.mapboxToken,
                         ),
                         const MarkerLayer(
                           markers: [
