@@ -23,11 +23,14 @@ enum LivenessStep {
 
 class InAppCameraScreen extends StatefulWidget {
   final bool isSelfie;
-  final bool blinkOnly; // Novo parâmetro
+  final bool blinkOnly;
+  final bool forceFullLiveness;
+
   const InAppCameraScreen({
     super.key,
     this.isSelfie = false,
     this.blinkOnly = false,
+    this.forceFullLiveness = false,
   });
 
   @override
@@ -123,6 +126,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
           (!widget.isSelfie &&
               DeviceCapabilityService.instance.prefersSimplifiedDocumentScan) ||
           (widget.isSelfie &&
+              !widget.forceFullLiveness &&
               DeviceCapabilityService.instance.prefersSimplifiedFaceLiveness);
 
       if (widget.isSelfie) {

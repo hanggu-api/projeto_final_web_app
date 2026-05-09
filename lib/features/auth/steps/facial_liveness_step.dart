@@ -41,10 +41,8 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
       final dynamic result = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => const InAppCameraScreen(
-            isSelfie: true,
-            blinkOnly: true, // Modo apenas piscada solicitado pelo usuário
-          ),
+          builder: (context) =>
+              const InAppCameraScreen(isSelfie: true, forceFullLiveness: true),
         ),
       );
 
@@ -54,7 +52,7 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
           _isValidated = true;
           _error = null;
         });
-        
+
         widget.onChanged({
           ...widget.verificationData,
           'selfie_path': result.path,
@@ -94,7 +92,7 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
-          
+
           if (!_isValidated) ...[
             Center(
               child: Container(
@@ -130,9 +128,22 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildInstructionItem(Icons.videocam, 'Enquadre seu rosto no círculo'),
-            _buildInstructionItem(Icons.remove_red_eye, 'Pisque os olhos quando solicitado'),
-            _buildInstructionItem(Icons.light_mode, 'Certifique-se de estar em um local iluminado'),
+            _buildInstructionItem(
+              Icons.videocam,
+              'Enquadre seu rosto no círculo',
+            ),
+            _buildInstructionItem(
+              Icons.record_voice_over,
+              'Siga as instruções faladas',
+            ),
+            _buildInstructionItem(
+              Icons.remove_red_eye,
+              'Pisque e vire a cabeça quando solicitado',
+            ),
+            _buildInstructionItem(
+              Icons.light_mode,
+              'Certifique-se de estar em um local iluminado',
+            ),
           ] else ...[
             Center(
               child: Stack(
@@ -158,7 +169,11 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
                         color: Colors.green,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check, color: Colors.white, size: 30),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                   ),
                 ],
@@ -186,11 +201,13 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
           ],
 
           const SizedBox(height: 48),
-          
+
           ElevatedButton(
             onPressed: _startLiveness,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isValidated ? Colors.grey.shade200 : AppTheme.primaryYellow,
+              backgroundColor: _isValidated
+                  ? Colors.grey.shade200
+                  : AppTheme.primaryYellow,
               foregroundColor: AppTheme.textDark,
               minimumSize: const Size.fromHeight(56),
               shape: RoundedRectangleBorder(
@@ -238,7 +255,10 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.manrope(fontSize: 14, color: Colors.grey.shade700),
+              style: GoogleFonts.manrope(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+              ),
             ),
           ),
         ],

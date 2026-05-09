@@ -1,5 +1,34 @@
 # RELATORIO DEV
 
+## 2026-05-09 - Prova de vida do cadastro volta ao modo normal completo
+
+### Alterações Realizadas
+
+- Ajustado `lib/features/auth/steps/facial_liveness_step.dart` para abrir a câmera de prova de vida sem `blinkOnly`.
+- Ajustado `lib/features/shared/widgets/in_app_camera_screen.dart` para permitir forçar o liveness completo mesmo quando o aparelho preferiria o modo simplificado.
+- O cadastro de prestador agora usa `forceFullLiveness: true`, preservando o fluxo normal com instruções faladas, piscada, virar a cabeça para esquerda/direita e fixar o rosto.
+- Atualizadas as instruções visuais da etapa para mencionar que o usuário deve seguir as instruções faladas e fazer os movimentos solicitados.
+
+### Efeito prático
+
+- A primeira etapa do cadastro de prestador deixa de ser o modo leve de apenas piscada/captura simplificada.
+- A prova de vida volta ao comportamento esperado da versão boa: desafio completo guiado por voz.
+
+### Arquivos Impactados
+
+- `lib/features/auth/steps/facial_liveness_step.dart`
+- `lib/features/shared/widgets/in_app_camera_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/steps/facial_liveness_step.dart lib/features/shared/widgets/in_app_camera_screen.dart`
+  - `flutter analyze --no-pub lib/features/auth/steps/facial_liveness_step.dart lib/features/shared/widgets/in_app_camera_screen.dart`
+- Resultado:
+  - arquivos Dart formatados;
+  - `No issues found!`
+
 ## 2026-05-09 - Build Web publicado passa a ser referencia absoluta de restauracao
 
 ### Alterações Realizadas
