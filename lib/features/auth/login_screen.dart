@@ -255,19 +255,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final cpf = row['document_value'] as String?;
       final birthDate = row['birth_date'] as String?;
+      final faceImageUrl = row['face_image_url'] as String?;
 
       final hasCpf = cpf != null && cpf.isNotEmpty;
       final hasBirthDate = birthDate != null && birthDate.isNotEmpty;
+      final hasLiveness = faceImageUrl != null && faceImageUrl.isNotEmpty;
 
-      if (!hasCpf || !hasBirthDate) {
+      if (!hasCpf || !hasBirthDate || !hasLiveness) {
         debugPrint(
-          '⚠️ [Login] Usuário Google sem CPF/nascimento → /cpf-completion',
+          '⚠️ [Login] Usuário Google sem CPF/nascimento/prova de vida → /cpf-completion',
         );
         if (mounted) context.go('/cpf-completion');
         return;
       }
 
-      debugPrint('✅ [Login] CPF verificado → redirecionando normalmente');
+      debugPrint(
+        '✅ [Login] CPF e prova de vida verificados → redirecionando normalmente',
+      );
       _redirectUserBasedOnRole();
     } catch (e) {
       debugPrint('⚠️ [Login] Erro ao verificar CPF (fallback normal): $e');

@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../services/pending_service_video_upload_queue.dart';
 
 class ServiceVideoUploadScreen extends StatefulWidget {
   final String serviceId;
@@ -32,6 +33,7 @@ class _ServiceVideoUploadScreenState extends State<ServiceVideoUploadScreen> {
   bool _isUploading = true;
   bool _isCompleting = false;
   String? _error;
+  String? _pendingUploadId;
 
   @override
   void initState() {
@@ -56,6 +58,13 @@ class _ServiceVideoUploadScreenState extends State<ServiceVideoUploadScreen> {
     });
 
     try {
+      _pendingUploadId ??= await PendingServiceVideoUploadQueue.instance
+          .enqueue(
+            serviceId: widget.serviceId,
+            videoBytes: widget.videoBytes,
+            filename: widget.filename,
+            completionCode: widget.completionCode,
+          );
       final videoKey = await _uploadVideoWithRetry();
       if (!mounted) return;
 
@@ -73,6 +82,7 @@ class _ServiceVideoUploadScreenState extends State<ServiceVideoUploadScreen> {
         proofVideo: videoKey,
       );
 
+      await PendingServiceVideoUploadQueue.instance.remove(_pendingUploadId);
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
@@ -80,7 +90,8 @@ class _ServiceVideoUploadScreenState extends State<ServiceVideoUploadScreen> {
       setState(() {
         _isUploading = false;
         _isCompleting = false;
-        _error = 'Não foi possível enviar o vídeo: $e';
+        _error =
+            'Não foi possível enviar agora. O vídeo ficou salvo neste aparelho e será reenviado automaticamente quando a conexão voltar: $e';
       });
     }
   }
@@ -94,6 +105,7 @@ class _ServiceVideoUploadScreenState extends State<ServiceVideoUploadScreen> {
         return await _api.uploadServiceVideo(
           widget.videoBytes,
           filename: widget.filename,
+          mimeType: 'video/mp4',
           onProgress: (progress) {
             if (!mounted) return;
             setState(() => _progress = progress.clamp(0, 1).toDouble());
@@ -174,7 +186,7 @@ class _ServiceVideoUploadScreenState extends State<ServiceVideoUploadScreen> {
                   _isCompleting
                       ? 'O vídeo já subiu. Estamos registrando a finalização com segurança.'
                       : _error ??
-                            'Mantenha esta tela aberta até terminar. Como o vídeo é grande, isso evita perder o envio antes de fechar.',
+                            'O vídeo já foi protegido no aparelho antes do upload. Se a conexão cair, o app tenta reenviar automaticamente quando voltar.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     height: 1.45,

@@ -112,19 +112,6 @@ class TrackingFinalActionsSection extends StatelessWidget {
       );
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orange.withOpacity(0.35)),
-      ),
-      child: const Text(
-        'Cancelamento indisponível: prestador a menos de 100m.',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }

@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../core/utils/product_scope_gate.dart';
 import '../../services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
@@ -1057,6 +1058,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Future<void> _handleBooking(Map<String, dynamic> service) async {
+    if (!ProductScopeGate.isSalonSchedulingEnabled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Agendamento de salão está indisponível no momento.'),
+        ),
+      );
+      return;
+    }
     final profile = Map<String, dynamic>.from(_profile ?? const {});
     final providerPayload = <String, dynamic>{
       'id': widget.providerId,
@@ -1083,7 +1093,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       },
     );
   }
-
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {

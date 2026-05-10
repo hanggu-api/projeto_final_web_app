@@ -1,4 +1,5 @@
 import '../network/backend_api_client.dart';
+import '../../services/api_service.dart';
 import 'backend_active_service_state.dart';
 import 'backend_tracking_snapshot_state.dart';
 
@@ -26,6 +27,7 @@ class BackendTrackingApi {
     );
     final decoded = await _client.getJson(
       '/api/v1/tracking/services/$encodedServiceId?scope=$encodedScope',
+      timeout: const Duration(seconds: 20),
     );
     if (decoded == null) return null;
     final data = (decoded['data'] as Map?)?.cast<String, dynamic>() ?? decoded;
@@ -38,6 +40,7 @@ class BackendTrackingApi {
   Future<BackendTrackingSnapshotState?> fetchTrackingSnapshot(
     String serviceId, {
     required String scope,
+    String? role,
   }) async {
     final normalizedServiceId = serviceId.trim();
     if (normalizedServiceId.isEmpty) return null;
@@ -45,11 +48,24 @@ class BackendTrackingApi {
     final encodedScope = Uri.encodeQueryComponent(
       scope.trim().isEmpty ? 'auto' : scope,
     );
+    final normalizedRole = role?.trim();
+    final roleQuery = normalizedRole == null || normalizedRole.isEmpty
+        ? ''
+        : '&role=${Uri.encodeQueryComponent(normalizedRole)}';
     final decoded = await _client.getJson(
-      '/api/v1/tracking/services/$encodedServiceId/snapshot?scope=$encodedScope',
+      '/api/v1/tracking/services/$encodedServiceId/snapshot?scope=$encodedScope$roleQuery',
+      timeout: const Duration(seconds: 20),
     );
     if (decoded == null) return null;
-    return BackendTrackingSnapshotState.fromJson(decoded);
+    final parsedScope = ServiceDataScope.values.firstWhere(
+      (item) => item.name == scope,
+      orElse: () => ServiceDataScope.auto,
+    );
+    return BackendTrackingSnapshotState.fromJson(
+      decoded,
+      scope: parsedScope,
+      role: normalizedRole,
+    );
   }
 
   Future<bool> confirmFinalService(
@@ -133,6 +149,7 @@ class BackendTrackingApi {
     final decoded = await _client.postJson(
       '/api/v1/tracking/services/$encodedServiceId/propose-schedule',
       body: {'scheduledAt': scheduledAt.toUtc().toIso8601String()},
+      throwOnClientError: true,
     );
     return decoded != null;
   }

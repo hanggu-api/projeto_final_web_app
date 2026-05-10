@@ -29,6 +29,7 @@ import '../../widgets/ios_date_time_picker.dart';
 import 'mixins/home_realtime_mixin.dart';
 import 'mixins/home_service_mixin.dart';
 import 'models/home_stage.dart';
+import 'mobile_service_request_review_screen.dart';
 import 'upcoming_appointment_details_screen.dart';
 import 'home_state.dart';
 import 'mixins/home_location_mixin.dart';
@@ -87,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, Set<String>> _synonymLexicon = {};
   static const String _synonymLexiconCacheKey = 'home_synonym_lexicon_v1';
   bool _deferredStartupScheduled = false;
-  bool _openingHomeSearch = false;
   int _servicesListenerRetryAttempt = 0;
   DateTime? _lastServicesRealtimeErrorLogAt;
   String? _lastServicesRealtimeErrorSignature;
@@ -117,6 +117,40 @@ class _HomeScreenState extends State<HomeScreen>
   bool get _shouldEnableMapLiveSensors =>
       !DeviceCapabilityService.instance.prefersLightweightMaps &&
       (_isExecutingActiveService || isPickingOnMap);
+
+  void _activateInlineHomeSearch() {
+    if (isSearchExpanded && _sheetController.isAttached) {
+      _sheetController.animateTo(
+        1.0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+    setState(() => isSearchExpanded = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.isAttached) return;
+      _sheetController.animateTo(
+        1.0,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  void _closeInlineHomeSearch() {
+    if (!isSearchExpanded) return;
+    FocusScope.of(context).unfocus();
+    setState(() => isSearchExpanded = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.isAttached) return;
+      _sheetController.animateTo(
+        0.58,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
 
   String _formatCurrency(dynamic value) {
     final amount = value is num
@@ -808,22 +842,143 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _openServicesQuickAccess() {
-    context.push('/home-search');
+    _activateInlineHomeSearch();
   }
 
   void _openServicesQuickAccessWithQuery(String rawQuery) {
     final query = rawQuery.trim();
-    if (query.length < 2) return;
-    if (_openingHomeSearch) return;
-    _openingHomeSearch = true;
-    context.push('/home-search', extra: {'query': query});
-    Future<void>.delayed(const Duration(milliseconds: 500), () {
-      _openingHomeSearch = false;
-    });
+    if (query.isEmpty) {
+      _closeInlineHomeSearch();
+      return;
+    }
+    _activateInlineHomeSearch();
   }
 
   void _openBeautyQuickAccess() {
     context.push('/home-search', extra: {'query': 'beleza'});
+  }
+
+  Future<void> _handleInlineHomeSuggestionSelected(
+    Map<String, dynamic> suggestion,
+  ) async {
+    final query = _stringValue(suggestion['task_name'] ?? suggestion['name']);
+    if (query.isEmpty) return;
+
+    if ((suggestion['kind'] ?? '').toString() == 'provider_profile') {
+      final providerId = int.tryParse('${suggestion['provider_id'] ?? ''}');
+      if (providerId == null) return;
+      await context.push('/provider-profile', extra: providerId);
+      return;
+    }
+
+    var effectiveSuggestion = Map<String, dynamic>.from(suggestion);
+    final hasExplicitType =
+        _stringValue(effectiveSuggestion['service_type']).isNotEmpty ||
+        (effectiveSuggestion['service'] is Map &&
+            _stringValue(
+              (effectiveSuggestion['service'] as Map)['service_type'],
+            ).isNotEmpty);
+
+    if (!hasExplicitType) {
+      try {
+        final classified = await _api.classifyService(query);
+        final classifiedType = _stringValue(classified['service_type']);
+        if (classifiedType.isNotEmpty) {
+          effectiveSuggestion['service_type'] = classifiedType;
+        }
+        final classifiedProfession = _stringValue(classified['profissao']);
+        if (classifiedProfession.isNotEmpty &&
+            _stringValue(effectiveSuggestion['profession_name']).isEmpty) {
+          effectiveSuggestion['profession_name'] = classifiedProfession;
+        }
+        effectiveSuggestion['service'] = <String, dynamic>{
+          if (effectiveSuggestion['service'] is Map)
+            ...(effectiveSuggestion['service'] as Map).cast<String, dynamic>(),
+          'task_name': _stringValue(classified['task_name'], fallback: query),
+          'profession_name': classifiedProfession,
+          'profession_id': classified['profession_id'],
+          'service_type': classifiedType,
+          'task_id': classified['task_id'],
+        }..removeWhere((_, value) => value == null);
+      } catch (_) {
+        // Mantem fallback heuristico abaixo.
+      }
+    }
+
+    final suggestionType = _resolveInlineSuggestionServiceType(
+      effectiveSuggestion,
+    );
+    if (suggestionType == 'at_provider') {
+      await context.push(
+        '/beauty-booking',
+        extra: {'q': query, 'service': effectiveSuggestion},
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            MobileServiceRequestReviewScreen(suggestion: effectiveSuggestion),
+      ),
+    );
+  }
+
+  String _resolveInlineSuggestionServiceType(Map<String, dynamic> suggestion) {
+    final raw =
+        (suggestion['service_type'] ??
+                (suggestion['service'] is Map
+                    ? (suggestion['service'] as Map)['service_type']
+                    : null) ??
+                '')
+            .toString()
+            .trim()
+            .toLowerCase();
+    if (raw == 'on_site' || raw == 'at_provider' || raw == 'fixed') {
+      return raw == 'fixed' ? 'at_provider' : raw;
+    }
+
+    final seed = <String, dynamic>{
+      if (suggestion['service'] is Map)
+        ...(suggestion['service'] as Map).cast<String, dynamic>(),
+      ...suggestion,
+    };
+    if (isCanonicalFixedServiceRecord(seed)) return 'at_provider';
+
+    final taskName = _stringValue(
+      suggestion['task_name'] ??
+          suggestion['name'] ??
+          (suggestion['service'] is Map
+              ? (suggestion['service'] as Map)['task_name']
+              : ''),
+    ).toLowerCase();
+    final profession = _stringValue(
+      suggestion['profession_name'] ??
+          (suggestion['service'] is Map
+              ? (suggestion['service'] as Map)['profession_name']
+              : ''),
+    ).toLowerCase();
+    final category = _stringValue(
+      suggestion['category_name'] ??
+          (suggestion['service'] is Map
+              ? (suggestion['service'] as Map)['category_name']
+              : ''),
+    ).toLowerCase();
+
+    final looksFixed =
+        profession.contains('barba') ||
+        profession.contains('barbe') ||
+        profession.contains('cabelo') ||
+        profession.contains('estet') ||
+        profession.contains('beleza') ||
+        category.contains('beleza') ||
+        taskName.contains('manicure') ||
+        taskName.contains('pedicure') ||
+        taskName.contains('sobrancelha') ||
+        taskName.contains('unha');
+
+    return looksFixed ? 'at_provider' : 'on_site';
   }
 
   List<Map<String, dynamic>> _buildProfessionQuickAccessItems(
@@ -1154,13 +1309,18 @@ class _HomeScreenState extends State<HomeScreen>
         final backendServices = List<Map<String, dynamic>>.from(
           snapshot.services,
         );
+        final activeService = _pickClientHomeActiveServiceFromSnapshot(
+          snapshot,
+        );
         if (mounted) {
           setState(() {
             servicesList = backendServices;
             _activeServiceForBanner =
-                snapshot.activeService ??
-                _pickLatestActiveService(backendServices);
+                shouldKeepClientOnHomeForMobileService(activeService)
+                ? activeService
+                : null;
           });
+          _redirectClientActiveServiceIfNeeded(activeService);
         }
         return;
       }
@@ -1193,9 +1353,7 @@ class _HomeScreenState extends State<HomeScreen>
       Map<String, dynamic>? service;
 
       final snapshot = await _fetchBackendHomeSnapshot(force: true);
-      service = snapshot?.activeService == null
-          ? null
-          : Map<String, dynamic>.from(snapshot!.activeService!);
+      service = _pickClientHomeActiveServiceFromSnapshot(snapshot);
 
       if (!mounted || service == null || service['id'] == null) return;
 
@@ -1258,6 +1416,31 @@ class _HomeScreenState extends State<HomeScreen>
 
   bool _shouldShowHomeReturningServiceBanner(Map<String, dynamic>? service) {
     return shouldKeepClientOnHomeForMobileService(service);
+  }
+
+  Map<String, dynamic>? _pickClientHomeActiveServiceFromSnapshot(
+    BackendClientHomeState? snapshot,
+  ) {
+    if (snapshot == null) return null;
+    if (snapshot.activeService != null) {
+      return Map<String, dynamic>.from(snapshot.activeService!);
+    }
+    return _pickLatestActiveService(snapshot.services);
+  }
+
+  void _redirectClientActiveServiceIfNeeded(Map<String, dynamic>? service) {
+    if (!mounted || _shouldSuppressAutoNavigation || service == null) return;
+    final serviceId = (service['id'] ?? '').toString().trim();
+    if (serviceId.isEmpty) return;
+
+    if (_isFixedReadyForScheduledScreen(service) ||
+        shouldClientOpenTrackingForMobileService(service) ||
+        shouldClientOpenMobileProviderSearch(service)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.go(resolveClientActiveServiceRoute(service, serviceId));
+      });
+    }
   }
 
   DateTime? _parseHomeScheduleDateTime(dynamic raw) {
@@ -1507,7 +1690,6 @@ class _HomeScreenState extends State<HomeScreen>
 
     final status = '${current['status'] ?? ''}'.trim().toLowerCase();
     if (status != 'schedule_proposed') return;
-    if (_isClientScheduleProposalForHome(current)) return;
 
     final serviceId = '${current['id'] ?? ''}'.trim();
     if (serviceId.isEmpty) return;
@@ -2634,7 +2816,7 @@ class _HomeScreenState extends State<HomeScreen>
     final shouldShowWaitingServiceBanner =
         _shouldShowHomeReturningServiceBanner(_activeServiceForBanner);
     final homeStage = HomeStageResolver.resolve(
-      isSearchMode: false,
+      isSearchMode: isSearchExpanded,
       hasPendingFixedPaymentBanner: _pendingFixedPaymentBanner != null,
       hasUpcomingAppointment: _upcomingAppointment != null,
       showWaitingServiceBanner: shouldShowWaitingServiceBanner,
@@ -2696,7 +2878,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   HomeStagePanelBody(
                     stage: stage,
-                    isSearchMode: false,
+                    isSearchMode: homeStage.isSearchMode,
                     hasBlockingService: hasBlockingService,
                     searchModeHeader: null,
                     pendingFixedPaymentBanner:
@@ -2709,23 +2891,22 @@ class _HomeScreenState extends State<HomeScreen>
                         : null,
                     searchBar: HomeSearchBar(
                       key: const ValueKey('home-inline-search-bar'),
-                      currentAddress: pickupController.text.isNotEmpty
-                          ? pickupController.text
-                          : null,
-                      isLoadingLocation: isLocating || pickupLocation == null,
+                      currentAddress: 'O que você precisa hoje?',
+                      isLoadingLocation: false,
                       isEnabled: true,
-                      autoFocus: false,
+                      autoFocus: homeStage.isSearchMode,
+                      prominent: homeStage.isSearchMode,
                       onTap: _openServicesQuickAccess,
                       onServiceTypeSelected: null,
-                      onSuggestionSelected: null,
+                      onSuggestionSelected: _handleInlineHomeSuggestionSelected,
                       onQueryChanged: _openServicesQuickAccessWithQuery,
                       onQuerySubmitted: _openServicesQuickAccessWithQuery,
-                      onCloseTap: null,
+                      onCloseTap: _closeInlineHomeSearch,
                       autocompleteItems: const [],
                       seedQuery: '',
                       seedVersion: 0,
-                      launcherMode: true,
-                      useInternalSearch: false,
+                      launcherMode: false,
+                      useInternalSearch: true,
                     ),
                     waitingServiceBanner: homeStage.showWaitingServiceBanner
                         ? _buildWaitingServiceBanner(_activeServiceForBanner!)

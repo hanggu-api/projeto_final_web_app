@@ -306,18 +306,21 @@ class _RegisterScreenState extends State<RegisterScreen>
   List<Widget> get _steps {
     final steps = <Widget>[];
 
-    if (!_isClient) {
-      steps.add(
-        FacialLivenessStep(
-          verificationData: _verificationData,
-          onSubmit: _submit,
-          onChanged: (data) {
-            setState(() => _verificationData = data);
-            _saveState();
-          },
-        ),
-      );
+    steps.add(
+      FacialLivenessStep(
+        verificationData: _verificationData,
+        onSubmit: _submit,
+        onChanged: (data) {
+          setState(() => _verificationData = data);
+          _saveState();
+          if (data['liveness_validated'] == true) {
+            _nextPage();
+          }
+        },
+      ),
+    );
 
+    if (!_isClient) {
       steps.add(
         ProfessionStep(
           selectedProfession: _selectedProfession,
@@ -641,12 +644,13 @@ class _RegisterScreenState extends State<RegisterScreen>
         _botMotherNameController.text.trim().isNotEmpty)
       return;
     if (_confirmPasswordController.text != _passwordController.text) return;
-    if (!_isClient && _verificationData['liveness_validated'] != true) return;
+    if (_verificationData['liveness_validated'] != true) return;
 
     setState(() => _isLoading = true);
     try {
       final api = ApiService();
       String role = _isClient ? 'client' : 'provider';
+      final effectiveSubRole = _effectiveProviderSubRole();
       final professionName = _isClient ? null : _selectedProfession?['name'];
       final docClean = _docController.text.replaceAll(RegExp(r'\D'), '');
 
@@ -664,7 +668,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
         role: role,
-        subRole: _effectiveProviderSubRole(),
+        subRole: effectiveSubRole,
         documentValue: docClean,
         documentType: docClean.length > 11 ? 'cnpj' : 'cpf',
         birthDate: _birthDateIso(),
@@ -672,7 +676,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         commercialName: _businessNameController.text.isNotEmpty
             ? _businessNameController.text
             : null,
-        address: _addressController.text.trim().isNotEmpty
+        address: role == 'provider' && effectiveSubRole == 'mobile'
+            ? null
+            : _addressController.text.trim().isNotEmpty
             ? _addressController.text.trim()
             : (role == 'provider' ? 'Imperatriz - MA' : null),
         latitude: _latitude ?? (role == 'provider' ? -5.5265 : null),
@@ -798,6 +804,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                     child: ElevatedButton(
                       onPressed: (_isLoading || _isValidatingData)
                           ? null
+                          : (steps[_currentStep] is BasicInfoStep &&
+                                !_basicInfoStepValid)
+                          ? null
                           : () {
                               final s = steps[_currentStep];
                               if (s is BasicInfoStep) {
@@ -815,6 +824,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.textDark,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFFE5E7EB),
+                        disabledForegroundColor: AppTheme.textMuted,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),

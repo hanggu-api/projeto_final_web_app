@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -77,14 +79,114 @@ class ApiMediaStorage {
     List<int> bytes, {
     String filename = 'video.mp4',
     String? mimeType,
-  }) {
-    return directUpload(
-      'service_media',
-      'videos',
+  }) async {
+    return _uploadServiceVideoToCloudinary(
       bytes,
-      filename,
-      mimeType ?? 'video/mp4',
+      filename: filename,
+      mimeType: mimeType ?? 'video/mp4',
     );
+  }
+
+  Future<String> _uploadServiceVideoToCloudinary(
+    List<int> bytes, {
+    required String filename,
+    required String mimeType,
+  }) async {
+    if (bytes.isEmpty) {
+      throw _exceptionFactory(
+        message: 'Vídeo vazio. Grave novamente antes de enviar.',
+        statusCode: 400,
+      );
+    }
+
+    final normalizedFilename = filename.trim().isEmpty
+        ? 'service_evidence.mp4'
+        : filename.trim();
+    final ext = normalizedFilename.contains('.')
+        ? normalizedFilename.split('.').last
+        : 'mp4';
+    final publicId =
+        'service_${DateTime.now().millisecondsSinceEpoch}_${const Uuid().v4().substring(0, 8)}';
+
+    try {
+      final signResponse = await Supabase.instance.client.functions.invoke(
+        'cloudinary-sign-upload',
+        body: {
+          'resourceType': 'video',
+          'folder': 'service_media/videos',
+          'publicId': publicId,
+        },
+      );
+      final data = signResponse.data;
+      final map = data is Map ? data.cast<String, dynamic>() : null;
+      if (map == null) {
+        throw Exception('Resposta inválida da assinatura Cloudinary.');
+      }
+
+      final cloudName = '${map['cloud_name'] ?? ''}'.trim();
+      final apiKey = '${map['api_key'] ?? ''}'.trim();
+      final timestamp = '${map['timestamp'] ?? ''}'.trim();
+      final signature = '${map['signature'] ?? ''}'.trim();
+      final folder = '${map['folder'] ?? 'service_media/videos'}'.trim();
+      final signedPublicId = '${map['public_id'] ?? publicId}'.trim();
+      if ([
+        cloudName,
+        apiKey,
+        timestamp,
+        signature,
+        signedPublicId,
+      ].any((item) => item.isEmpty)) {
+        throw Exception('Assinatura Cloudinary incompleta.');
+      }
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.https('api.cloudinary.com', '/v1_1/$cloudName/video/upload'),
+      );
+      request.fields.addAll({
+        'api_key': apiKey,
+        'timestamp': timestamp,
+        'signature': signature,
+        'folder': folder,
+        'public_id': signedPublicId,
+      });
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: normalizedFilename.contains('.')
+              ? normalizedFilename
+              : '$normalizedFilename.$ext',
+          contentType: MediaType.parse(mimeType),
+        ),
+      );
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(
+          'Cloudinary HTTP ${response.statusCode}: ${response.body}',
+        );
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw Exception('Resposta inválida do Cloudinary.');
+      }
+      final secureUrl = '${decoded['secure_url'] ?? decoded['url'] ?? ''}'
+          .trim();
+      if (secureUrl.isEmpty) {
+        throw Exception('Cloudinary não retornou URL do vídeo.');
+      }
+      debugPrint('[Cloudinary] Service video uploaded successfully.');
+      return secureUrl;
+    } catch (e) {
+      debugPrint('❌ [Cloudinary] Upload service video error: $e');
+      throw _exceptionFactory(
+        message:
+            'Falha no upload do vídeo para o Cloudinary. O app tentará reenviar quando a conexão voltar: $e',
+        statusCode: 503,
+      );
+    }
   }
 
   Future<String> uploadServiceAudio(

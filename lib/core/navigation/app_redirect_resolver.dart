@@ -1,4 +1,5 @@
 import 'app_navigation_policy.dart';
+import '../utils/product_scope_gate.dart';
 
 typedef ActiveServiceFinder = Future<Map<String, dynamic>?> Function();
 typedef ProviderActiveRouteResolver = Future<String?> Function();
@@ -71,6 +72,11 @@ class AppRedirectResolver {
     final activeService = await findActiveService();
     if (activeService != null) {
       final isFixed = policy.isFixedService(activeService);
+      if (isFixed && !ProductScopeGate.isSalonSchedulingEnabled) {
+        if (snapshot.isScheduledServiceRoute) return '/home';
+        if (policy.role == 'provider') return policy.resolveProviderBaseRoute();
+        return policy.resolveDefaultLoggedInRoute();
+      }
 
       if (policy.role == 'provider') {
         final providerAllowedWhileFixedActive = <String>{

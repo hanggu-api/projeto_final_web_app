@@ -33,5 +33,17 @@ void main() {
 
       expect(route, '/service-tracking/svc-3');
     });
+
+    test('proposta de agendamento movel abre tracking', () {
+      final route = resolveClientActiveServiceRoute({
+        'id': 'svc-4',
+        'status': 'schedule_proposed',
+        'is_fixed': false,
+        'schedule_proposed_by_user_id': 'client-1',
+        'client_id': 'client-1',
+      }, 'svc-4');
+
+      expect(route, '/service-tracking/svc-4');
+    });
   });
 }

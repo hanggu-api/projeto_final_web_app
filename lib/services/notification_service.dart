@@ -55,6 +55,7 @@ const String _scheduleProposalChannelIdBg = 'schedule_proposals_channel_v1';
 const String _androidOrderSoundKey = 'notification_order';
 const String _androidMessageSoundKey = 'notification_message';
 const String _androidPaymentSoundKey = 'notification_payment';
+const String _androidInitializationIcon = '@mipmap/ic_launcher';
 
 const String _iosOrderSoundName = 'notification_order.caf';
 const String _iosMessageSoundName = 'notification_message.caf';
@@ -415,7 +416,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         FlutterLocalNotificationsPlugin();
 
     const androidInit = AndroidInitializationSettings(
-      '@drawable/ic_notification_small',
+      _androidInitializationIcon,
     );
     const initSettings = InitializationSettings(android: androidInit);
     await localNotifications.initialize(settings: initSettings);
@@ -1035,7 +1036,7 @@ class NotificationService {
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         try {
           const androidSettings = AndroidInitializationSettings(
-            '@drawable/ic_notification_small',
+            _androidInitializationIcon,
           );
           const iosSettings = DarwinInitializationSettings(
             requestAlertPermission: true,

@@ -8,7 +8,6 @@ class RouteKeyRegistry {
     'client_settings': '/client-settings',
     'provider_profile': '/provider-profile',
     'service_request_mobile': '/servicos',
-    'service_request_fixed': '/beauty-booking',
   };
 
   static bool isAllowed(String routeKey) => routes.containsKey(routeKey);

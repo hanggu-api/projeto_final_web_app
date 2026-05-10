@@ -95,7 +95,8 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
       if (location.startsWith('/my-provider-profile') ||
           location.startsWith('/driver-settings') ||
           location.startsWith('/provider-settings') ||
-          location.startsWith('/client-settings')) {
+          location.startsWith('/client-settings') ||
+          location.startsWith('/menu')) {
         return 2;
       }
     } else {
@@ -114,7 +115,8 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
       if (location.startsWith('/chats')) {
         return 1;
       }
-      if (location.startsWith('/client-settings')) {
+      if (location.startsWith('/client-settings') ||
+          location.startsWith('/menu')) {
         return 2;
       }
     }

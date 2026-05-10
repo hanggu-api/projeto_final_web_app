@@ -1395,6 +1395,7 @@ class _ServiceTrackingPageState extends State<ServiceTrackingPage>
       return await _backendTrackingApi.fetchTrackingSnapshot(
         widget.serviceId,
         scope: widget.scope.name,
+        role: 'client',
       );
     } catch (e) {
       if (force) {
@@ -2635,6 +2636,7 @@ class _ServiceTrackingPageState extends State<ServiceTrackingPage>
     }
 
     final service = _service;
+    final backendViewState = _latestBackendTrackingSnapshot?.viewState;
     final backendPaymentSummary =
         _latestBackendTrackingSnapshot?.paymentSummary;
     final backendFinalActions = _latestBackendTrackingSnapshot?.finalActions;
@@ -2786,29 +2788,42 @@ class _ServiceTrackingPageState extends State<ServiceTrackingPage>
         effectiveStatus.toLowerCase().trim() == 'in_progress' &&
         remainingPaid &&
         service?['started_at'] == null;
-    final resolvedHeadline = providerReadyToStart
+    final resolvedHeadline =
+        (backendViewState?.title.trim().isNotEmpty ?? false)
+        ? backendViewState!.title.trim()
+        : providerReadyToStart
         ? 'Pagamento confirmado'
         : displayHeadline;
     final searchingProviderMessage =
-        showSearchingProviderInfo &&
-            (_dispatchSubtitleOverride?.trim().isNotEmpty ?? false)
+        (backendViewState?.message.trim().isNotEmpty ?? false)
+        ? backendViewState!.message.trim()
+        : showSearchingProviderInfo &&
+              (_dispatchSubtitleOverride?.trim().isNotEmpty ?? false)
         ? _dispatchSubtitleOverride!.trim()
         : 'Pagamento confirmado. Estamos buscando um prestador disponível para você.';
 
-    final bool showConfirm =
-        backendFinalActions?['showConfirm'] == true ||
-        isAwaitingConfirmationStage;
+    final bool hasBackendFinalActions = backendFinalActions != null;
+    final bool showConfirm = hasBackendFinalActions
+        ? backendFinalActions['showConfirm'] == true
+        : isAwaitingConfirmationStage;
     final String completionCode =
-        (service?['completion_code'] ?? service?['verification_code'] ?? '')
+        (backendFinalActions?['completionCode'] ??
+                backendFinalActions?['completion_code'] ??
+                service?['completion_code'] ??
+                service?['verification_code'] ??
+                service?['proof_code'] ??
+                service?['validation_code'] ??
+                '')
             .toString()
             .trim();
     final bool showCompletionCode =
-        completionCode.isNotEmpty &&
-        [
-          'awaiting_confirmation',
-          'waiting_client_confirmation',
-          'in_progress',
-        ].contains(effectiveStatus.toLowerCase().trim());
+        backendFinalActions?['showCompletionCode'] == true ||
+        (completionCode.isNotEmpty &&
+            [
+              'awaiting_confirmation',
+              'waiting_client_confirmation',
+              'in_progress',
+            ].contains(effectiveStatus.toLowerCase().trim()));
     final double serviceTotal =
         double.tryParse(
           '${service?['price_estimated'] ?? service?['total_price'] ?? ''}',
@@ -3504,9 +3519,9 @@ class _ServiceTrackingPageState extends State<ServiceTrackingPage>
                                 backendFinalActions?['showCompletedMessage'] ==
                                     true ||
                                 stage == TrackingStage.completed,
-                            canCancel:
-                                backendFinalActions?['canCancel'] == true ||
-                                !cancelBlockedByProximity,
+                            canCancel: backendFinalActions != null
+                                ? backendFinalActions['canCancel'] == true
+                                : !cancelBlockedByProximity,
                             onCancelService: _cancelService,
                           ),
                         ),

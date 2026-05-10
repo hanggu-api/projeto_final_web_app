@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/utils/product_scope_gate.dart';
 import '../../core/remote_ui/remote_screen_body.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/app_config_service.dart';
@@ -685,6 +686,16 @@ class _HomeExploreScreenState extends State<HomeExploreScreen> {
         );
         return;
       case 'beauty_booking':
+        if (!ProductScopeGate.isSalonSchedulingEnabled) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Agendamento de salão está indisponível no momento.',
+              ),
+            ),
+          );
+          return;
+        }
         context.push('/beauty-booking');
         return;
       case 'help':

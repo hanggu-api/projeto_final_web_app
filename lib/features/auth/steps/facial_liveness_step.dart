@@ -42,7 +42,7 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
         context,
         MaterialPageRoute(
           builder: (context) =>
-              const InAppCameraScreen(isSelfie: true, forceFullLiveness: true),
+              const InAppCameraScreen(isSelfie: true, blinkOnly: true),
         ),
       );
 
@@ -61,7 +61,7 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
         });
       }
     } catch (e) {
-      setState(() => _error = "Erro ao validar: $e");
+      setState(() => _error = "Erro na prova de vida: $e");
     }
   }
 
@@ -73,7 +73,7 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Prova de Vida',
+            'Prova de vida',
             style: GoogleFonts.manrope(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -83,7 +83,7 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Para garantir a segurança da plataforma, precisamos confirmar que você é uma pessoa real.',
+            'Esta etapa é apenas uma prova de vida do cadastro com Google. Não é serviço de biometria.',
             style: GoogleFonts.manrope(
               fontSize: 15,
               color: Colors.grey.shade600,
@@ -134,11 +134,11 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
             ),
             _buildInstructionItem(
               Icons.record_voice_over,
-              'Siga as instruções faladas',
+              'Aguarde a instrução para piscar',
             ),
             _buildInstructionItem(
               Icons.remove_red_eye,
-              'Pisque e vire a cabeça quando solicitado',
+              'Pisque uma vez quando solicitado',
             ),
             _buildInstructionItem(
               Icons.light_mode,
@@ -181,7 +181,7 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Identidade Validada!',
+              'Prova de vida concluída!',
               style: GoogleFonts.manrope(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -216,30 +216,10 @@ class _FacialLivenessStepState extends State<FacialLivenessStep> {
               elevation: 0,
             ),
             child: Text(
-              _isValidated ? 'REPETIR VALIDAÇÃO' : 'INICIAR VALIDAÇÃO',
+              _isValidated ? 'REPETIR PROVA DE VIDA' : 'INICIAR PROVA DE VIDA',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
-
-          if (_isValidated) ...[
-            const SizedBox(height: 14),
-            ElevatedButton(
-              onPressed: widget.onSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryYellow,
-                foregroundColor: AppTheme.textDark,
-                minimumSize: const Size.fromHeight(56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'CONCLUIR CADASTRO',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-          ],
         ],
       ),
     );

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/fixed_schedule_gate.dart';
 import '../../../core/home/backend_home_api.dart';
 import '../../../core/utils/service_icon_mapper.dart';
 import '../../../services/task_semantic_search_service.dart';
@@ -194,23 +193,6 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     }
   }
 
-  bool get _isProfessionCatalogMode {
-    if (_suggestions.isEmpty) return false;
-    if (_suggestions.any(
-      (item) => (item['kind'] ?? '').toString() == 'provider_profile',
-    )) {
-      return false;
-    }
-    final professionNames = _suggestions
-        .map((item) => (item['profession_name'] ?? '').toString().trim())
-        .where((name) => name.isNotEmpty)
-        .toSet();
-    final seededByProfession = _suggestions.every(
-      (item) => (item['is_profession_seed'] ?? false) == true,
-    );
-    return seededByProfession && professionNames.length == 1;
-  }
-
   String _formatCurrency(dynamic value) {
     final parsed = value is num
         ? value.toDouble()
@@ -218,206 +200,244 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     return 'R\$ ${parsed.toStringAsFixed(2).replaceAll('.', ',')}';
   }
 
-  String _serviceTypeLabel(String rawType) {
-    switch (rawType.trim().toLowerCase()) {
-      case 'at_provider':
-      case 'fixed':
-        return 'No estabelecimento';
-      case 'on_site':
-      case 'mobile':
-        return 'Atendimento movel';
-      case 'provider_profile':
-        return 'Perfil';
-      default:
-        return 'Servico';
-    }
+  String _normalizedSearchText() => _searchController.text.trim();
+
+  bool _matchesCurrentQuery(Map<String, dynamic> item) {
+    final query = _normalizedSearchText().toLowerCase();
+    if (query.isEmpty) return true;
+    final haystack = [
+      item['task_name'],
+      item['name'],
+      item['profession_name'],
+      item['category_name'],
+      item['keywords'],
+    ].map((value) => (value ?? '').toString().toLowerCase()).join(' ');
+    return haystack.contains(query);
   }
 
-  bool _isCanonicalFixedSuggestion(Map<String, dynamic> item) {
-    final service = item['service'] is Map
-        ? Map<String, dynamic>.from(item['service'] as Map)
-        : <String, dynamic>{};
-    final seed = <String, dynamic>{...service, ...item};
-    return isCanonicalFixedServiceRecord(seed);
+  List<Map<String, dynamic>> _directSearchResults() {
+    final direct = _suggestions.where(_matchesCurrentQuery).toList();
+    return direct.isEmpty
+        ? _suggestions.take(4).toList()
+        : direct.take(4).toList();
   }
 
-  String _pricingLabel(Map<String, dynamic> item) {
-    final pricingType = (item['pricing_type'] ?? '').toString().trim();
-    final unitName = (item['unit_name'] ?? '').toString().trim();
-    if (unitName.isNotEmpty) {
-      return 'Preco por $unitName';
+  MapEntry<String, List<Map<String, dynamic>>>? _firstProfessionGroup(
+    List<Map<String, dynamic>> excluded,
+  ) {
+    final excludedIds = excluded
+        .map(
+          (item) =>
+              (item['id'] ?? item['task_id'] ?? item['name'] ?? '').toString(),
+        )
+        .toSet();
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final item in _suggestions) {
+      final key = (item['id'] ?? item['task_id'] ?? item['name'] ?? '')
+          .toString();
+      if (excludedIds.contains(key)) continue;
+      final profession = (item['profession_name'] ?? '').toString().trim();
+      if (profession.isEmpty) continue;
+      groups.putIfAbsent(profession, () => <Map<String, dynamic>>[]).add(item);
     }
-    switch (pricingType) {
-      case 'hourly':
-        return 'Preco por hora';
-      case 'daily':
-        return 'Preco por dia';
-      case 'fixed':
-      default:
-        return 'Preco inicial';
-    }
+    if (groups.isEmpty) return null;
+    final entries = groups.entries.toList()
+      ..sort((a, b) => b.value.length.compareTo(a.value.length));
+    return entries.first;
   }
 
-  Widget _buildProfessionCatalogList() {
-    final professionName =
-        (_suggestions.first['profession_name'] ?? 'Profissao').toString();
+  Widget _buildSiteResultRow(Map<String, dynamic> item) {
+    final name = (item['task_name'] ?? item['name'] ?? '').toString().trim();
+    final profession = (item['profession_name'] ?? '').toString().trim();
+    final price = item['unit_price'] ?? item['price'];
+    final isProviderProfile =
+        (item['kind'] ?? '').toString() == 'provider_profile';
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(5, 8, 5, 0),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            professionName,
-            style: GoogleFonts.manrope(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.textDark,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_suggestions.length} servicos dessa profissao',
-            style: GoogleFonts.manrope(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 14),
-          ..._suggestions.map((item) {
-            final name = (item['task_name'] ?? item['name'] ?? '')
-                .toString()
-                .trim();
-            final price = item['unit_price'] ?? item['price'];
-            final serviceType = (item['service_type'] ?? '').toString();
-            final serviceTypeLabel = _serviceTypeLabel(serviceType);
-            final pricingLabel = _pricingLabel(item);
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () => _handleSuggestionTap(item),
-                  child: Ink(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: AppTheme.backgroundLight,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(
-                            ServiceIconMapper.fromService(
-                              taskName: name,
-                              professionName: professionName,
-                            ),
-                            color: AppTheme.primaryYellow,
-                            size: 20,
-                          ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _handleSuggestionTap(item),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF3FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isProviderProfile
+                      ? LucideIcons.store
+                      : ServiceIconMapper.fromService(
+                          taskName: name,
+                          professionName: profession,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: GoogleFonts.manrope(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppTheme.textDark,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  _buildMetaPill(
-                                    label: serviceTypeLabel,
-                                    textColor: Colors.blue.shade800,
-                                    backgroundColor: Colors.blue.shade50,
-                                  ),
-                                  _buildMetaPill(
-                                    label: pricingLabel,
-                                    textColor: Colors.grey.shade700,
-                                    backgroundColor: Colors.grey.shade100,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              _formatCurrency(price),
-                              style: GoogleFonts.manrope(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.blue.shade800,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Icon(LucideIcons.chevronRight, size: 16),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  color: AppTheme.primaryBlue,
+                  size: 19,
                 ),
               ),
-            );
-          }),
-        ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textDark,
+                        height: 1.18,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isProviderProfile
+                          ? ((item['address'] ?? 'PERFIL').toString())
+                          : profession.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.grey[500],
+                        letterSpacing: isProviderProfile ? 0 : 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (price != null && !isProviderProfile)
+                Container(
+                  constraints: const BoxConstraints(minWidth: 108),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4ECFF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFB78AE6).withOpacity(0.28),
+                    ),
+                  ),
+                  child: Text(
+                    _formatCurrency(price),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF8A00C4),
+                      fontSize: 13,
+                    ),
+                  ),
+                )
+              else
+                const Icon(LucideIcons.chevronRight, size: 16),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildMetaPill({
-    required String label,
-    required Color textColor,
-    required Color backgroundColor,
-  }) {
+  Widget _buildSiteResultsPanel() {
+    final query = _normalizedSearchText();
+    final direct = _directSearchResults();
+    final professionGroup = _firstProfessionGroup(direct);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      margin: const EdgeInsets.fromLTRB(5, 8, 5, 0),
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
-      child: Text(
-        label,
-        style: GoogleFonts.manrope(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: textColor,
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 12),
+        physics: const BouncingScrollPhysics(),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Serviços encontrados',
+              style: GoogleFonts.manrope(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.textDark,
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              query.isEmpty
+                  ? 'Resultados diretos'
+                  : 'Resultados diretos para "$query"',
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...direct.expand(
+            (item) => [
+              _buildSiteResultRow(item),
+              Divider(height: 1, color: Colors.grey[100]),
+            ],
+          ),
+          if (professionGroup != null) ...[
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                professionGroup.key,
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.textDark,
+                ),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Todos os serviços dessa profissão',
+                style: GoogleFonts.manrope(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...professionGroup.value
+                .take(8)
+                .expand(
+                  (item) => [
+                    _buildSiteResultRow(item),
+                    Divider(height: 1, color: Colors.grey[100]),
+                  ],
+                ),
+          ],
+        ],
       ),
     );
   }
@@ -434,10 +454,7 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     final isFocused = _focusNode.hasFocus;
     final showInlineSuggestions =
         !widget.launcherMode && _suggestions.isNotEmpty;
-    final suggestionMaxHeight = (mediaQuery.size.height * 0.34).clamp(
-      180.0,
-      320.0,
-    );
+    final suggestionMaxHeight = mediaQuery.size.height * 0.80;
     final containerMargin = widget.prominent
         ? EdgeInsets.zero
         : const EdgeInsets.symmetric(horizontal: 5);
@@ -545,162 +562,10 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
           ),
         ),
         if (showInlineSuggestions)
-          _isProfessionCatalogMode
-              ? ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: suggestionMaxHeight),
-                  child: SingleChildScrollView(
-                    child: _buildProfessionCatalogList(),
-                  ),
-                )
-              : Container(
-                  margin: const EdgeInsets.fromLTRB(5, 8, 5, 0),
-                  constraints: BoxConstraints(maxHeight: suggestionMaxHeight),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 24,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: false,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: _suggestions.length > 6
-                        ? 6
-                        : _suggestions.length,
-                    separatorBuilder: (_, __) =>
-                        Divider(height: 1, color: Colors.grey[100]),
-                    itemBuilder: (context, index) {
-                      final item = _suggestions[index];
-                      final name = item['task_name'] ?? item['name'] ?? '';
-                      final profession = item['profession_name'] ?? '';
-                      final price = item['unit_price'] ?? item['price'];
-                      final serviceType = (item['service_type'] ?? '')
-                          .toString();
-                      final isProviderProfile =
-                          (item['kind'] ?? '').toString() == 'provider_profile';
-
-                      return ListTile(
-                        onTap: () => _handleSuggestionTap(item),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF3FF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            isProviderProfile
-                                ? LucideIcons.store
-                                : ServiceIconMapper.fromService(
-                                    taskName: name,
-                                    professionName: profession,
-                                  ),
-                            color: AppTheme.primaryBlue,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          name,
-                          style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: AppTheme.textDark,
-                          ),
-                        ),
-                        subtitle: Text(
-                          isProviderProfile
-                              ? ((item['address'] ??
-                                        'Toque para abrir o perfil')
-                                    .toString())
-                              : profession.toUpperCase(),
-                          style: GoogleFonts.manrope(
-                            fontSize: isProviderProfile ? 11 : 10,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.grey[500],
-                            letterSpacing: isProviderProfile ? 0 : 0.3,
-                          ),
-                        ),
-                        trailing: isProviderProfile
-                            ? const Icon(LucideIcons.chevronRight, size: 16)
-                            : price != null
-                            ? (() {
-                                final pName = (item['profession_name'] ?? '')
-                                    .toString()
-                                    .toLowerCase();
-                                final cName = (item['category_name'] ?? '')
-                                    .toString()
-                                    .toLowerCase();
-                                final tName =
-                                    (item['task_name'] ?? item['name'] ?? '')
-                                        .toString()
-                                        .toLowerCase();
-
-                                // Detecção de beleza mais restrita para evitar falsos positivos como "corte de grama"
-                                final bool isActuallyBeauty =
-                                    pName.contains('barba') ||
-                                    pName.contains('cabelo') ||
-                                    pName.contains('estét') ||
-                                    pName.contains('beleza') ||
-                                    cName.contains('beleza') ||
-                                    (tName.contains('corte') &&
-                                        (pName.contains('cabelo') ||
-                                            pName.contains('barbi') ||
-                                            pName.contains('cabelei'))) ||
-                                    tName.contains('manicure') ||
-                                    tName.contains('pedicure') ||
-                                    tName.contains('unha');
-
-                                // Prioridade máxima ao que vem do backend. Só inferimos se estiver vazio.
-                                final bool isFixed = serviceType.isNotEmpty
-                                    ? _isCanonicalFixedSuggestion(item)
-                                    : isActuallyBeauty;
-                                final accentColor = AppTheme.primaryBlue;
-
-                                return Container(
-                                  constraints: const BoxConstraints(
-                                    minWidth: 112,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isFixed
-                                        ? const Color(0xFFEAF3FF)
-                                        : const Color(0xFFF4ECFF),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isFixed
-                                          ? accentColor.withOpacity(0.22)
-                                          : const Color(
-                                              0xFFB78AE6,
-                                            ).withOpacity(0.28),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'R\$ ${price.toStringAsFixed(2)}',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.manrope(
-                                      fontWeight: FontWeight.w900,
-                                      color: isFixed
-                                          ? accentColor
-                                          : const Color(0xFF7A3FC6),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                );
-                              })()
-                            : const Icon(LucideIcons.chevronRight, size: 16),
-                      );
-                    },
-                  ),
-                ),
+          SizedBox(
+            height: suggestionMaxHeight,
+            child: _buildSiteResultsPanel(),
+          ),
       ],
     );
   }

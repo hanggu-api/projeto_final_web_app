@@ -2956,7 +2956,7 @@ class ApiService {
       final isProviderRole = (_role ?? '').toLowerCase().trim() == 'provider';
       final list = isProviderRole
           ? ((await _backendApiClient.getJson(
-                      '/api/v1/services?user_id_eq=$_userId&limit=200&order=created_at.desc',
+                      '/api/v1/services?provider_id_eq=$_userId&limit=200&order=created_at.desc',
                     ))?['data']
                     as List? ??
                 const [])
@@ -3042,7 +3042,7 @@ class ApiService {
         }
 
         return _handleResponse(response);
-      } on TimeoutException catch (e) {
+      } on TimeoutException {
         if (attempt < 3) {
           final delay = Duration(milliseconds: 500 * attempt);
           await Future.delayed(delay);
@@ -3052,7 +3052,7 @@ class ApiService {
           message: 'A função $functionName demorou muito a responder (Timeout)',
           statusCode: 408,
         );
-      } on SocketException catch (e) {
+      } on SocketException {
         if (attempt < 3) {
           final delay = Duration(milliseconds: 1000 * attempt);
           await Future.delayed(delay);
@@ -3105,7 +3105,7 @@ class ApiService {
             )
             .timeout(const Duration(seconds: 30));
         return response.data;
-      } on TimeoutException catch (e) {
+      } on TimeoutException {
         if (attempt < 3) {
           final delay = Duration(milliseconds: 1000 * attempt);
           await Future.delayed(delay);
@@ -3115,7 +3115,7 @@ class ApiService {
           message: 'A função $functionName demorou muito a responder (Timeout)',
           statusCode: 408,
         );
-      } on SocketException catch (e) {
+      } on SocketException {
         if (attempt < 3) {
           final delay = Duration(milliseconds: 1000 * attempt);
           await Future.delayed(delay);
@@ -3808,6 +3808,7 @@ class ApiService {
             'color_hex': vehicleColorHex,
             'plate': vehiclePlate,
           },
+        if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
       };
       payload.removeWhere((_, value) => value == null);
       await _backendApiClient.postJson('/api/v1/auth/register', body: payload);
@@ -3890,12 +3891,6 @@ class ApiService {
   }
 
   Future<List<dynamic>> getProfessions() async {
-    if (!SupabaseConfig.isInitialized) {
-      debugPrint(
-        '⚠️ [ApiService] getProfessions skipped: Supabase not initialized',
-      );
-      return [];
-    }
     try {
       final res = await _backendApiClient.getJson('/api/v1/professions');
       return (res?['data'] as List? ?? const []);
@@ -4411,7 +4406,8 @@ class ApiService {
     String? phone,
     Map<String, dynamic>? customFields,
   }) async {
-    if (_userId == null) return;
+    final currentUserId = await _resolveCurrentUserIdFromBackendProfile();
+    if (currentUserId == null) return;
 
     final body = <String, dynamic>{};
     if (name != null) body['full_name'] = name;
@@ -4422,10 +4418,13 @@ class ApiService {
     if (body.isNotEmpty) {
       try {
         await _backendApiClient.putJson(
-          '/api/v1/users/${_userId!}',
+          '/api/v1/users/$currentUserId',
           body: body,
         );
-        final updatedRow = await _selectUserRowMaybeSingleBy('id', _userId);
+        final updatedRow = await _selectUserRowMaybeSingleBy(
+          'id',
+          currentUserId,
+        );
         if (updatedRow == null) return;
         _currentUserData = updatedRow;
       } on PostgrestException catch (e) {
@@ -4436,10 +4435,13 @@ class ApiService {
           final fallbackBody = Map<String, dynamic>.from(body)
             ..remove('document_type');
           await _backendApiClient.putJson(
-            '/api/v1/users/${_userId!}',
+            '/api/v1/users/$currentUserId',
             body: fallbackBody,
           );
-          final updatedRow = await _selectUserRowMaybeSingleBy('id', _userId);
+          final updatedRow = await _selectUserRowMaybeSingleBy(
+            'id',
+            currentUserId,
+          );
           if (updatedRow == null) return;
           _currentUserData = updatedRow;
         } else {
@@ -4501,7 +4503,8 @@ class ApiService {
     String? address,
     List<String>? professions,
   }) async {
-    if (_userId == null) return;
+    final currentUserId = await _resolveCurrentUserIdFromBackendProfile();
+    if (currentUserId == null) return;
 
     final body = <String, dynamic>{};
     if (documentType != null) body['document_type'] = documentType;
@@ -4511,7 +4514,7 @@ class ApiService {
 
     if (body.isNotEmpty) {
       await _backendApiClient.putJson(
-        '/api/v1/providers/${_userId!}/profile',
+        '/api/v1/providers/$currentUserId/profile',
         body: body,
       );
     }
@@ -4540,12 +4543,18 @@ class ApiService {
   }
 
   Future<void> persistBootstrapIdentity({
+    String? userId,
     String? role,
     bool? isMedical,
     bool? isFixedLocation,
     int? registerStep,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    final parsedUserId = int.tryParse(userId?.trim() ?? '');
+    if (parsedUserId != null && parsedUserId > 0) {
+      _userId = parsedUserId;
+      await prefs.setInt('user_id', parsedUserId);
+    }
     if (role != null && role.trim().isNotEmpty) {
       _role = role.trim();
       await _secureStorage.write(key: 'user_role', value: _role!);
@@ -4857,10 +4866,29 @@ class ApiService {
     return await getMyProfile();
   }
 
+  Future<int?> _resolveCurrentUserIdFromBackendProfile() async {
+    if (_userId != null) return _userId;
+
+    final response = await _backendApiClient.getJson('/api/v1/profile/me');
+    final data = (response?['data'] as Map?)?.cast<String, dynamic>();
+    final user = (data?['user'] as Map?)?.cast<String, dynamic>() ?? data;
+    if (user == null) return null;
+
+    final resolvedUserId = user['id'] is num
+        ? (user['id'] as num).toInt()
+        : int.tryParse('${user['id'] ?? ''}');
+    if (resolvedUserId != null) {
+      _userId = resolvedUserId;
+      _currentUserData = Map<String, dynamic>.from(user);
+    }
+    return resolvedUserId;
+  }
+
   Future<List<String>> getProviderSpecialties() async {
-    if (!SupabaseConfig.isInitialized || _userId == null) return [];
+    final currentUserId = await _resolveCurrentUserIdFromBackendProfile();
+    if (currentUserId == null) return [];
     final response = await _backendApiClient.getJson(
-      '/api/v1/providers/${_userId!}/specialties',
+      '/api/v1/providers/$currentUserId/specialties',
     );
     final rows = (response?['data'] as List? ?? const []);
     return rows
@@ -5253,7 +5281,8 @@ class ApiService {
   }
 
   Future<void> addProviderSpecialty(String name) async {
-    if (_userId == null) {
+    final currentUserId = await _resolveCurrentUserIdFromBackendProfile();
+    if (currentUserId == null) {
       throw ApiException(
         message: 'Usuário não autenticado para adicionar profissão.',
         statusCode: 401,
@@ -5288,9 +5317,9 @@ class ApiService {
     }
 
     await _backendApiClient.postJson(
-      '/api/v1/providers/${_userId!}/specialties',
+      '/api/v1/providers/$currentUserId/specialties',
       body: {
-        'provider_user_id': _userId,
+        'provider_user_id': currentUserId,
         if (authUid != null) 'provider_uid': authUid,
         'profession_id': selected['id'],
       },
@@ -5300,7 +5329,8 @@ class ApiService {
   }
 
   Future<void> removeProviderSpecialty(String name) async {
-    if (_userId == null) return;
+    final currentUserId = await _resolveCurrentUserIdFromBackendProfile();
+    if (currentUserId == null) return;
     final normalized = name.trim();
     if (normalized.isEmpty) return;
     final matchesResponse = await _backendApiClient.getJson(
@@ -5311,7 +5341,7 @@ class ApiService {
         : null;
     if (prof is Map && prof['id'] != null) {
       await _backendApiClient.deleteJson(
-        '/api/v1/providers/${_userId!}/specialties/${prof['id']}',
+        '/api/v1/providers/$currentUserId/specialties/${prof['id']}',
       );
     }
   }
@@ -6497,7 +6527,16 @@ class ApiService {
 
   Future<void> startService(String serviceId) async {
     try {
-      await _backendApiClient.postJson('/api/v1/services/$serviceId/start');
+      final response = await _backendApiClient.postJson(
+        '/api/v1/services/$serviceId/start',
+      );
+      final success = response?['success'] == true || response?['data'] != null;
+      if (!success) {
+        throw ApiException(
+          message: 'Falha ao iniciar serviço no backend.',
+          statusCode: 502,
+        );
+      }
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException(message: 'Erro ao iniciar: $e', statusCode: 500);
@@ -6919,16 +6958,15 @@ class ApiService {
         );
       }
 
-      final payload =
-          await _backendApiClient.postJson(
-            '/api/v1/services/$serviceId/arrive',
-          ) ??
-          <String, dynamic>{'ok': false, 'code': 'unknown'};
-      if (payload['ok'] != true) {
-        final code = (payload['code'] ?? '').toString().trim().toLowerCase();
-        _throwMobileFlowRpcError(
-          code,
-          fallbackMessage: 'Não foi possível registrar a chegada.',
+      final backendUpdated = await _backendTrackingApi.updateServiceStatus(
+        serviceId,
+        status: 'arrived',
+        scope: ServiceDataScope.mobileOnly.name,
+      );
+      if (!backendUpdated) {
+        throw ApiException(
+          message: 'Não foi possível registrar a chegada.',
+          statusCode: 502,
         );
       }
     } catch (e) {
@@ -7439,8 +7477,7 @@ class ApiService {
       } else {
         mapped = const [];
       }
-      final withoutRejected = await _filterRejectedDispatchOffers(mapped);
-      return await _filterActiveDispatchOffers(withoutRejected);
+      return await _filterRejectedDispatchOffers(mapped);
     } catch (e) {
       debugPrint('Erro no getAvailableForSchedule: $e');
       return [];
@@ -7490,69 +7527,36 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> _filterActiveDispatchOffers(
-    List<dynamic> services,
-  ) async {
-    if (services.isEmpty) return services;
-
-    final serviceIds = services
-        .map((service) => service['id']?.toString().trim() ?? '')
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList();
-
-    if (serviceIds.isEmpty) return services;
-
-    try {
-      final queueRes = await _backendApiClient.getJson(
-        '/api/v1/dispatch/queue/active?service_id_in=${serviceIds.join(",")}',
-      );
-      final queueRows = (queueRes?['data'] as List? ?? const []);
-
-      final activeQueueIds = queueRows
-          .map((row) => (row as Map)['service_id']?.toString().trim() ?? '')
-          .where((id) => id.isNotEmpty)
-          .toSet();
-
-      final offersRes = await _backendApiClient.getJson(
-        '/api/v1/dispatch/offers/active?service_id_in=${serviceIds.join(",")}',
-      );
-      final offerRows = (offersRes?['data'] as List? ?? const []);
-
-      final activeOfferIds = offerRows
-          .map((row) => (row as Map)['service_id']?.toString().trim() ?? '')
-          .where((id) => id.isNotEmpty)
-          .toSet();
-
-      final blockedIds = {...activeQueueIds, ...activeOfferIds};
-      if (blockedIds.isEmpty) return services;
-
-      final filtered = services.where((service) {
-        final id = service['id']?.toString().trim() ?? '';
-        return id.isNotEmpty && !blockedIds.contains(id);
-      }).toList();
-
-      debugPrint(
-        '🔒 [ApiService] Serviços ocultados da vitrine por ciclo ativo de notificação: ${blockedIds.length}',
-      );
-      return filtered;
-    } catch (e) {
-      debugPrint(
-        '⚠️ [ApiService] Falha ao filtrar serviços em ciclo ativo de notificação: $e',
-      );
-      return services;
-    }
-  }
-
   Future<void> proposeSchedule(
     String serviceId,
     DateTime scheduledAt, {
     ServiceDataScope scope = ServiceDataScope.auto,
   }) async {
-    final backendProposed = await _backendTrackingApi.proposeSchedule(
-      serviceId,
-      scheduledAt: scheduledAt,
-    );
+    bool backendProposed;
+    try {
+      backendProposed = await _backendTrackingApi.proposeSchedule(
+        serviceId,
+        scheduledAt: scheduledAt,
+      );
+    } on ApiException catch (e) {
+      final error = e.details?['error']?.toString();
+      if (e.statusCode == 409 &&
+          error == 'schedule_negotiation_provider_limit_reached') {
+        final negotiation = e.details?['negotiation'];
+        final remainingTotal = negotiation is Map
+            ? int.tryParse('${negotiation['remainingTotalRounds'] ?? ''}')
+            : null;
+        final suffix = remainingTotal != null && remainingTotal > 0
+            ? ' Aguarde a resposta do cliente ou aceite o horário proposto.'
+            : ' Aguarde a resposta do cliente ou finalize a negociação.';
+        throw ApiException(
+          message: 'Limite de contrapropostas do prestador atingido.$suffix',
+          statusCode: e.statusCode,
+          details: e.details,
+        );
+      }
+      rethrow;
+    }
     if (!backendProposed) {
       throw ApiException(
         message:

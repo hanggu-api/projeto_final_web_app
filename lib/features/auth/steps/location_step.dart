@@ -45,8 +45,12 @@ class _LocationStepState extends State<LocationStep> {
     super.initState();
     if (widget.initialLat != null && widget.initialLng != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLng!);
-      // Sempre resolve endereço no carregamento para evitar mostrar apenas coords.
-      _reverseGeocode(_currentCenter);
+      if (widget.isMobileProvider) {
+        _setMobileLocationCollectedLabel();
+      } else {
+        // Sempre resolve endereço no carregamento para evitar mostrar apenas coords.
+        _reverseGeocode(_currentCenter);
+      }
     } else {
       _locateUser();
     }
@@ -59,6 +63,10 @@ class _LocationStepState extends State<LocationStep> {
   }
 
   Future<void> _reverseGeocode(LatLng latLng) async {
+    if (widget.isMobileProvider) {
+      _setMobileLocationCollectedLabel();
+      return;
+    }
     if (!mounted) return;
     setState(() => _isGeocoding = true);
 
@@ -80,7 +88,9 @@ class _LocationStepState extends State<LocationStep> {
           'state_code': result['state_code'],
           'display_name': result['display_name'],
         };
-        debugPrint('[LocationStep] reverse payload: ${jsonEncode(debugPayload)}');
+        debugPrint(
+          '[LocationStep] reverse payload: ${jsonEncode(debugPayload)}',
+        );
       }
 
       String formattedAddress = widget.isMobileProvider
@@ -112,12 +122,7 @@ class _LocationStepState extends State<LocationStep> {
           'suburb',
           'district',
         ]);
-        final city = readAny([
-          'city',
-          'town',
-          'municipality',
-          'county',
-        ]);
+        final city = readAny(['city', 'town', 'municipality', 'county']);
         final state = readAny(['state_code', 'state']);
         final displayName = readAny(['display_name']);
 
@@ -145,9 +150,10 @@ class _LocationStepState extends State<LocationStep> {
             : secondLineCore;
 
         if (firstLine.isNotEmpty || secondLine.isNotEmpty) {
-          formattedAddress = [firstLine, secondLine]
-              .where((line) => line.trim().isNotEmpty)
-              .join('\n');
+          formattedAddress = [
+            firstLine,
+            secondLine,
+          ].where((line) => line.trim().isNotEmpty).join('\n');
         } else if (displayName.isNotEmpty) {
           final parts = displayName
               .split(',')
@@ -183,6 +189,11 @@ class _LocationStepState extends State<LocationStep> {
 
   void _onMapMoved(LatLng pos) {
     widget.onLocationChanged?.call(pos.latitude, pos.longitude);
+
+    if (widget.isMobileProvider) {
+      _setMobileLocationCollectedLabel();
+      return;
+    }
 
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 800), () {
@@ -229,11 +240,23 @@ class _LocationStepState extends State<LocationStep> {
 
       // Update location and address immediately
       widget.onLocationChanged?.call(position.latitude, position.longitude);
-      _reverseGeocode(latLng);
+      if (widget.isMobileProvider) {
+        _setMobileLocationCollectedLabel();
+      } else {
+        _reverseGeocode(latLng);
+      }
     } catch (e) {
       debugPrint('Error locating user: $e');
     } finally {
       if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  void _setMobileLocationCollectedLabel() {
+    if (widget.addressController.text.trim().isEmpty ||
+        widget.addressController.text.contains('Região') ||
+        widget.addressController.text.contains('Localização')) {
+      widget.addressController.text = 'Localização do cadastro coletada';
     }
   }
 
@@ -245,11 +268,8 @@ class _LocationStepState extends State<LocationStep> {
     final subtitle = widget.isMobileProvider
         ? 'Ajuste o pino no mapa. O sistema vai priorizar notificações próximas de você.'
         : 'Ajuste o pino no mapa para a localização exata';
-    final addressLabel =
-        widget.isMobileProvider ? 'Região de Referência' : 'Endereço Completo';
-    final addressHelper = widget.isMobileProvider
-        ? 'Seu endereço não é visível para outros prestadores nem para clientes.'
-        : 'Rua, Número, Bairro, Cidade - UF';
+    const addressLabel = 'Endereço Completo';
+    const addressHelper = 'Rua, Número, Bairro, Cidade - UF';
 
     return SingleChildScrollView(
       child: Form(
@@ -271,7 +291,10 @@ class _LocationStepState extends State<LocationStep> {
             if (widget.isMobileProvider) ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(10),
@@ -378,35 +401,33 @@ class _LocationStepState extends State<LocationStep> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            if (!widget.isMobileProvider) ...[
+              const SizedBox(height: 24),
 
-            // ADDRESS FIELD
-            TextFormField(
-              controller: widget.addressController,
-              decoration:
-                  AppTheme.inputDecoration(
-                    addressLabel,
-                    Icons.map,
-                  ).copyWith(
-                    suffixIcon: _isGeocoding
-                        ? const Padding(
-                            padding: EdgeInsets.all(12.0),
-                            child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
-                        : null,
-                    helperText: addressHelper,
-                  ),
-              maxLines: 2,
-              validator: (v) => v?.isEmpty == true
-                  ? (widget.isMobileProvider
-                        ? 'Informe uma região de referência'
-                        : 'Informe o endereço completo')
-                  : null,
-            ),
+              // ADDRESS FIELD
+              TextFormField(
+                controller: widget.addressController,
+                decoration: AppTheme.inputDecoration(addressLabel, Icons.map)
+                    .copyWith(
+                      suffixIcon: _isGeocoding
+                          ? const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : null,
+                      helperText: addressHelper,
+                    ),
+                maxLines: 2,
+                validator: (v) =>
+                    v?.isEmpty == true ? 'Informe o endereço completo' : null,
+              ),
+            ],
             const SizedBox(height: 32),
           ],
         ),

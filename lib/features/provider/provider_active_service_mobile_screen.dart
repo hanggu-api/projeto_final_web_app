@@ -7,17 +7,25 @@ import 'package:go_router/go_router.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/constants/trip_statuses.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/tracking/backend_tracking_api.dart';
+import '../../core/tracking/backend_tracking_snapshot_state.dart';
+import '../../core/tracking/backend_tracking_view_state.dart';
 import '../../services/api_service.dart';
 import '../../services/data_gateway.dart';
+import '../../services/pending_service_video_upload_queue.dart';
+import '../../services/realtime_service.dart';
 import '../../widgets/app_dialog_actions.dart';
 import '../shared/in_app_camera_screen.dart';
 import 'service_video_upload_screen.dart';
 import 'widgets/provider_service_card.dart';
+
+const String _kLastProviderActiveServiceId = 'last_provider_active_service_id';
 
 class ProviderActiveServiceMobileScreen extends StatefulWidget {
   final String serviceId;
@@ -30,12 +38,22 @@ class ProviderActiveServiceMobileScreen extends StatefulWidget {
 }
 
 class _ProviderActiveServiceMobileScreenState
-    extends State<ProviderActiveServiceMobileScreen> {
+    extends State<ProviderActiveServiceMobileScreen>
+    with WidgetsBindingObserver {
   final ApiService _api = ApiService();
+  final BackendTrackingApi _backendTrackingApi = const BackendTrackingApi();
   final ImagePicker _picker = ImagePicker();
   Timer? _refreshTimer;
+  Timer? _realtimeRetryTimer;
+  StreamSubscription<Map<String, dynamic>>? _serviceSub;
   Map<String, dynamic>? _service;
+  BackendTrackingSnapshotState? _latestBackendTrackingSnapshot;
+  BackendTrackingViewState? _latestViewState;
   bool _loading = true;
+  bool _isForeground = true;
+  bool _isRefreshing = false;
+  int _realtimeRetryAttempt = 0;
+  int _consecutiveNotFoundSignals = 0;
   bool _showInlineFinish = false;
   bool _submittingFinish = false;
   String? _inlineError;
@@ -60,6 +78,7 @@ class _ProviderActiveServiceMobileScreenState
     if (beneficiaryId.isNotEmpty && beneficiaryId == requesterId) return null;
     return 'Atendimento para $beneficiaryName';
   }
+
   Uint8List? _inlineVideoBytes;
   VideoPlayerController? _inlineVideoController;
   final TextEditingController _codeController = TextEditingController();
@@ -74,21 +93,70 @@ class _ProviderActiveServiceMobileScreenState
     return ServiceStatusSets.providerConcluding.contains(normalized);
   }
 
+  bool _isTransientRealtimeTrackingError(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('realtimecloseevent(code: 1006') ||
+        text.contains('realtimesubscribestatus.channelerror') ||
+        text.contains('realtimesubscribestatus.timedout') ||
+        text.contains('websocket') ||
+        text.contains('socket');
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadService();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      _loadService(showLoading: false);
-    });
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_rememberActiveServiceId());
+    unawaited(_recoverPendingCompletionVideo());
+    _listenRealtime();
+    unawaited(_loadService());
+    _startPolling();
+  }
+
+  Future<void> _rememberActiveServiceId() async {
+    final serviceId = widget.serviceId.trim();
+    if (serviceId.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastProviderActiveServiceId, serviceId);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _serviceSub?.cancel();
+    _realtimeRetryTimer?.cancel();
     _refreshTimer?.cancel();
     _inlineVideoController?.dispose();
     _codeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final isForeground = state == AppLifecycleState.resumed;
+    _isForeground = isForeground;
+    if (isForeground) {
+      _startPolling();
+      _scheduleRealtimeResubscribe(immediate: true);
+      unawaited(_recoverPendingCompletionVideo());
+      unawaited(_loadService(showLoading: false, forceRefresh: true));
+      return;
+    }
+    _refreshTimer?.cancel();
+    _realtimeRetryTimer?.cancel();
+  }
+
+  Future<void> _recoverPendingCompletionVideo() async {
+    final recovered = await PendingServiceVideoUploadQueue.instance
+        .processPendingForService(widget.serviceId);
+    if (!mounted || recovered <= 0) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        content: Text('Vídeo pendente reenviado e conclusão registrada.'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    await _loadService(showLoading: false, forceRefresh: true);
   }
 
   bool _isMissingService(Map<String, dynamic>? service) {
@@ -98,9 +166,17 @@ class _ProviderActiveServiceMobileScreenState
     return status == 'deleted' || status == 'not_found';
   }
 
+  bool _isTerminalServiceStatus(String? rawStatus) {
+    return ServiceStatusSets.inactiveTerminal.contains(
+      normalizeServiceStatus(rawStatus),
+    );
+  }
+
   void _handleMissingService() {
     if (!mounted || _serviceMissingHandled) return;
     _serviceMissingHandled = true;
+    _serviceSub?.cancel();
+    _realtimeRetryTimer?.cancel();
     _refreshTimer?.cancel();
     setState(() {
       _service = null;
@@ -119,65 +195,200 @@ class _ProviderActiveServiceMobileScreenState
     });
   }
 
-  Future<void> _loadService({bool showLoading = true}) async {
+  Future<void> _handleRealtimeNotFound({
+    bool confirmedByCanonicalRefresh = false,
+  }) async {
+    _consecutiveNotFoundSignals++;
+    if (confirmedByCanonicalRefresh && _consecutiveNotFoundSignals >= 2) {
+      _handleMissingService();
+      return;
+    }
+    if (_consecutiveNotFoundSignals < 3) {
+      await _loadService(showLoading: false, forceRefresh: true);
+      return;
+    }
+    final currentStatus = _service?['status']?.toString();
+    if (currentStatus != null && !_isTerminalServiceStatus(currentStatus)) {
+      await _loadService(showLoading: false, forceRefresh: true);
+      return;
+    }
+    _handleMissingService();
+  }
+
+  void _startPolling() {
+    if (!_isForeground) return;
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      unawaited(_loadService(showLoading: false));
+    });
+  }
+
+  void _scheduleRealtimeResubscribe({bool immediate = false, Object? error}) {
+    if (!mounted || !_isForeground) return;
+    _realtimeRetryTimer?.cancel();
+    final seconds = immediate
+        ? 0
+        : (_realtimeRetryAttempt <= 0
+              ? 1
+              : (1 << _realtimeRetryAttempt).clamp(1, 12));
+    if (!immediate) {
+      _realtimeRetryAttempt = (_realtimeRetryAttempt + 1).clamp(0, 6);
+    }
+    _realtimeRetryTimer = Timer(Duration(seconds: seconds), () async {
+      if (!mounted || !_isForeground) return;
+      try {
+        if (kIsWeb) {
+          await RealtimeService().requestSocketReconnect();
+        }
+        _listenRealtime();
+        await _loadService(showLoading: false, forceRefresh: true);
+      } catch (e) {
+        debugPrint('⚠️ [ProviderActive] falha ao religar realtime: $e');
+        _scheduleRealtimeResubscribe(error: e);
+      }
+    });
+    debugPrint(
+      'ℹ️ [ProviderActive] reagendando realtime em ${seconds}s${error == null ? '' : ' por $error'}',
+    );
+  }
+
+  void _listenRealtime() {
+    _serviceSub?.cancel();
+    _serviceSub = DataGateway()
+        .watchService(widget.serviceId, scope: ServiceDataScope.mobileOnly)
+        .listen(
+          (data) {
+            if (!mounted || data.isEmpty) return;
+            if (_isMissingService(data)) {
+              unawaited(_handleRealtimeNotFound());
+              return;
+            }
+            _consecutiveNotFoundSignals = 0;
+            _realtimeRetryAttempt = 0;
+            _realtimeRetryTimer?.cancel();
+            unawaited(_applyServiceDetails(data));
+          },
+          onError: (e) {
+            if (!mounted) return;
+            final transient = _isTransientRealtimeTrackingError(e);
+            debugPrint(
+              '${transient ? 'ℹ️' : '⚠️'} [ProviderActive] watchService degradado: $e',
+            );
+            _scheduleRealtimeResubscribe(error: e);
+          },
+        );
+  }
+
+  Future<void> _applyServiceDetails(Map<String, dynamic> details) async {
+    final status = normalizeServiceStatus(details['status']?.toString());
+    if (_isMissingService(details)) {
+      await _handleRealtimeNotFound(confirmedByCanonicalRefresh: true);
+      return;
+    }
+    if (_isConcludingStatus(status)) {
+      await _ensureCompletionCodeRequested();
+    }
+    final nextViewState =
+        _latestBackendTrackingSnapshot?.service?['id']?.toString() ==
+            details['id']?.toString()
+        ? _latestBackendTrackingSnapshot?.viewState
+        : null;
+    if (!mounted) return;
+    setState(() {
+      _service = {...?_service, ...details};
+      _latestViewState =
+          nextViewState ??
+          BackendTrackingViewState.fallback(
+            service: _service ?? details,
+            scope: ServiceDataScope.mobileOnly,
+            role: 'provider',
+          );
+      _loading = false;
+      _serviceMissingHandled = false;
+      if (_isConcludingStatus(status)) {
+        _showInlineFinish = true;
+      }
+    });
+  }
+
+  Future<BackendTrackingSnapshotState?> _fetchTrackingSnapshot({
+    bool force = false,
+  }) async {
+    try {
+      return await _backendTrackingApi.fetchTrackingSnapshot(
+        widget.serviceId,
+        scope: ServiceDataScope.mobileOnly.name,
+        role: 'provider',
+      );
+    } catch (e) {
+      if (force) {
+        debugPrint('⚠️ [ProviderActive] snapshot backend indisponível: $e');
+      }
+      return null;
+    }
+  }
+
+  Future<void> _loadService({
+    bool showLoading = true,
+    bool forceRefresh = false,
+  }) async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
     if (showLoading && mounted) {
       setState(() => _loading = true);
     }
     try {
-      final details = await _api.getServiceDetails(widget.serviceId);
+      final backendSnapshot = await _fetchTrackingSnapshot(
+        force: forceRefresh || showLoading,
+      );
+      final details =
+          backendSnapshot?.service ??
+          await _api.getServiceDetails(
+            widget.serviceId,
+            scope: ServiceDataScope.mobileOnly,
+            forceRefresh: forceRefresh,
+          );
       if (_isMissingService(details)) {
-        _handleMissingService();
+        await _handleRealtimeNotFound(confirmedByCanonicalRefresh: true);
         return;
       }
-      final status = (details['status'] ?? '').toString().toLowerCase().trim();
+      _latestBackendTrackingSnapshot = backendSnapshot;
+      _latestViewState =
+          backendSnapshot?.viewState ??
+          BackendTrackingViewState.fallback(
+            service: details,
+            scope: ServiceDataScope.mobileOnly,
+            role: 'provider',
+          );
+      _consecutiveNotFoundSignals = 0;
+      final status = normalizeServiceStatus(details['status']?.toString());
       if (_isConcludingStatus(status)) {
         final autoConfirmed = await _api.autoConfirmServiceAfterGraceIfEligible(
           widget.serviceId,
           graceMinutes: 720,
         );
         if (autoConfirmed) {
-          final latest = await _api.getServiceDetails(widget.serviceId);
+          final latest = await _api.getServiceDetails(
+            widget.serviceId,
+            scope: ServiceDataScope.mobileOnly,
+            forceRefresh: true,
+          );
           if (_isMissingService(latest)) {
-            _handleMissingService();
+            await _handleRealtimeNotFound(confirmedByCanonicalRefresh: true);
             return;
           }
-          final latestStatus = (latest['status'] ?? '')
-              .toString()
-              .toLowerCase()
-              .trim();
-          final showFinishPanel = _isConcludingStatus(latestStatus);
-          if (showFinishPanel) {
-            await _ensureCompletionCodeRequested();
-          }
-          if (!mounted) return;
-          setState(() {
-            _service = latest;
-            _loading = false;
-            if (showFinishPanel) {
-              _showInlineFinish = true;
-            }
-          });
+          await _applyServiceDetails(latest);
           return;
         }
       }
-      final showFinishPanel = _isConcludingStatus(status);
-      if (showFinishPanel) {
-        await _ensureCompletionCodeRequested();
-      }
-      if (!mounted) return;
-      setState(() {
-        _service = details;
-        _loading = false;
-        if (showFinishPanel) {
-          _showInlineFinish = true;
-        }
-      });
+      await _applyServiceDetails(details);
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _service = null;
         _loading = false;
       });
+    } finally {
+      _isRefreshing = false;
     }
   }
 
@@ -234,9 +445,9 @@ class _ProviderActiveServiceMobileScreenState
         scope: ServiceDataScope.mobileOnly,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Agendamento confirmado!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Agendamento confirmado!')));
       await _loadService(showLoading: false);
     } catch (e) {
       if (!mounted) return;
@@ -507,24 +718,6 @@ class _ProviderActiveServiceMobileScreenState
             ),
           ],
           const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue.withOpacity(0.22)),
-            ),
-            child: const Text(
-              'Use o fluxo principal com vídeo + código do cliente para concluir o serviço imediatamente.\nSem código, a finalização entra em contingência e aguarda manifestação do cliente por até 12h.',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
           TextField(
             controller: _codeController,
             keyboardType: TextInputType.number,
@@ -564,8 +757,8 @@ class _ProviderActiveServiceMobileScreenState
               }
             },
           ),
-          const SizedBox(height: 8),
-          if (!_allowNoCodeFallback)
+          if (hasVideo) const SizedBox(height: 8),
+          if (hasVideo && !_allowNoCodeFallback)
             TextButton.icon(
               onPressed: _submittingFinish
                   ? null
@@ -582,7 +775,7 @@ class _ProviderActiveServiceMobileScreenState
                 textStyle: const TextStyle(fontWeight: FontWeight.w900),
               ),
             )
-          else
+          else if (hasVideo)
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -655,32 +848,32 @@ class _ProviderActiveServiceMobileScreenState
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: (_inlineVideoBytes != null && !_submittingFinish)
-                ? _submitInlineFinish
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          if (hasVideo) ...[
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: !_submittingFinish ? _submitInlineFinish : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 4,
+                shadowColor: AppTheme.primaryBlue.withOpacity(0.28),
               ),
-              elevation: 4,
-              shadowColor: AppTheme.primaryBlue.withOpacity(0.28),
+              child: _submittingFinish
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('FINALIZAR SERVIÇO'),
             ),
-            child: _submittingFinish
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('FINALIZAR SERVIÇO'),
-          ),
+          ],
         ],
       ),
     );
@@ -898,6 +1091,7 @@ class _ProviderActiveServiceMobileScreenState
   @override
   Widget build(BuildContext context) {
     final service = _service;
+    final viewState = _latestViewState;
     final participantContextLabel = _serviceParticipantContextLabel(service);
     final status = service?['status']?.toString().toLowerCase() ?? '';
     final canOpenChat =
@@ -973,6 +1167,15 @@ class _ProviderActiveServiceMobileScreenState
                                   ),
                                 ),
                               ),
+                            if (viewState != null &&
+                                viewState.message.trim().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                                child: _BackendViewStateBanner(
+                                  title: viewState.title,
+                                  message: viewState.message,
+                                ),
+                              ),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
                               child: _buildStepper(service),
@@ -998,6 +1201,49 @@ class _ProviderActiveServiceMobileScreenState
                   },
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class _BackendViewStateBanner extends StatelessWidget {
+  const _BackendViewStateBanner({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryYellow.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.primaryYellow.withOpacity(0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title.trim().isNotEmpty) ...[
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          Text(
+            message,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              height: 1.25,
+              color: Colors.grey.shade800,
+            ),
+          ),
+        ],
       ),
     );
   }

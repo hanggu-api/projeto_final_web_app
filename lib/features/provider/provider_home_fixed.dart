@@ -22,7 +22,6 @@ import '../../services/media_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/remote_theme_service.dart';
 import '../../services/realtime_service.dart';
-import '../shared/widgets/notification_dropdown_menu.dart';
 import '../../widgets/skeleton_loader.dart';
 
 class ProviderHomeFixed extends StatefulWidget {
@@ -1923,7 +1922,8 @@ class _ProviderHomeFixedState extends State<ProviderHomeFixed>
                   IconButton(
                     icon: const Icon(LucideIcons.bell, color: Colors.black87),
                     onPressed: () async {
-                      await NotificationDropdownMenu.show(context);
+                      if (!context.mounted) return;
+                      context.push('/notifications');
                     },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),

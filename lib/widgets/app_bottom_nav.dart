@@ -61,7 +61,6 @@ class _AppBottomNavState extends State<AppBottomNav> {
       _chatMessageHandler = handleNewMessage;
       rt.on('chat.message', handleNewMessage);
       rt.on('chat_message', handleNewMessage);
-
     });
   }
 
@@ -77,7 +76,6 @@ class _AppBottomNavState extends State<AppBottomNav> {
     }
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -123,9 +121,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
           ? const Color(0xFF09111F)
           : const Color(0xFF09111F).withOpacity(0.42);
 
-      final bgColor = isSelected
-          ? const Color(0xFFE8F0FF)
-          : Colors.transparent;
+      final bgColor = isSelected ? const Color(0xFFE8F0FF) : Colors.transparent;
 
       return Expanded(
         child: GestureDetector(
@@ -214,8 +210,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
           context.go('/chats');
           break;
         case 2:
-          // Abrir o menu drawer (menu hamburger) em vez de navegar para perfil
-          Scaffold.of(context).openDrawer();
+          context.go('/menu');
           break;
       }
     } else {
@@ -227,8 +222,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
           context.go('/chats');
           break;
         case 2:
-          // Abrir o menu drawer (menu hamburger) em vez de navegar para perfil
-          Scaffold.of(context).openDrawer();
+          context.go('/menu');
           break;
       }
     }

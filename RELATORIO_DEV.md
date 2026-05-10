@@ -1,5 +1,1967 @@
 # RELATORIO DEV
 
+## 2026-05-10 - App limitado ao fluxo móvel de prestadores
+
+### Alterações Realizadas
+
+- Criada a trava `ProductScopeGate.isSalonSchedulingEnabled = false` para manter o app em modo mobile-only.
+- A rota `/beauty-booking` passou a cair na `HomeScreen` quando acessada diretamente.
+- O atalho de troca para fluxo fixo em `/servicos` foi bloqueado com aviso em snackbar.
+- O executor de ações remotas deixou de abrir `service_request_fixed` enquanto o salão estiver indisponível.
+- A entrada de marketing `beauty_booking` na home foi bloqueada.
+- O fluxo legado `ServiceRequestScreen` agora força o caminho móvel quando o salão está desativado.
+- O registro remoto de rota `service_request_fixed` foi removido.
+- A navegação de boot e redirecionamento agora impedem que serviço fixo/salão assuma a tela inicial.
+
+### Efeito prático
+
+- O app fica lançado apenas com o serviço móvel de prestadores.
+- O agendamento de salão de beleza não fica acessível por atalho, ação remota ou acesso direto à rota.
+- O comportamento reduz risco de entrada em jornada indisponível durante o lançamento.
+
+### Arquivos Impactados
+
+- `lib/core/utils/product_scope_gate.dart`
+- `lib/main.dart`
+- `lib/integrations/remote_ui/default_remote_action_executor.dart`
+- `lib/features/home/home_explore_screen.dart`
+- `lib/features/profile/provider_profile_screen.dart`
+- `lib/features/home/widgets/fixed_service_card.dart`
+- `lib/features/client/service_request_screen.dart`
+- `lib/core/navigation/app_navigation_policy.dart`
+- `lib/core/navigation/app_redirect_resolver.dart`
+- `lib/core/remote_ui/route_key_registry.dart`
+- `test/core/navigation/app_navigation_policy_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format ...`
+  - `/home/servirce/flutter/bin/flutter test test/core/navigation/app_navigation_policy_test.dart --no-pub`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub ...`
+- Resultado:
+  - Testes do roteamento passaram.
+  - Flutter analyze retornou `No issues found!`.
+
+## 2026-05-09 - Sino de notificações abre a tela de notificações
+
+### Alterações Realizadas
+
+- O ícone de sino da home do prestador passou a navegar para `/notifications`.
+- Removido o acionamento do dropdown antigo a partir desse botão.
+- Limpado o import que ficou obsoleto após a troca.
+
+### Efeito prático
+
+- Ao tocar no sino, o usuário entra direto na tela de notificações.
+- O clique deixa de parecer sem efeito.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_home_fixed.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Ainda pendente de execução.
+
+## 2026-05-09 - Logout operacional nos dois aparelhos
+
+### Alterações Realizadas
+
+- Limpados os dados locais do app no celular físico `ZF524PNH5V`.
+- Limpados os dados locais do app no emulador `emulator-5554`.
+- Reaberto o app nos dois aparelhos.
+
+### Efeito prático
+
+- Ambos os aparelhos saíram da sessão atual.
+- Celular físico e emulador ficam prontos para novo login separado.
+
+### Arquivos Impactados
+
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `adb -s ZF524PNH5V shell pm clear com.example.service_101`
+  - `adb -s emulator-5554 shell pm clear com.example.service_101`
+  - `adb shell monkey` para reabrir o app em ambos.
+- Resultado:
+  - `pm clear` retornou `Success` nos dois aparelhos.
+
+## 2026-05-09 - Removido aviso de cancelamento indisponível
+
+### Alterações Realizadas
+
+- `TrackingFinalActionsSection` não exibe mais o card/texto `Cancelamento indisponível: prestador a menos de 100m.`.
+- Quando não há confirmação, conclusão nem cancelamento disponível, a seção final fica vazia.
+
+### Efeito prático
+
+- Remove o texto e o card inferior circulados na tela do cliente.
+- A área de conclusão fica limpa, mostrando apenas código e ações realmente disponíveis.
+
+### Arquivos Impactados
+
+- `lib/features/client/widgets/tracking_final_actions_section.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/client/widgets/tracking_final_actions_section.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/client/widgets/tracking_final_actions_section.dart lib/features/client/service_tracking_page.dart`
+- Resultado:
+  - Flutter analyze: `No issues found!`.
+
+## 2026-05-09 - Finalização só aparece após vídeo selecionado
+
+### Alterações Realizadas
+
+- Removida a frase explicativa formal do painel de finalização do prestador.
+- O botão `FINALIZAR SERVIÇO` agora só aparece depois que há vídeo selecionado/gravado.
+- A ação `USAR CONTINGÊNCIA SEM CÓDIGO` também só aparece depois que há vídeo selecionado.
+
+### Efeito prático
+
+- Antes de filmar, o prestador vê apenas a chamada para enviar o vídeo e o campo de código.
+- Depois de filmar, aparecem as opções de contingência e finalização.
+- O fluxo fica mais direto e menos poluído visualmente.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_active_service_mobile_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_active_service_mobile_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_active_service_mobile_screen.dart`
+- Resultado:
+  - Flutter analyze finalizou com código 0.
+
+## 2026-05-09 - Removido cancelamento quando backend bloqueia
+
+### Alterações Realizadas
+
+- Ajustada `ServiceTrackingPage` para respeitar `finalActions.canCancel` quando o backend envia ações finais.
+- O botão `CANCELAR SOLICITAÇÃO` não é mais exibido por fallback local em estados de execução/conclusão quando o snapshot já informa `canCancel=false`.
+
+### Efeito prático
+
+- Na etapa de conclusão/aguardando comprovação, o cliente não vê mais o botão amarelo de cancelamento.
+- A tela segue mostrando código, confirmação ou reclamação conforme o contrato do backend.
+
+### Arquivos Impactados
+
+- `lib/features/client/service_tracking_page.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/client/service_tracking_page.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/client/service_tracking_page.dart lib/features/client/widgets/tracking_final_actions_section.dart`
+- Resultado:
+  - Flutter analyze: `No issues found!`.
+
+## 2026-05-09 - Card azul só aparece após vídeo enviado
+
+### Alterações Realizadas
+
+- Ajustada a regra do card azul de pendência no tracking do prestador.
+- O card `Pendente - aguardando confirmação do cliente` agora exige status de confirmação pendente e presença de `proof_video`.
+
+### Efeito prático
+
+- Antes de enviar vídeo, o prestador vê apenas o fluxo de filmar/finalizar.
+- O card azul só aparece depois que o prestador enviou comprovação em vídeo e o serviço ficou aguardando confirmação do cliente.
+- Evita confundir pendência de confirmação com pendência de envio de vídeo.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_active_service_mobile_screen.dart`
+- Resultado:
+  - Flutter analyze: `No issues found!`.
+
+## 2026-05-09 - Código de conclusão visível para o cliente
+
+### Alterações Realizadas
+
+- `ServiceTrackingPage` passou a ler o código de conclusão também de `finalActions.completionCode`, `proof_code` e `validation_code`.
+- A tela do cliente deixou de forçar `CONFIRMAR SERVIÇO` apenas pelo estágio quando o backend envia `finalActions.showConfirm=false`.
+- A Edge Function `api` passou a espelhar o código efetivo em `service.completion_code` e `service.verification_code` no snapshot.
+- Publicada nova versão remota da função `api`.
+
+### Efeito prático
+
+- O cliente passa a ver o código de 6 dígitos para informar ao prestador.
+- O app antigo/em execução também consegue ler o código via `service.completion_code`.
+- A confirmação do cliente só fica liberada quando o backend permitir, respeitando a espera pelo vídeo do serviço.
+
+### Arquivos Impactados
+
+- `lib/features/client/service_tracking_page.dart`
+- `../supabase/functions/api/index.ts`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/client/service_tracking_page.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/client/service_tracking_page.dart lib/core/tracking/backend_tracking_snapshot_state.dart`
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `deno check ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` no snapshot remoto com `role=client`.
+- Resultado:
+  - Flutter analyze: `No issues found!`.
+  - Snapshot remoto retornou `completion_code: 878138`, `verification_code: 878138`, `proof_code: 878138`, `validation_code: 878138`.
+  - `finalActions.showCompletionCode: true`.
+  - `finalActions.showConfirm: false` enquanto `proofVideoReady: false`.
+  - `deno check` permanece com 7 erros legados de tipagem no arquivo grande `api/index.ts`, fora dos trechos alterados.
+
+## 2026-05-09 - Iniciar serviço preenche `started_at`
+
+### Alterações Realizadas
+
+- Corrigido o endpoint `POST /services/:id/start` na Edge Function `api`.
+- Quando o serviço já está `in_progress`, mas `started_at` está vazio, o backend agora preenche `started_at` e `status_updated_at`.
+- Quando o serviço ainda não está `in_progress`, iniciar serviço também grava `started_at`.
+- `ApiService.startService` agora valida a resposta do backend e lança erro se a chamada retornar vazia.
+- Publicada nova versão remota da função `api`.
+
+### Efeito prático
+
+- O botão `INICIAR SERVIÇO` deixa de parecer sem ação quando o status já era `in_progress`.
+- Após iniciar, a tela do prestador troca para a ação de conclusão (`SERVIÇO CONCLUÍDO`).
+
+### Arquivos Impactados
+
+- `../supabase/functions/api/index.ts`
+- `lib/services/api_service.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/services/api_service.dart`
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/services/api_service.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/features/provider/widgets/provider_service_card.dart`
+  - `deno check ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` em `POST /functions/v1/api/services/f806fac0-2a60-487b-b284-fc2194273486/start`
+  - reinício do app no emulador e captura de tela.
+- Resultado:
+  - Flutter analyze: `No issues found!`.
+  - Endpoint remoto retornou `success: true`, `idempotent: true`, `started_at_filled: true`.
+  - `service_requests.started_at` foi preenchido com `2026-05-10T01:09:56.705+00:00`.
+  - Emulador passou a exibir botão `SERVIÇO CONCLUÍDO`.
+  - `deno check` permanece com 7 erros legados de tipagem no arquivo grande `api/index.ts`, fora dos trechos alterados.
+
+## 2026-05-09 - Sessões separadas entre celular e emulador
+
+### Alterações Realizadas
+
+- Diagnosticado que celular físico e emulador estavam logados com a mesma conta `chaveiro10@gmail.com`.
+- Limpados os dados do app apenas no celular físico `ZF524PNH5V`.
+- Mantida a sessão do emulador `emulator-5554` como prestador.
+
+### Efeito prático
+
+- Emulador permanece logado como prestador `chaveiro10@gmail.com`.
+- Celular físico voltou para a tela de login, pronto para entrar com conta cliente.
+- Evita que os dois aparelhos exibam a mesma tela de prestador durante o teste lado a lado.
+
+### Arquivos Impactados
+
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `adb devices -l`
+  - leitura local de e-mail/user_id em `SharedPreferences` dos dois aparelhos
+  - `adb -s ZF524PNH5V shell pm clear com.example.service_101`
+  - `adb -s ZF524PNH5V shell monkey -p com.example.service_101 -c android.intent.category.LAUNCHER 1`
+  - captura de tela do celular físico via `adb exec-out screencap`
+- Resultado:
+  - Antes da limpeza, ambos os aparelhos tinham `chaveiro10@gmail.com` e `user_id=428`.
+  - Após a limpeza, celular físico abriu a tela de login com `passageiro2@gmail.com` preenchido.
+  - Emulador continuou com `chaveiro10@gmail.com`.
+
+## 2026-05-09 - Timeout maior para snapshot de tracking
+
+### Alterações Realizadas
+
+- `BackendTrackingApi.fetchTrackingSnapshot` passou a chamar o backend com timeout de 20s.
+- `BackendTrackingApi.fetchServiceDetails` também passou a usar timeout de 20s.
+- A alteração ficou limitada aos endpoints de tracking, mantendo o timeout padrão dos demais endpoints.
+
+### Efeito prático
+
+- Reduz falso erro no app quando a Edge Function tem pico de latência, cold start ou rede instável do aparelho.
+- A tela de tracking fica menos propensa a registrar `TimeoutException after 0:00:10` na primeira tentativa.
+
+### Arquivos Impactados
+
+- `lib/core/tracking/backend_tracking_api.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `curl` no snapshot remoto por 3 rodadas.
+  - `dart format lib/core/tracking/backend_tracking_api.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/tracking/backend_tracking_api.dart lib/features/client/service_tracking_page.dart lib/features/provider/provider_active_service_mobile_screen.dart`
+- Resultado:
+  - Snapshot remoto respondeu `200` em aproximadamente `1.28s`, `1.50s` e `1.86s`.
+  - `provider_name` retornou `alan mota ludres`.
+  - `viewState.route` retornou `/service-tracking/f806fac0-2a60-487b-b284-fc2194273486`.
+  - Flutter analyze: `No issues found!`.
+
+## 2026-05-09 - Prestador exige credencial de profissão
+
+### Alterações Realizadas
+
+- A Edge Function `api` ganhou validação `getProviderCredentialState`.
+- O backend agora só trata o usuário como prestador operacional quando:
+  - `role=provider`;
+  - existe linha em `providers` para o `user_id`;
+  - existe pelo menos uma linha em `provider_professions` para o `provider_user_id`.
+- `GET /auth/bootstrap` usa essa validação antes de retornar `/provider-active/:id`.
+- `GET /tracking/active-service` usa a mesma validação antes de buscar serviço ativo por `provider_id`.
+- A resposta passa a expor `providerCredential` e `hasProviderCredential` para diagnóstico.
+- Publicada nova versão remota da função `api`.
+
+### Efeito prático
+
+- `role=provider` sozinho não garante mais abertura da tela operacional de prestador.
+- Usuário sem cadastro profissional completo não entra em `/provider-active/:id` apenas por ter role.
+- `chaveiro10@gmail.com` segue liberado porque possui perfil em `providers` e profissão `Chaveiro` em `provider_professions`.
+
+### Arquivos Impactados
+
+- `../supabase/functions/api/index.ts`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `deno check ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` em `provider_professions` para `provider_user_id=428`
+  - `curl` em `/auth/bootstrap` usando o token real do emulador.
+- Resultado:
+  - `provider_user_id=428` possui `profession_id=1`, `professions.name=Chaveiro`.
+  - Bootstrap remoto retornou `hasProviderCredential: true`, `hasProviderProfile: true`, `hasProviderProfession: true`, `professionIds: [1]`.
+  - `nextRoute` permaneceu `/provider-active/f806fac0-2a60-487b-b284-fc2194273486`.
+  - `deno check` permanece com 7 erros legados de tipagem no arquivo grande `api/index.ts`, fora dos trechos alterados.
+
+## 2026-05-09 - Bootstrap abre tracking correto para prestador
+
+### Alterações Realizadas
+
+- Corrigida a Edge Function `api` no endpoint `GET /auth/bootstrap`.
+- Quando o usuário autenticado é `provider` e possui serviço móvel ativo, `nextRoute` agora retorna `/provider-active/:id`.
+- Mantida a rota de cliente como `/service-tracking/:id`.
+- Publicada nova versão remota da função `api`.
+
+### Efeito prático
+
+- Emulador logado como `chaveiro10@gmail.com` abre a tela de prestador.
+- Celular logado como cliente permanece na tela de cliente.
+- O fluxo fica com um lado cliente acompanhando e o outro lado prestador executando/iniciando o serviço.
+
+### Arquivos Impactados
+
+- `../supabase/functions/api/index.ts`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `deno check ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` em `/auth/bootstrap` usando o token real do emulador.
+  - `adb force-stop` e reabertura do app no emulador.
+  - Captura de tela via `adb exec-out screencap`.
+- Resultado:
+  - Bootstrap remoto para `chaveiro10@gmail.com`: `role=provider`, `userId=428`, `nextRoute=/provider-active/f806fac0-2a60-487b-b284-fc2194273486`.
+  - Emulador abriu a tela de prestador com botão `INICIAR SERVIÇO`.
+  - `deno check` permanece com 7 erros legados de tipagem no arquivo grande `api/index.ts`, fora dos trechos alterados.
+
+## 2026-05-09 - Snapshot de tracking enriquece cliente e prestador
+
+### Alterações Realizadas
+
+- A Edge Function `api` passou a enriquecer serviços de tracking com dados reais de `users` e `providers`.
+- Corrigida a busca do nome comercial do prestador: `commercial_name` agora vem da tabela `providers`, não de `users`.
+- O endpoint `GET /tracking/services/:id/snapshot` passa a retornar `client_name`, `client_avatar`, `provider_name`, `provider_avatar`, `client` e `provider`.
+- O endpoint `GET /tracking/services/:id` também usa o mesmo enriquecimento.
+- Publicada nova versão remota da função `api`.
+
+### Efeito prático
+
+- Para o serviço `f806fac0-2a60-487b-b284-fc2194273486`, `chaveiro10@gmail.com` foi confirmado como prestador `provider_id=428`.
+- A tela do cliente deixa de cair em `Prestador` genérico e recebe `provider_name: alan mota ludres`.
+- O snapshot também confirmou o cliente `client_id=419`, `client_name: alair moto`.
+
+### Arquivos Impactados
+
+- `../supabase/functions/api/index.ts`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `deno check ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` no usuário remoto `chaveiro10@gmail.com`
+  - `curl` no snapshot remoto com `role=client`
+- Resultado:
+  - Deploy remoto concluído.
+  - Usuário `chaveiro10@gmail.com`: `id=428`, `role=provider`, `full_name=alan mota ludres`.
+  - Snapshot remoto retornou `provider_id: 428`, `provider_name: alan mota ludres`, `provider_avatar` preenchido, `client_id: 419` e `client_name: alair moto`.
+  - `deno check` permanece com 7 erros legados de tipagem no arquivo grande `api/index.ts`, fora dos trechos alterados.
+
+## 2026-05-09 - Separação explícita de snapshot cliente/prestador
+
+### Alterações Realizadas
+
+- `BackendTrackingApi.fetchTrackingSnapshot` passou a aceitar `role`.
+- `ServiceTrackingPage` chama o snapshot com `role=client`.
+- `ProviderActiveServiceMobileScreen` chama o snapshot com `role=provider`.
+- A Edge Function `api` passou a respeitar o papel solicitado quando ele é compatível com o serviço ou quando a chamada é administrativa.
+- Publicada nova versão remota da função `api`.
+
+### Efeito prático
+
+- Cliente e prestador podem acompanhar o mesmo serviço sem receber a mesma decisão de tela.
+- Celular logado como cliente recebe `/service-tracking/:id`.
+- Emulador logado como prestador recebe `/provider-active/:id` e CTA de prestador.
+
+### Arquivos Impactados
+
+- `lib/core/tracking/backend_tracking_api.dart`
+- `lib/features/client/service_tracking_page.dart`
+- `lib/features/provider/provider_active_service_mobile_screen.dart`
+- `../supabase/functions/api/index.ts`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/core/tracking/backend_tracking_api.dart lib/features/client/service_tracking_page.dart lib/features/provider/provider_active_service_mobile_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/tracking/backend_tracking_api.dart lib/features/client/service_tracking_page.dart lib/features/provider/provider_active_service_mobile_screen.dart`
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` no snapshot remoto com `role=provider`
+  - `curl` no snapshot remoto com `role=client`
+- Resultado:
+  - Flutter analyze: `No issues found!`
+  - Deploy remoto concluído.
+  - `role=provider` retornou `route: /provider-active/f806fac0-2a60-487b-b284-fc2194273486`, `screen: provider_tracking`, `primaryAction: finish_service`.
+  - `role=client` retornou `route: /service-tracking/f806fac0-2a60-487b-b284-fc2194273486`, `screen: client_tracking`.
+  - `deno check` permanece com erros legados de tipagem no arquivo grande `api/index.ts`, fora dos trechos alterados.
+
+## 2026-05-09 - Conclusão com vídeo Cloudinary e fila local resiliente
+
+### Alterações Realizadas
+
+- `uploadServiceVideo` passou a enviar vídeo de conclusão para Cloudinary usando a Edge Function `cloudinary-sign-upload`.
+- Criada `PendingServiceVideoUploadQueue` para salvar o vídeo localmente antes do upload e reenviar depois em caso de queda de rede, app fechado ou bateria.
+- `ServiceVideoUploadScreen` agora enfileira a evidência antes de iniciar upload; remove da fila só depois de upload + confirmação backend concluídos.
+- `ProviderActiveServiceMobileScreen` tenta recuperar vídeos pendentes ao abrir o tracking e quando o app volta para foreground.
+- `GET /tracking/services/:id/snapshot` passou a informar `proofVideoReady/proof_video_ready` e bloqueia `showConfirm` do cliente quando `proof_video` ainda não existe.
+- Implementado `POST /tracking/services/:id/confirm-final` na Edge Function `api`, validando cliente dono, status elegível e presença de `proof_video` antes de concluir/pagar.
+- Corrigidos casts de status no endpoint remoto para evitar erro de tipo em sincronização.
+- Publicada nova versão da função `api` no Supabase remoto.
+
+### Efeito prático
+
+- Prestador precisa enviar vídeo para finalizar.
+- Código de conclusão continua sendo gerado antes da finalização.
+- O vídeo é salvo no Cloudinary e o cliente só consegue confirmar/avaliar depois que o backend recebeu `proof_video`.
+- Se o upload falhar, o vídeo fica protegido no aparelho e o app tenta reenviar automaticamente quando voltar ao tracking.
+
+### Arquivos Impactados
+
+- `lib/services/support/api_media_storage.dart`
+- `lib/services/pending_service_video_upload_queue.dart`
+- `lib/features/provider/service_video_upload_screen.dart`
+- `lib/features/provider/provider_active_service_mobile_screen.dart`
+- `../supabase/functions/api/index.ts`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/services/support/api_media_storage.dart lib/services/pending_service_video_upload_queue.dart lib/features/provider/service_video_upload_screen.dart lib/features/provider/provider_active_service_mobile_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/services/support/api_media_storage.dart lib/services/pending_service_video_upload_queue.dart lib/features/provider/service_video_upload_screen.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/services/api_service.dart`
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `deno check ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` no snapshot remoto do serviço `f806fac0-2a60-487b-b284-fc2194273486`
+  - `curl` na função `cloudinary-sign-upload` para validar assinatura de upload de vídeo.
+- Resultado:
+  - Flutter analyze: `No issues found!`
+  - Deploy remoto da função `api` concluído, versão `120`.
+  - Snapshot remoto retornou `proofVideoReady: false` e `finalActions.showConfirm: false` quando ainda não há `proof_video`.
+  - Assinatura Cloudinary retornou `success: true`, `resource_type: video` e assinatura presente.
+  - `deno check` ainda aponta erros legados de tipagem no arquivo grande `api/index.ts` fora dos trechos alterados; o bundle/deploy foi aceito.
+
+## 2026-05-09 - Edge Function `api` envia viewState canônico de tracking
+
+### Alterações Realizadas
+
+- Atualizada a Edge Function remota/local `supabase/functions/api/index.ts` no projeto pai.
+- O endpoint `GET /functions/v1/api/tracking/services/:id/snapshot?scope=mobileOnly` agora retorna `viewState` e `view_state`.
+- `viewState` é calculado no Supabase a partir de `service_requests.status`, papel do usuário, prestador vinculado e status terminal/ativo.
+- Adicionado contrato pronto com `route`, `screen`, `stage`, `title`, `message`, `isActive`, `shouldPinTracking`, `primaryAction` e `secondaryActions`.
+- `GET /tracking/active-service` passou a procurar serviço ativo por `provider_id` quando o usuário é prestador, mantendo `client_id` para cliente.
+- `GET /tracking/services/:id` também passa a devolver `viewState` junto com `service`.
+- Publicada a função `api` no Supabase remoto do projeto `mroesvsmylnaxelrhqtl`.
+
+### Efeito prático
+
+- A decisão principal de tela/status do tracking agora pode vir pronta do backend remoto.
+- Prestador com serviço móvel ativo continua resolvendo para `/provider-active/:id`.
+- Cliente com serviço móvel ativo com prestador resolve para `/service-tracking/:id`; sem prestador em busca resolve para `/service-busca-prestador-movel/:id`.
+- O app mantém realtime/polling como gatilho, mas consome a resposta canônica enviada pela função.
+
+### Arquivos Impactados
+
+- `../supabase/functions/api/index.ts`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `deno fmt ../supabase/functions/api/index.ts`
+  - `deno check ../supabase/functions/api/index.ts`
+  - `supabase functions deploy api --workdir .. --project-ref mroesvsmylnaxelrhqtl --no-verify-jwt`
+  - `curl` no snapshot remoto `.../functions/v1/api/tracking/services/f806fac0-2a60-487b-b284-fc2194273486/snapshot?scope=mobileOnly`
+- Resultado:
+  - Formatação concluída.
+  - Deploy remoto concluído com sucesso.
+  - Snapshot remoto retornou `data.viewState` e `data.view_state` com `status: in_progress`, `stage: execution`, `route: /service-tracking/:id` e `shouldPinTracking: true`.
+  - `deno check` ainda aponta erros de tipagem legados no arquivo `api/index.ts` fora do trecho alterado; o bundle/deploy da Edge Function foi aceito pelo Supabase CLI.
+
+## 2026-05-09 - Contrato canônico de viewState para tracking remoto
+
+### Alterações Realizadas
+
+- Criado `BackendTrackingViewState` para representar a resposta pronta do backend/Supabase para a tela de tracking.
+- `BackendTrackingSnapshotState` agora aceita `viewState`, `view_state` ou `screenState` dentro do snapshot remoto.
+- Enquanto o backend remoto ainda não envia `viewState`, o app deriva um fallback compatível para manter o fluxo funcionando.
+- `BackendTrackingApi.fetchTrackingSnapshot` passa o escopo para o parser, permitindo fallback correto para móvel/fixo/auto.
+- `ProviderActiveServiceMobileScreen` passou a buscar o snapshot canônico antes de `getServiceDetails`, guardar `viewState` e exibir mensagem/título prontos quando disponíveis.
+- `ServiceTrackingPage` do cliente passa a preferir `viewState.title` e `viewState.message` quando enviados pelo backend.
+- Adicionado teste cobrindo parse de `viewState` remoto e fallback local.
+
+### Efeito prático
+
+- O app fica preparado para o backend/Supabase assumir a decisão de rota, etapa, mensagem e ação principal do tracking.
+- Realtime/polling continuam como gatilhos de atualização, mas o snapshot canônico vira o contrato preferencial da UI.
+- A migração pode ser feita de forma progressiva: backend envia `viewState` quando estiver pronto, sem quebrar versões atuais.
+
+### Arquivos Impactados
+
+- `lib/core/tracking/backend_tracking_view_state.dart`
+- `lib/core/tracking/backend_tracking_snapshot_state.dart`
+- `lib/core/tracking/backend_tracking_api.dart`
+- `lib/features/provider/provider_active_service_mobile_screen.dart`
+- `lib/features/client/service_tracking_page.dart`
+- `test/core/tracking/backend_tracking_snapshot_state_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/core/tracking/backend_tracking_view_state.dart lib/core/tracking/backend_tracking_snapshot_state.dart lib/core/tracking/backend_tracking_api.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/features/client/service_tracking_page.dart test/core/tracking/backend_tracking_snapshot_state_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/tracking/backend_tracking_view_state.dart lib/core/tracking/backend_tracking_snapshot_state.dart lib/core/tracking/backend_tracking_api.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/features/client/service_tracking_page.dart test/core/tracking/backend_tracking_snapshot_state_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/core/tracking/backend_tracking_snapshot_state_test.dart test/core/utils/provider_mobile_active_policy_test.dart test/core/utils/mobile_client_navigation_gate_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart test/core/navigation/app_navigation_policy_test.dart`
+- Resultado:
+  - `No issues found!`
+  - Todos os testes direcionados passaram.
+
+## 2026-05-09 - Tracking realtime robusto para cliente e prestador móvel
+
+### Alterações Realizadas
+
+- Criada política central para serviço móvel ativo do prestador em `provider_mobile_active_policy`.
+- `ServiceStatusSets` agora possui conjunto `mobileActive` e terminais explícitos `finished`/`not_found`.
+- Ajustadas rotas para serviço móvel ativo do prestador sempre abrir `/provider-active/:id`, inclusive `awaiting_confirmation`, `waiting_client_confirmation`, `completion_requested` e pagamento restante.
+- Bootstrap passou a validar `last_provider_active_service_id` para qualquer status móvel ativo, não só agendamento.
+- Home do prestador remove serviços já vinculados/ativos da aba `Disponíveis` e mantém oportunidades abertas sem prestador.
+- Tela `ProviderActiveServiceMobileScreen` ganhou realtime em `service_requests` via `DataGateway.watchService`, retry/backoff, refresh ao voltar para foreground e polling de segurança a cada 10s.
+- `not_found` no tracking do prestador agora exige confirmação/repetição antes de sair da tela, reduzindo falso negativo transitório.
+- Corrigido comentário do `DataGateway.watchService` para indicar `service_requests` como tabela canônica móvel.
+
+### Efeito prático
+
+- Cliente e prestador ficam presos ao tracking quando existe serviço móvel ativo.
+- Prestador não deve mais ficar parado em `Disponíveis` enquanto o banco já mostra serviço `in_progress` ou outro status ativo.
+- Mudanças diretas em `service_requests.status` passam a refletir com realtime, com polling como redundância.
+
+### Arquivos Impactados
+
+- `lib/core/constants/trip_statuses.dart`
+- `lib/core/utils/provider_mobile_active_policy.dart`
+- `lib/main.dart`
+- `lib/core/bootstrap/app_bootstrap_coordinator.dart`
+- `lib/features/provider/provider_home_mobile.dart`
+- `lib/features/provider/provider_active_service_mobile_screen.dart`
+- `lib/services/data_gateway.dart`
+- `test/core/utils/provider_mobile_active_policy_test.dart`
+- `test/features/provider/provider_service_card_schedule_action_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/core/constants/trip_statuses.dart lib/core/utils/provider_mobile_active_policy.dart lib/main.dart lib/core/bootstrap/app_bootstrap_coordinator.dart lib/features/provider/provider_home_mobile.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/services/data_gateway.dart test/core/utils/provider_mobile_active_policy_test.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/constants/trip_statuses.dart lib/core/utils/provider_mobile_active_policy.dart lib/main.dart lib/core/bootstrap/app_bootstrap_coordinator.dart lib/features/provider/provider_home_mobile.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/services/data_gateway.dart test/core/utils/provider_mobile_active_policy_test.dart test/features/provider/provider_service_card_schedule_action_test.dart test/core/utils/mobile_client_navigation_gate_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/core/utils/provider_mobile_active_policy_test.dart test/core/utils/mobile_client_navigation_gate_test.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/core/navigation/app_navigation_policy_test.dart test/core/navigation/notification_resolvers_test.dart`
+- Resultado:
+  - `No issues found!`
+  - Todos os testes direcionados passaram.
+
+## 2026-05-09 - Ícones e imagens do app alinhados à marca 101 Service
+
+### Alterações Realizadas
+
+- Ajustado `flutter_launcher_icons.yaml` para gerar o launcher Android como `ic_launcher`, que é o recurso usado no `AndroidManifest`.
+- Regenerados os ícones de launcher para Android, iOS e Web a partir de `assets/icons/app_icon.png`.
+- Alterado o nome exibido no Android de `service_101` para `101 Service`.
+- Atualizada a cor de tema Web para amarelo da marca.
+- Substituídos os ícones grandes de notificação Android que ainda usavam símbolo antigo por marca simples `101`.
+
+### Efeito prático
+
+- O app passa a exibir a identidade `101 Service` no launcher Android.
+- Ícones Android/iOS/Web ficam alinhados ao asset amarelo/preto com `101`.
+- Notificações deixam de mostrar o ícone antigo de raio como marca grande.
+
+### Arquivos Impactados
+
+- `flutter_launcher_icons.yaml`
+- `android/app/src/main/AndroidManifest.xml`
+- `android/app/src/main/res/**`
+- `ios/Runner/Assets.xcassets/AppIcon.appiconset/**`
+- `web/favicon.png`
+- `web/icons/**`
+- `web/manifest.json`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `/home/servirce/flutter/bin/dart run flutter_launcher_icons`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/main.dart`
+  - `/home/servirce/flutter/bin/flutter build apk --debug`
+- Resultado:
+  - Ícones gerados com sucesso.
+  - `No issues found!`
+  - APK debug gerado com sucesso.
+
+## 2026-05-09 - Cheguei do prestador usa endpoint canônico de status
+
+### Alterações Realizadas
+
+- Ajustado `ApiService.arriveService` para não chamar mais `POST /api/v1/services/:id/arrive`.
+- A chegada do prestador móvel agora usa `POST /api/v1/tracking/services/:id/status` com status `arrived` e escopo `mobileOnly`.
+
+### Efeito prático
+
+- Corrige o erro remoto `405 method_not_allowed` ao tocar em `CHEGUEI NO SERVIÇO`.
+- Mantém a atualização de chegada no contrato canônico do tracking.
+
+### Arquivos Impactados
+
+- `lib/services/api_service.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/services/api_service.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/services/api_service.dart lib/features/provider/provider_active_service_mobile_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Card de agendamento confirmado com fundo branco
+
+### Alterações Realizadas
+
+- Ajustado o card `Agendado para...` no tracking do prestador.
+- Removido o fundo em gradiente ciano.
+- Aplicado fundo branco, texto/ícone em preto, borda cinza clara e sombra leve.
+
+### Efeito prático
+
+- O aviso de agendamento fica mais discreto e legível, seguindo o visual solicitado na marcação da tela.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Card azul de agendamento no tracking do prestador
+
+### Alterações Realizadas
+
+- Removido o card compacto superior de proposta no modo tracking/foco do prestador.
+- Substituído o bloco laranja de proposta enviada pelo prestador por card azul claro, seguindo o padrão visual da tela do cliente.
+- Texto simplificado para leitura direta:
+  - `Sua proposta foi enviada`;
+  - horário proposto;
+  - validade;
+  - orientação de aguardar resposta do cliente.
+
+### Efeito prático
+
+- A tela do prestador fica com apenas um card principal para o estado de agendamento.
+- Remove ruído visual e evita duplicidade/contraste laranja que confundia a leitura.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Buscar negociações do prestador pelo backend canônico
+
+### Alterações Realizadas
+
+- `DataGateway.loadProviderMobileScheduleNegotiations` passou a consultar também `/api/v1/services?provider_id_eq=...&status_in=schedule_proposed,scheduled`.
+- A consulta direta Supabase permanece como fallback/complemento, mas o backend canônico agora entra primeiro.
+- Corrigido `ApiService.getServices()` para prestador usar `provider_id_eq`, não `user_id_eq`, já que no backend `user_id_eq` filtra `client_id`.
+- Adicionado log com contagem de negociações retornadas pelo backend para diagnóstico no terminal.
+
+### Efeito prático
+
+- Serviço `schedule_proposed` com `provider_id=428` deve ser encontrado mesmo quando a query direta/RLS não retornar o registro.
+- Hot restart/`Ctrl+R` e Home do prestador ficam mais alinhados com a verdade do backend remoto.
+
+### Arquivos Impactados
+
+- `lib/services/data_gateway.dart`
+- `lib/services/api_service.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/services/data_gateway.dart lib/services/api_service.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/services/data_gateway.dart lib/services/api_service.dart lib/core/bootstrap/app_bootstrap_coordinator.dart lib/features/provider/provider_home_mobile.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Âncora local para reabrir tracking do prestador
+
+### Alterações Realizadas
+
+- O app agora salva `last_provider_active_service_id` quando o prestador envia proposta de agendamento.
+- O mesmo ID também é salvo quando a tela `/provider-active/:id` abre.
+- No bootstrap, se a busca geral por negociações vier vazia, o app valida esse ID salvo com `getServiceDetails(forceRefresh: true)`.
+- Se o serviço salvo ainda estiver `schedule_proposed` ou `scheduled`, o app inicia direto no tracking.
+- Adicionados logs no bootstrap mostrando `providerUserId` usado e quantidade de negociações encontradas.
+
+### Efeito prático
+
+- Hot restart/`Ctrl+R` fica mais resiliente mesmo quando `provider_id`, `schedule_proposed_by_user_id` ou a consulta geral do Supabase não encontram o serviço.
+- Se o prestador já abriu o tracking uma vez, o próximo boot consegue validar o serviço remoto e voltar para a mesma tela ativa.
+
+### Arquivos Impactados
+
+- `lib/core/bootstrap/app_bootstrap_coordinator.dart`
+- `lib/features/provider/provider_home_mobile.dart`
+- `lib/features/provider/provider_active_service_mobile_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/core/bootstrap/app_bootstrap_coordinator.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/bootstrap/app_bootstrap_coordinator.dart lib/features/provider/provider_home_mobile.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/services/api_service.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Bootstrap usa userId remoto para tracking do prestador
+
+### Alterações Realizadas
+
+- `ApiService.persistBootstrapIdentity` passou a persistir também o `userId` retornado por `/api/v1/auth/bootstrap`.
+- `AppBootstrapCoordinator` deixou de depender exclusivamente de `Supabase.auth.currentUser` para procurar negociação móvel ativa do prestador.
+- Quando o bootstrap remoto já retorna `role=provider` e `userId`, a busca por `schedule_proposed`/`scheduled` roda mesmo se a sessão Supabase ainda estiver restaurando.
+
+### Efeito prático
+
+- Em hot restart/`Ctrl+R`, o app tem mais chance de abrir diretamente `/provider-active/:id` para serviço `schedule_proposed`.
+- Evita cair em `/provider-home` só porque `currentUser` ainda estava nulo no primeiro instante do boot.
+
+### Arquivos Impactados
+
+- `lib/core/bootstrap/app_bootstrap_coordinator.dart`
+- `lib/services/api_service.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/services/api_service.dart lib/core/bootstrap/app_bootstrap_coordinator.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/bootstrap/app_bootstrap_coordinator.dart lib/services/api_service.dart lib/main.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Disponíveis não agenda serviço com limite remoto esgotado
+
+### Alterações Realizadas
+
+- `ProviderServiceCard` deixou de mostrar `AGENDAR SERVIÇO` quando o item já vem com `schedule_provider_rounds >= 5` ou `remainingProviderRounds == 0`.
+- `ProviderHomeMobile` agora trata o `409 schedule_negotiation_provider_limit_reached` removendo imediatamente o serviço de `Disponíveis`.
+- Após esse `409`, a Home força recuperação das negociações ativas para levar o prestador de volta para `Meus`/tracking.
+- Adicionado teste cobrindo card disponível com limite do prestador esgotado.
+
+### Efeito prático
+
+- O prestador não vê mais botão de agendamento em serviço que o backend remoto já bloqueou por limite de contrapropostas.
+- Se o backend responder `409`, o app corrige a tela local e tenta voltar ao fluxo ativo em vez de manter a oportunidade falsa na Home.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `lib/features/provider/provider_home_mobile.dart`
+- `test/features/provider/provider_service_card_schedule_action_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Mensagem clara para limite de contrapropostas
+
+### Alterações Realizadas
+
+- `BackendApiClient.postJson` ganhou opção `throwOnClientError` para preservar corpo/status de erros 4xx do backend remoto.
+- `BackendTrackingApi.proposeSchedule` passou a usar essa opção no endpoint `/propose-schedule`.
+- `ApiService.proposeSchedule` agora trata `schedule_negotiation_provider_limit_reached` com mensagem amigável para o prestador.
+
+### Efeito prático
+
+- Quando o Supabase/Edge Function retorna `409` por limite de rodadas do prestador, o app deixa de mostrar erro genérico.
+- O usuário passa a ver que o limite de contrapropostas foi atingido e que deve aguardar/aceitar/finalizar o fluxo.
+
+### Arquivos Impactados
+
+- `lib/core/network/backend_api_client.dart`
+- `lib/core/tracking/backend_tracking_api.dart`
+- `lib/services/api_service.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/core/network/backend_api_client.dart lib/core/tracking/backend_tracking_api.dart lib/services/api_service.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/network/backend_api_client.dart lib/core/tracking/backend_tracking_api.dart lib/services/api_service.dart lib/features/provider/provider_active_service_mobile_screen.dart lib/features/provider/provider_home_mobile.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Bootstrap abre tracking do prestador com agendamento ativo
+
+### Alterações Realizadas
+
+- `AppBootstrapCoordinator` agora consulta negociações móveis ativas do prestador (`schedule_proposed`/`scheduled`) durante a inicialização.
+- Se encontrar serviço ativo de agendamento, o app inicia diretamente em `/provider-active/:id`, antes de aceitar `nextRoute` para Home.
+- O redirect global em `main.dart` também passou a buscar negociações móveis via `DataGateway` quando o snapshot ativo comum vem vazio.
+- Mantido o comportamento de prestador médico/fixo fora desse desvio móvel.
+
+### Efeito prático
+
+- Ao fechar, recarregar, hot restart ou abrir o app novamente, o prestador volta direto para o tracking do serviço em negociação.
+- A Home não deve aparecer como destino intermediário quando o Supabase remoto ainda tem agendamento ativo.
+
+### Arquivos Impactados
+
+- `lib/core/bootstrap/app_bootstrap_coordinator.dart`
+- `lib/main.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/main.dart lib/core/bootstrap/app_bootstrap_coordinator.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/main.dart lib/core/bootstrap/app_bootstrap_coordinator.dart lib/features/provider/provider_home_mobile.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Recuperar tracking quando existe agendamento ativo
+
+### Alterações Realizadas
+
+- Ajustado o redirecionamento automático do `ProviderHomeMobile` para não bloquear uma nova ida ao tracking apenas porque o mesmo serviço já tinha sido redirecionado antes.
+- Adicionado polling leve a cada 8 segundos para recuperar negociações móveis ativas (`schedule_proposed`/`scheduled`) direto do Supabase remoto.
+- Quando uma negociação ativa é recuperada, o serviço sai de `Disponíveis`, entra em `Meus` e o app abre novamente `/provider-active/:id`.
+- O polling respeita foreground/rede disponível e é cancelado ao pausar ou descartar a tela.
+- Adicionado teste para garantir que voltar para `/provider-home` com o mesmo serviço ativo permite reabrir o tracking.
+
+### Efeito prático
+
+- Se o prestador cair na Home enquanto o cliente ainda está em fluxo de agendamento/contraproposta, o app consulta o remoto e volta para o tracking.
+- A tela `Disponíveis` deixa de ser o destino final quando já existe serviço ativo em negociação.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_home_mobile.dart`
+- `test/features/provider/provider_service_card_schedule_action_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_home_mobile.dart lib/features/provider/widgets/provider_service_card.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Remover duplicidade da contraproposta no tracking
+
+### Alterações Realizadas
+
+- Ajustado `ProviderServiceCard` para ocultar o resumo compacto da proposta no modo tracking/foco quando a proposta veio do cliente.
+- O botão superior `ALTERAR AGENDAMENTO` também fica oculto nesse cenário.
+- Mantido apenas o bloco principal `CONTRA-PROPOSTA DO CLIENTE` com `ACEITAR AGENDAMENTO`.
+- Adicionado teste para garantir que o tracking não duplica o bloco de contraproposta do cliente.
+
+### Efeito prático
+
+- A tela do prestador fica mais limpa e não mostra duas áreas azuis para o mesmo agendamento.
+- O fluxo de contraproposta fica concentrado no card principal de aceite.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `test/features/provider/provider_service_card_schedule_action_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Coordenadas remotas no cálculo de deslocamento
+
+### Alterações Realizadas
+
+- `ProviderHomeMobile` passou a resolver coordenadas do serviço por múltiplos aliases do backend remoto:
+  - `latitude`/`longitude`;
+  - `service_latitude`/`service_longitude`;
+  - `client_latitude`/`client_longitude`;
+  - `pickup_latitude`/`pickup_longitude`;
+  - `origin_latitude`/`origin_longitude`;
+  - `lat`/`lng`/`lon`.
+- A validação rejeita coordenadas nulas, fora de faixa ou `0,0`.
+- O cálculo de deslocamento e a navegação passaram a usar o mesmo resolvedor.
+- O log de coordenadas ausentes deixou de ser erro fatal e virou aviso informativo.
+
+### Efeito prático
+
+- Serviços retornados pelo Supabase remoto com nomes alternativos de latitude/longitude deixam de aparecer como `Invalid destination coords`.
+- O card continua funcional mesmo quando a distância não pode ser calculada.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_home_mobile.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_home_mobile.dart lib/features/provider/widgets/provider_service_card.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Botão de agendamento sempre visível em disponíveis
+
+### Alterações Realizadas
+
+- Adicionado contrato explícito `showScheduleAction` no `ProviderServiceCard`.
+- `ProviderHomeMobile` passa `showScheduleAction: true` para cards da aba `Disponíveis`.
+- A exibição de `AGENDAR SERVIÇO` não depende mais de `provider_id` quando o item está em `Disponíveis`.
+- Mantida a regra de não mostrar agendamento para `schedule_proposed`/`scheduled` na aba de oportunidades.
+- Extraída função testável para filtrar negociações de agenda fora de `Disponíveis`.
+- Adicionado teste focado cobrindo:
+  - `open_for_schedule` com `provider_id` preenchido;
+  - aliases `pending`, `searching`, `searching_provider`, `waiting_provider`;
+  - proposta enviada pelo prestador sem botão;
+  - contraproposta do cliente com `ALTERAR AGENDAMENTO`;
+  - filtro de negociações fora da lista de disponíveis.
+
+### Efeito prático
+
+- O card em `Disponíveis` mantém o botão `AGENDAR SERVIÇO` mesmo quando o Supabase remoto retorna `provider_id` ou status equivalente de oportunidade.
+- Serviço em negociação continua saindo de `Disponíveis` e indo para acompanhamento/tracking.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `lib/features/provider/provider_home_mobile.dart`
+- `test/features/provider/provider_service_card_schedule_action_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_home_mobile.dart lib/features/provider/widgets/provider_service_card.dart test/features/provider/provider_service_card_schedule_action_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/features/provider/provider_service_card_schedule_action_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Corrigir ícone de notificação Android
+
+### Alterações Realizadas
+
+- `NotificationService` passou a inicializar `flutter_local_notifications` com `@mipmap/ic_launcher`, recurso já existente no app Android.
+- Mantido `ic_notification_small` como recurso drawable para notificações e Firebase.
+- Adicionado ícone padrão de notificação do Firebase no `AndroidManifest.xml`.
+- Criado `android/app/src/main/res/values/colors.xml` com `notification_color`.
+
+### Efeito prático
+
+- Evita falha fatal `PlatformException(invalid_icon, @drawable/ic_notification_small could not be found)` na inicialização de notificações locais.
+- O Firebase Messaging passa a ter metadados Android explícitos para ícone/cor padrão.
+
+### Arquivos Impactados
+
+- `lib/services/notification_service.dart`
+- `android/app/src/main/AndroidManifest.xml`
+- `android/app/src/main/res/values/colors.xml`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/services/notification_service.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/services/notification_service.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Runtime travado em Supabase remoto online
+
+### Alterações Realizadas
+
+- Ajustado `SupabaseConfig` para bloquear URLs locais por padrão:
+  - `localhost`;
+  - `127.0.0.1`;
+  - `10.0.2.2`;
+  - `::1`.
+- Adicionada flag explícita `ALLOW_LOCAL_BACKEND=true` apenas para desenvolvimento local controlado.
+- `BackendApiClient` passou a rejeitar `BACKEND_API_URL` local quando `ALLOW_LOCAL_BACKEND` não estiver ativo.
+- Corrigido `DELETE` do `BackendApiClient` para normalizar caminhos de Edge Functions igual a `GET`/`POST`/`PUT`.
+- Bootstrap do app agora falha visivelmente se o Supabase remoto não inicializar.
+- Para usuário logado, bootstrap agora exige resposta canônica de `/api/v1/auth/bootstrap`; sem resposta do backend remoto, o app mostra erro em vez de usar rota local/fallback.
+- Documentado em `.env.example` que produção usa Supabase/backend remoto online por padrão.
+
+### Efeito prático
+
+- O app deixa de aceitar backend local por acidente.
+- Fluxos principais passam a depender do Supabase remoto online e das Edge Functions remotas.
+- Se o remoto estiver mal configurado ou fora do ar, o app informa erro de inicialização em vez de seguir com estado local silencioso.
+
+### Arquivos Impactados
+
+- `lib/core/config/supabase_config.dart`
+- `lib/core/network/backend_api_client.dart`
+- `lib/core/bootstrap/app_bootstrap_coordinator.dart`
+- `.env.example`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/core/config/supabase_config.dart lib/core/network/backend_api_client.dart lib/core/bootstrap/app_bootstrap_coordinator.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/config/supabase_config.dart lib/core/network/backend_api_client.dart lib/core/bootstrap/app_bootstrap_coordinator.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/config/supabase_config.dart lib/core/network/backend_api_client.dart lib/core/bootstrap/app_bootstrap_coordinator.dart lib/services/api_service.dart lib/services/notification_service.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Prestador acompanha proposta no tracking
+
+### Alterações Realizadas
+
+- Ajustado `ProviderHomeMobile` para mover proposta de agendamento móvel para `Meus`, não para `Disponíveis`.
+- Após o prestador enviar uma proposta, a tela abre imediatamente `/provider-active/:id`.
+- Negociações `schedule_proposed`/`scheduled` carregadas do backend agora entram na lista de acompanhamento do prestador.
+- A lista `Disponíveis` passa a filtrar negociações de agenda para não mostrar serviço que já está em proposta/tracking.
+- Priorizados estados `schedule_proposed` e `scheduled` na escolha automática de serviço ativo do prestador.
+
+### Efeito prático
+
+- O serviço com proposta de agendamento deixa de aparecer como oportunidade na Home do prestador.
+- O prestador é levado para o tracking/acompanhamento do serviço, alinhado com o que o cliente vê.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_home_mobile.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_home_mobile.dart lib/features/provider/widgets/provider_service_card.dart lib/services/data_gateway.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/core/utils/mobile_client_navigation_gate_test.dart`
+- Resultado:
+  - `No issues found!`
+  - `All tests passed!`
+
+## 2026-05-09 - Serviço agendado móvel sai da Home e abre tracking
+
+### Alterações Realizadas
+
+- Ajustada a Home do cliente para recuperar serviço ativo também pela lista `services` do snapshot backend quando `activeService` não vier preenchido.
+- A Home agora redireciona serviços móveis em acompanhamento para a rota correta:
+  - `schedule_proposed` abre `/service-tracking/:id`;
+  - estados de busca de prestador continuam indo para a busca móvel;
+  - apenas `open_for_schedule` permanece como banner/estado de retorno na Home.
+- Removido o bloqueio que impedia proposta de agendamento feita pelo próprio cliente de abrir o tracking.
+- Adicionado teste para garantir que `schedule_proposed` móvel resolve para `/service-tracking/:id`.
+
+### Efeito prático
+
+- Quando o sistema detecta que o cliente já solicitou/agendou um serviço móvel, o app não mantém esse serviço na Home.
+- O cliente é levado para o acompanhamento do serviço, onde pode ver/confirmar a proposta de agendamento.
+
+### Arquivos Impactados
+
+- `lib/features/home/home_screen.dart`
+- `test/core/utils/mobile_client_navigation_gate_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/home/home_screen.dart test/core/utils/mobile_client_navigation_gate_test.dart`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/core/utils/mobile_client_navigation_gate_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/home/home_screen.dart test/core/utils/mobile_client_navigation_gate_test.dart`
+- Resultado:
+  - `All tests passed!`
+  - `No issues found!`
+
+## 2026-05-09 - Buscar negociações móveis no backend para o prestador
+
+### Alterações Realizadas
+
+- Adicionado `DataGateway.loadProviderMobileScheduleNegotiations()` para buscar serviços móveis em negociação de horário.
+- A busca cobre:
+  - serviços `schedule_proposed`/`scheduled` com `provider_id` do prestador;
+  - serviços `schedule_proposed`/`scheduled` com `schedule_proposed_by_user_id` do prestador;
+  - serviços `schedule_proposed` ainda sem `provider_id`, filtrados depois pela profissão do prestador.
+- `ProviderHomeMobile` passou a mesclar essas negociações na aba `Disponíveis`.
+
+### Efeito prático
+
+- Depois de refresh ou hot restart, o prestador volta a ver o serviço em negociação na tela.
+- A visibilidade não depende mais apenas do estado local em memória nem do endpoint de oportunidades imediatas.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_home_mobile.dart`
+- `lib/services/data_gateway.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart lib/services/data_gateway.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_home_mobile.dart lib/features/provider/widgets/provider_service_card.dart lib/services/data_gateway.dart lib/services/api_service.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Proposta de agendamento não some do prestador
+
+### Alterações Realizadas
+
+- Ajustado `ProviderHomeMobile` para manter a proposta local de agendamento também na lista de `Disponíveis`.
+- Ao enviar proposta de horário, o card passa a ser atualizado para `schedule_proposed` sem ser removido da tela atual.
+- Removido o filtro que excluía propostas locais da lista de disponíveis durante o refresh.
+
+### Efeito prático
+
+- Depois de propor um horário, o serviço não some da tela do prestador.
+- O prestador continua vendo o card em estado de acompanhamento, sem o botão `ALTERAR AGENDAMENTO` enquanto aguarda confirmação do cliente.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_home_mobile.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_home_mobile.dart lib/features/provider/widgets/provider_service_card.dart lib/services/data_gateway.dart lib/services/api_service.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Ocultar alterar agendamento antes da confirmação
+
+### Alterações Realizadas
+
+- Ajustado `ProviderServiceCard` para não exibir `ALTERAR AGENDAMENTO` quando o prestador já enviou uma proposta e o cliente ainda não confirmou.
+- A ação de agendamento agora aparece apenas quando:
+  - o serviço ainda está disponível para proposta inicial;
+  - ou o cliente enviou uma contra-proposta de horário.
+- O estado enviado pelo prestador mantém apenas o aviso `Aguardando confirmação do cliente`.
+
+### Efeito prático
+
+- No app do prestador, enquanto o agendamento ainda não foi confirmado, não aparece botão para alterar o horário.
+- A tela fica alinhada com o estado real: proposta enviada e aguardando aceite/resposta do cliente.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Revisão profunda do agendamento móvel após notificações sem resposta
+
+### Alterações Realizadas
+
+- Ajustado o fluxo de agendamento do prestador móvel para não confundir com agendamento fixo/salão.
+- `getAvailableForSchedule()` deixou de esconder serviços por ciclo ativo de dispatch/notificação, pois essa tela precisa mostrar justamente serviços que caíram na rotina de agendamento após falta de resposta.
+- `ProviderHomeMobile` agora filtra ciclos privados apenas para serviços imediatos, preservando os serviços retornados pela API de agendamento.
+- `DataGateway.loadMyServices()` passou a buscar também serviços `schedule_proposed`/`scheduled` propostos pelo próprio prestador via `schedule_proposed_by_user_id`, mesmo quando o backend ainda não colocou `provider_id`.
+- `ProviderHomeMobile` preserva localmente a proposta recém-enviada por alguns minutos para o refresh não apagar o item antes do backend refletir a atualização.
+- Adicionados recursos Android ausentes:
+  - `android/app/src/main/res/drawable/ic_notification_small.xml`;
+  - `android/app/src/main/res/drawable/ic_notification_badge.xml`;
+  - `android/app/src/main/res/drawable/ic_logo_colored.xml`.
+
+### Efeito prático
+
+- Serviços móveis sem resposta de notificação continuam aparecendo na rotina de agendamento.
+- Depois que o prestador propõe um horário, o item não some da UI no refresh e pode aparecer em `Meus` enquanto aguarda resposta do cliente.
+- O erro `PlatformException(invalid_icon, The resource @drawable/ic_notification_small could not be found)` deixa de ocorrer no Android.
+
+### Arquivos Impactados
+
+- `lib/features/provider/provider_home_mobile.dart`
+- `lib/services/api_service.dart`
+- `lib/services/data_gateway.dart`
+- `android/app/src/main/res/drawable/ic_notification_small.xml`
+- `android/app/src/main/res/drawable/ic_notification_badge.xml`
+- `android/app/src/main/res/drawable/ic_logo_colored.xml`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart lib/services/api_service.dart lib/services/data_gateway.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_home_mobile.dart lib/features/provider/widgets/provider_service_card.dart lib/services/api_service.dart lib/services/data_gateway.dart lib/core/tracking/backend_tracking_api.dart`
+  - `/home/servirce/flutter/bin/flutter build apk --debug`
+- Resultado:
+  - `No issues found!`
+  - APK debug gerado em `build/app/outputs/flutter-apk/app-debug.apk`
+
+## 2026-05-09 - Botão de agendamento sem regra de status
+
+### Alterações Realizadas
+
+- Ajustado `ProviderServiceCard` para renderizar o botão/formulário de `AGENDAR SERVIÇO` sempre que o card receber `onSchedule`.
+- Removida a dependência de `isAvailable`, status, aliases de status e `provider_id` para exibir a ação de agendamento.
+
+### Efeito prático
+
+- O botão de agendamento deixa de sumir após refresh/reload da rede quando o backend muda o formato/status do serviço disponível.
+- Na aba de disponíveis, o layout do botão permanece no card e o refresh apenas recarrega os dados em volta dele.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Home com painel de busca igual ao site
+
+### Alterações Realizadas
+
+- Ajustado `HomeSearchBar` para renderizar os resultados inline no formato visual do site:
+  - card branco arredondado;
+  - título `Serviços encontrados`;
+  - subtítulo com a busca digitada;
+  - linhas com ícone, nome do serviço, profissão e preço em botão roxo;
+  - seção agrupada por profissão com `Todos os serviços dessa profissão`.
+- Mantida a área de resultados em 80% da altura da tela, com rolagem interna.
+- Removida a renderização antiga de lista simples/catálogo de profissão para evitar inconsistência visual.
+
+### Efeito prático
+
+- A home mobile passa a mostrar os resultados como na versão web do site, incluindo serviços diretos e serviços relacionados pela profissão.
+- O usuário vê mais itens no mesmo painel sem depender de carrossel ou tela separada.
+
+### Arquivos Impactados
+
+- `lib/features/home/widgets/home_search_bar.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/home/widgets/home_search_bar.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/home/widgets/home_search_bar.dart lib/features/home/home_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Resultados da busca ocupam 80% da tela
+
+### Alterações Realizadas
+
+- Ajustado `HomeSearchBar` para limitar a área de resultados inline a 80% da altura da tela.
+- Removido o corte visual que exibia no máximo 6 sugestões.
+
+### Efeito prático
+
+- O card/lista de resultados da busca ocupa a maior parte da tela no celular e no navegador web responsivo.
+- Mais serviços ficam visíveis/roláveis dentro do próprio painel de resultados.
+
+### Arquivos Impactados
+
+- `lib/features/home/widgets/home_search_bar.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/home/widgets/home_search_bar.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/home/widgets/home_search_bar.dart lib/features/home/home_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Agendamento não some após refresh de disponíveis
+
+### Alterações Realizadas
+
+- Ampliada a regra de disponibilidade do `ProviderServiceCard` para incluir aliases de busca/espera de prestador:
+  - `searching_provider`;
+  - `search_provider`;
+  - `waiting_provider`.
+- O botão fixo `AGENDAR SERVIÇO` permanece visível após refreshes periódicos quando o serviço continua sem prestador atribuído.
+
+### Efeito prático
+
+- O botão de agendamento não some após alguns minutos quando a API/realtime troca o status do serviço disponível para outro status equivalente de busca.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Botão de agendamento fixo no card disponível
+
+### Alterações Realizadas
+
+- Movida a ação `AGENDAR SERVIÇO` para o topo do `ProviderServiceCard`, logo abaixo do cabeçalho do serviço.
+- Removida a renderização da ação de agendamento no fim do card, onde ela podia ficar fora da área visível.
+- Mantido o formulário de seleção de data/hora no mesmo ponto fixo quando o prestador toca em agendar.
+
+### Efeito prático
+
+- Na aba `Disponíveis`, o botão de agendamento fica sempre visível no card do serviço disponível.
+- O prestador não precisa expandir ou rolar dentro do card para encontrar a ação de agendamento.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Olho da senha ativo em campo sequencial
+
+### Alterações Realizadas
+
+- Ajustado o campo `Senha` para continuar permitindo tocar no botão de visualizar mesmo quando o fluxo sequencial já avançou para outro campo.
+- Ajustado o campo `Confirmar Senha` com o mesmo comportamento.
+- Campos fora da etapa ativa ficam somente leitura, preservando a regra de preenchimento sequencial.
+
+### Efeito prático
+
+- O usuário consegue olhar a senha digitada depois que o campo foi validado, sem liberar edição fora da sequência.
+
+### Arquivos Impactados
+
+- `lib/features/auth/steps/basic_info_step.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/steps/basic_info_step.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/steps/basic_info_step.dart lib/features/auth/register_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Visualizar senha no cadastro
+
+### Alterações Realizadas
+
+- Adicionado botão de mostrar/ocultar senha no campo `Senha`.
+- Adicionado botão de mostrar/ocultar senha no campo `Confirmar Senha`.
+- Mantidos os ícones de status de validação junto ao botão de visualização.
+
+### Efeito prático
+
+- O usuário consegue conferir a senha digitada durante o cadastro sem perder a indicação visual de senha válida ou inválida.
+
+### Arquivos Impactados
+
+- `lib/features/auth/steps/basic_info_step.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/steps/basic_info_step.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/steps/basic_info_step.dart lib/features/auth/register_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Texto da prova de vida sem biometria
+
+### Alterações Realizadas
+
+- Ajustado `FacialLivenessStep` para deixar claro que a etapa é apenas prova de vida do cadastro com Google.
+- Removida a mensagem de sucesso `Identidade Validada!`.
+- Botões e erro passaram a usar `prova de vida`, em vez de `validação`.
+
+### Efeito prático
+
+- O cadastro não comunica o fluxo como serviço de biometria ou validação de identidade.
+- A UI informa que a etapa serve apenas para confirmar presença real no cadastro.
+
+### Arquivos Impactados
+
+- `lib/features/auth/steps/facial_liveness_step.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/steps/facial_liveness_step.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/steps/facial_liveness_step.dart lib/features/shared/widgets/in_app_camera_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Prova de vida sem modo leve e somente piscada
+
+### Alterações Realizadas
+
+- Ajustado `InAppCameraScreen` para não ativar modo leve/manual em selfie.
+- A prova de vida volta a usar o fluxo normal com detecção facial por ML Kit.
+- Mantido o comportamento de somente piscada (`blinkOnly`) para selfie, sem exigir giro de cabeça.
+- Ocultados indicadores visuais de giro/fixação quando a câmera está em modo somente piscada.
+- O modo leve permanece disponível apenas para documentos/CNH quando o aparelho precisar simplificar o scan.
+
+### Efeito prático
+
+- A mensagem `Modo leve ativo. Posicione o rosto e toque para capturar.` não aparece mais na prova de vida.
+- O usuário deve enquadrar o rosto, piscar uma vez quando solicitado e a foto é capturada automaticamente.
+- A validação não pede para virar a cabeça para esquerda/direita.
+
+### Arquivos Impactados
+
+- `lib/features/shared/widgets/in_app_camera_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/shared/widgets/in_app_camera_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/shared/widgets/in_app_camera_screen.dart lib/features/auth/steps/facial_liveness_step.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Menu de agendamento aparece em serviços disponíveis
+
+### Alterações Realizadas
+
+- Ajustado `ProviderServiceCard` para exibir o menu/botão de agendamento para qualquer serviço disponível e sem prestador atribuído.
+- A regra deixou de depender exclusivamente do status `open_for_schedule`, cobrindo também serviços disponíveis com status `pending` ou `searching`.
+
+### Efeito prático
+
+- Na aba `Disponíveis` do prestador móvel, todo serviço disponível passa a mostrar a opção de agendar.
+- O espaço vazio abaixo do mapa deixa de aparecer quando o serviço pode receber proposta de agendamento.
+
+### Arquivos Impactados
+
+- `lib/features/provider/widgets/provider_service_card.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/widgets/provider_service_card.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/widgets/provider_service_card.dart lib/features/provider/provider_home_mobile.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Home com busca inline igual ao site
+
+### Alterações Realizadas
+
+- Ajustada a home do cliente para usar a busca dentro do próprio painel inferior, como na build web/site.
+- O campo principal deixa de funcionar como lançador para `/home-search` e passa a expandir o sheet para tela cheia com resultados inline.
+- O campo da home passa a exibir `O que você precisa hoje?`, em vez de usar o endereço atual como texto principal da busca.
+- Seleção de resultado inline agora mantém o fluxo correto:
+  - perfil de prestador abre `/provider-profile`;
+  - serviço fixo/beleza abre `/beauty-booking`;
+  - serviço móvel abre `MobileServiceRequestReviewScreen`.
+- Ao limpar a busca, o painel volta para o tamanho normal da home.
+
+### Efeito prático
+
+- A home mobile fica mais próxima da referência web: mapa no topo, painel branco expandível, busca no próprio painel e resultados diretos sem depender de uma página separada.
+- O carrossel e blocos da home deixam de ficar misturados com o estado ativo de busca.
+
+### Arquivos Impactados
+
+- `lib/features/home/home_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/home/home_screen.dart lib/features/home/widgets/home_search_bar.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/home/home_screen.dart lib/features/home/widgets/home_search_bar.dart lib/features/home/widgets/home_stage_panel_body.dart lib/features/home/models/home_stage.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Perfil do prestador móvel via REST
+
+### Alterações Realizadas
+
+- Ajustado `BackendProfileState` para preservar campos retornados por `GET /api/v1/profile/me`, incluindo telefone, relação `providers`, verificação, saldo, avaliação e taxa de conclusão.
+- Ajustado `ProviderProfileContent` para decidir perfil móvel/fixo por `sub_role` e `is_fixed_location`.
+- Removida a dependência de checagem direta do Supabase na tela de perfil para carregar perfil e catálogo de profissões via REST.
+- Para prestador móvel, a tela mantém dados pessoais, saldo e profissões, e continua ocultando estabelecimento/endereço/horários.
+- Removidos os indicadores hardcoded de desempenho; agora avaliação e conclusão usam dados reais do REST quando existirem, senão mostram `--`.
+- Melhorado o estado vazio de `Minhas Profissões` e recarregada a lista via REST após fechar a edição.
+- Ajustados helpers de perfil/profissões em `ApiService` para resolver o usuário atual via `/api/v1/profile/me` quando o id local ainda não estiver hidratado.
+
+### Efeito prático
+
+- A página `/my-provider-profile` passa a representar corretamente o perfil do prestador móvel com dados canônicos da API REST.
+- Edição de nome/telefone e profissões fica menos dependente de estado local já hidratado.
+- A tela deixa de exibir métricas falsas como `4.9` e `92%`.
+
+### Arquivos Impactados
+
+- `lib/core/profile/backend_profile_state.dart`
+- `lib/features/provider/provider_profile_content.dart`
+- `lib/services/api_service.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/core/profile/backend_profile_state.dart lib/features/provider/provider_profile_content.dart lib/services/api_service.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/provider/provider_profile_content.dart lib/features/provider/widgets/provider_profile_widgets.dart lib/core/profile/backend_profile_state.dart lib/core/profile/backend_profile_api.dart lib/services/api_service.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Menu de perfil abre como página igual ao site
+
+### Alterações Realizadas
+
+- Adicionada a rota `/menu` ao ShellRoute principal do app.
+- Ajustado o botão `Perfil` da barra inferior para navegar para `/menu`, em vez de abrir o menu lateral.
+- Ajustado `AppDrawer` em modo `asPage` para funcionar como página:
+  - mostra cabeçalho com botão voltar e título `Menu`;
+  - navega pelos itens sem tentar fechar drawer;
+  - logout funciona tanto em página quanto em drawer.
+- Ajustado o cálculo da aba selecionada para marcar `Perfil` quando a rota atual for `/menu`.
+
+### Efeito prático
+
+- No app, o menu de perfil passa a abrir como página, no mesmo conceito do site `101service.com.br/menu`.
+- O menu lateral deixa de ser acionado pela barra inferior.
+
+### Arquivos Impactados
+
+- `lib/main.dart`
+- `lib/widgets/app_bottom_nav.dart`
+- `lib/widgets/app_drawer.dart`
+- `lib/widgets/scaffold_with_nav_bar.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/widgets/app_bottom_nav.dart lib/widgets/scaffold_with_nav_bar.dart lib/main.dart lib/widgets/app_drawer.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/widgets/app_bottom_nav.dart lib/widgets/scaffold_with_nav_bar.dart lib/main.dart lib/widgets/app_drawer.dart lib/features/shared/app_menu_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Auditoria de lançamento Android do fluxo móvel
+
+### Alterações Realizadas
+
+- Executada auditoria do fluxo crítico Android: busca de serviço móvel, criação do pedido, tracking, Pix, aceite do prestador e finalização.
+- Limpados avisos do `flutter analyze` no caminho do prestador móvel:
+  - removidos campos e helpers antigos de retry/realtime não usados em `provider_home_mobile.dart`;
+  - ajustados `catch` sem uso em `api_service.dart`;
+  - excluída a bancada `lib/widgetbook/**` da análise do app Android distribuído;
+  - ajustado teste de debug para usar `flutter_test` em vez de depender de `package:test` diretamente.
+- Reforçados testes de contrato do fluxo móvel para bloquear:
+  - conclusão direta antes do código/fase de conclusão;
+  - ações de cliente/prestador/backend executadas pelo papel errado;
+  - saída de rejeição do prestador de volta para fila de dispatch.
+
+### Efeito prático
+
+- `flutter analyze --no-pub` fica sem issues, servindo como semáforo limpo para lançamento Android.
+- O contrato do fluxo móvel passa a proteger melhor o caminho busca -> Pix -> aceite -> execução -> conclusão.
+- O build Android debug continua gerando APK com sucesso.
+
+### Arquivos Impactados
+
+- `analysis_options.yaml`
+- `lib/features/provider/provider_home_mobile.dart`
+- `lib/services/api_service.dart`
+- `test/core/contracts/service_flow_contract_test.dart`
+- `test/fixed_booking_slots_debug_test.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/provider/provider_home_mobile.dart lib/services/api_service.dart test/fixed_booking_slots_debug_test.dart test/core/contracts/service_flow_contract_test.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub`
+  - `/home/servirce/flutter/bin/flutter test --no-pub test/core/contracts/service_flow_contract_test.dart test/services/support/api_active_service_policy_test.dart test/services/support/central_payment_policy_test.dart test/features/payment/pix_payment_policy_test.dart`
+  - `/home/servirce/flutter/bin/flutter build apk --debug`
+- Resultado:
+  - `flutter analyze`: `No issues found!`
+  - testes focados: `All tests passed!`
+  - APK debug gerado em `build/app/outputs/flutter-apk/app-debug.apk`
+
+## 2026-05-09 - Prestador móvel coleta localização sem pedir endereço
+
+### Alterações Realizadas
+
+- Ajustado `lib/features/auth/steps/location_step.dart` para ocultar o campo de endereço quando o cadastro for de prestador móvel.
+- No modo móvel, a etapa continua coletando latitude/longitude via GPS e ajuste do pino no mapa.
+- O reverse geocode/endereço textual deixa de ser usado no fluxo móvel; apenas prestador fixo continua vendo e validando endereço completo.
+- Ajustado `lib/features/auth/register_screen.dart` para não enviar endereço textual no cadastro de prestador móvel, enviando apenas localização e `subRole=mobile`.
+
+### Efeito prático
+
+- Prestador móvel não precisa preencher endereço no cadastro.
+- A plataforma ainda coleta a localização do cadastro para referência operacional/notificações próximas.
+- Prestador fixo mantém o fluxo de endereço do estabelecimento.
+
+### Arquivos Impactados
+
+- `lib/features/auth/steps/location_step.dart`
+- `lib/features/auth/register_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/steps/location_step.dart lib/features/auth/register_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/steps/location_step.dart lib/features/auth/register_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Norma visual e sequencial dos inputs do cadastro
+
+### Alterações Realizadas
+
+- Ajustado `lib/core/theme/app_theme.dart` para que `AppTheme.inputDecoration` siga o visual dos inputs de login:
+  - borda clara;
+  - borda amarela em foco;
+  - ícone azul;
+  - fundo branco no campo ativo;
+  - borda/fundo mais claro no campo desabilitado.
+- Ajustado `lib/features/auth/steps/basic_info_step.dart` para o cadastro básico trabalhar em sequência:
+  - apenas o próximo campo pendente fica editável;
+  - campos ainda não liberados ficam em cinza claro;
+  - o foco tenta manter o input visível acima do teclado com scroll automático;
+  - após validação de um campo, o próximo campo pendente recebe foco.
+- Ajustado `lib/features/auth/register_screen.dart` para deixar o botão `PRÓXIMO` inativo enquanto a etapa de dados básicos não estiver completamente válida.
+- O botão inativo agora usa cinza claro, em vez de parecer clicável antes da validação.
+
+### Efeito prático
+
+- No cadastro, o usuário preenche um campo por vez, com os demais ainda bloqueados visualmente.
+- O botão só fica ativo quando nome, email, senha, confirmação, celular e CPF/CNPJ estiverem corretos.
+- O estilo dos inputs do cadastro fica alinhado ao estilo do login.
+
+### Arquivos Impactados
+
+- `lib/core/theme/app_theme.dart`
+- `lib/features/auth/steps/basic_info_step.dart`
+- `lib/features/auth/register_screen.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/core/theme/app_theme.dart lib/features/auth/steps/basic_info_step.dart lib/features/auth/register_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/core/theme/app_theme.dart lib/features/auth/steps/basic_info_step.dart lib/features/auth/register_screen.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Lista de profissões respeita flags de cadastro fixo e móvel
+
+### Alterações Realizadas
+
+- Ajustado `lib/features/auth/steps/profession_step.dart` para carregar `app_configs` junto com a lista de profissões.
+- Quando `provider.fixed.registration.enabled` estiver `false`, profissões de prestador fixo deixam de aparecer na busca.
+- Quando `provider.mobile.registration.enabled` estiver `false`, profissões de serviço móvel deixam de aparecer na busca.
+- A classificação usa a regra já adotada no cadastro: `salon`, `beauty`, `fixed`, `at_provider` e registros canônicos fixos são tratados como prestador fixo; os demais como móvel.
+- Adicionadas mensagens específicas quando a busca não retorna resultados por causa dos flags.
+
+### Efeito prático
+
+- Se o cadastro de prestador fixo estiver desligado, buscas como cabeleireiro/barbeiro/salão não aparecem para cadastro.
+- Se o cadastro de prestador móvel estiver desligado, profissões móveis não aparecem para cadastro.
+- O backend já bloqueava a conclusão; agora a UI também evita listar opções indisponíveis.
+
+### Arquivos Impactados
+
+- `lib/features/auth/steps/profession_step.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/steps/profession_step.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/steps/profession_step.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Câmera de prova de vida bloqueia giro de cabeça
+
+### Alterações Realizadas
+
+- Ajustado `lib/features/shared/widgets/in_app_camera_screen.dart` para tratar selfie como modo somente piscada por padrão.
+- A câmera agora só permite etapas de virar cabeça quando `forceFullLiveness: true` for solicitado explicitamente.
+- Adicionada trava de segurança para capturar imediatamente caso uma selfie em modo piscada chegue nas etapas internas de giro/fixação.
+
+### Efeito prático
+
+- A prova de vida do cadastro não deve mais exibir “Gire levemente a cabeça para a ESQUERDA/DIREITA”.
+- O fluxo esperado passa a ser: enquadrar rosto, piscar os olhos, capturar.
+
+### Arquivos Impactados
+
+- `lib/features/shared/widgets/in_app_camera_screen.dart`
+- `lib/features/auth/steps/facial_liveness_step.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/shared/widgets/in_app_camera_screen.dart lib/features/auth/steps/facial_liveness_step.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/shared/widgets/in_app_camera_screen.dart lib/features/auth/steps/facial_liveness_step.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Prova de vida obrigatória volta ao modo somente piscada
+
+### Alterações Realizadas
+
+- Ajustado `lib/features/auth/steps/facial_liveness_step.dart` para abrir a câmera com `blinkOnly: true`.
+- Removido o uso de `forceFullLiveness` na etapa de prova de vida do cadastro.
+- Atualizadas as instruções visuais para orientar apenas enquadrar o rosto e piscar quando solicitado.
+
+### Efeito prático
+
+- A prova de vida continua obrigatória como primeira etapa para clientes, prestadores e usuários Google.
+- O usuário não será mais orientado a virar a cabeça para esquerda/direita; a validação passa a pedir apenas piscada.
+
+### Arquivos Impactados
+
+- `lib/features/auth/steps/facial_liveness_step.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/steps/facial_liveness_step.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/steps/facial_liveness_step.dart`
+- Resultado:
+  - `No issues found!`
+
+## 2026-05-09 - Prova de vida obrigatória para cliente, prestador e login Google
+
+### Alterações Realizadas
+
+- Ajustado `lib/features/auth/register_screen.dart` para inserir `FacialLivenessStep` como primeira etapa de cadastro para todos os perfis:
+  - cliente;
+  - prestador móvel;
+  - prestador fixo.
+- O cadastro agora bloqueia a submissão para qualquer papel quando `liveness_validated` não estiver concluído.
+- A prova de vida validada avança automaticamente para a próxima etapa do cadastro.
+- Ajustado `lib/features/auth/steps/facial_liveness_step.dart` para usar o liveness completo (`forceFullLiveness`) com câmera frontal.
+- Ajustado `lib/services/api_service.dart` para enviar `metadata` no payload de `/api/v1/auth/register`, permitindo que o backend receba `liveness_validated`, `selfie_path` e `validated_at`.
+- Ajustado `lib/features/auth/login_screen.dart` para tratar usuários Google sem `face_image_url` como cadastro incompleto, redirecionando para `/cpf-completion`.
+- Ajustado `lib/features/auth/cpf_completion_screen.dart` para exigir prova de vida antes de CPF/nascimento/telefone no fluxo de login Google.
+- A tela de complemento Google salva a selfie validada em `face_image_url` e pré-preenche CPF, nascimento e telefone quando esses dados já existem.
+
+### Efeito prático
+
+- Todo cadastro novo começa pela prova de vida, tanto cliente quanto prestador.
+- Usuários que entram pelo Google também precisam concluir prova de vida antes de acessar Home ou Home do prestador.
+- Usuário Google que já tinha CPF/nascimento, mas ainda não tinha biometria, faz apenas a prova de vida e confirma os dados existentes.
+
+### Arquivos Impactados
+
+- `lib/features/auth/register_screen.dart`
+- `lib/features/auth/steps/facial_liveness_step.dart`
+- `lib/features/auth/login_screen.dart`
+- `lib/features/auth/cpf_completion_screen.dart`
+- `lib/services/api_service.dart`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `dart format lib/features/auth/register_screen.dart lib/features/auth/steps/facial_liveness_step.dart lib/features/auth/cpf_completion_screen.dart lib/features/auth/login_screen.dart lib/services/api_service.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/register_screen.dart lib/features/auth/steps/facial_liveness_step.dart lib/features/auth/cpf_completion_screen.dart lib/features/auth/login_screen.dart`
+  - `/home/servirce/flutter/bin/flutter analyze --no-pub lib/features/auth/register_screen.dart lib/features/auth/steps/facial_liveness_step.dart lib/features/auth/cpf_completion_screen.dart lib/features/auth/login_screen.dart lib/services/api_service.dart`
+- Resultado:
+  - telas alteradas: `No issues found!`;
+  - análise incluindo `api_service.dart` sem erros novos, mantendo 3 warnings antigos de `unused_catch_clause` em trechos não alterados.
+
+## 2026-05-09 - Android debug build corrigido para Kotlin DSL e plugins atuais
+
+### Alterações Realizadas
+
+- Removido de `android/build.gradle.kts` o bloco `buildscript` com sintaxe Groovy `ext.kotlin_version`, inválida em Kotlin DSL.
+- Mantido o `desugar_jdk_libs` apenas no `android/app/build.gradle.kts` como `coreLibraryDesugaring`.
+- Atualizado `coreLibraryDesugaring` para `com.android.tools:desugar_jdk_libs:2.1.4`, exigido por `flutter_local_notifications`.
+- Alinhados os plugins Android/Kotlin em `android/settings.gradle.kts` para AGP `8.13.1` e Kotlin `2.3.0`, compatíveis com o `google_sign_in_android` resolvido.
+- Migrado o `jvmTarget` do app para a DSL nova `kotlin { compilerOptions { jvmTarget = JvmTarget.JVM_17 } }`.
+- Removido o override antigo `package_info_plus: 4.2.0` de `pubspec.yaml`, permitindo resolver `package_info_plus 9.0.1`, compatível com as dependências AndroidX atuais.
+
+### Efeito prático
+
+- Corrige o erro inicial `Unresolved reference: ext` ao iniciar o app Android.
+- O build Android debug volta a compilar até gerar APK.
+
+### Arquivos Impactados
+
+- `android/build.gradle.kts`
+- `android/app/build.gradle.kts`
+- `android/settings.gradle.kts`
+- `pubspec.yaml`
+- `pubspec.lock`
+- `RELATORIO_DEV.md`
+
+### Validação
+
+- Executado:
+  - `/home/servirce/flutter/bin/flutter pub get`
+  - `/home/servirce/flutter/bin/flutter build apk --debug`
+- Resultado:
+  - dependências atualizadas com `package_info_plus 9.0.1`;
+  - APK debug gerado com sucesso em `build/app/outputs/flutter-apk/app-debug.apk`.
+
 ## 2026-05-09 - Cadastro volta a mostrar icones das etapas no topo
 
 ### Alterações Realizadas

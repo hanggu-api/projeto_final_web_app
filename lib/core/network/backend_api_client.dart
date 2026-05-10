@@ -30,7 +30,14 @@ class BackendApiClient {
 
   String? resolveBaseUrl() {
     String normalizeForRuntime(String raw) {
-      if (!kIsWeb &&
+      if (!SupabaseConfig.allowLocalBackend && SupabaseConfig.isLocalUrl(raw)) {
+        debugPrint(
+          '❌ [BackendApiClient] BACKEND_API_URL local bloqueada. Configure o backend remoto online.',
+        );
+        return '';
+      }
+      if (SupabaseConfig.allowLocalBackend &&
+          !kIsWeb &&
           defaultTargetPlatform == TargetPlatform.android &&
           (raw.contains('127.0.0.1') || raw.contains('localhost'))) {
         return raw
@@ -41,11 +48,13 @@ class BackendApiClient {
     }
 
     if (_compileBaseUrl.trim().isNotEmpty) {
-      return normalizeForRuntime(_compileBaseUrl.trim());
+      final normalized = normalizeForRuntime(_compileBaseUrl.trim());
+      return normalized.isEmpty ? null : normalized;
     }
     final supabaseUrl = SupabaseConfig.url.trim();
     if (supabaseUrl.isNotEmpty) {
-      return normalizeForRuntime('$supabaseUrl/functions/v1');
+      final normalized = normalizeForRuntime('$supabaseUrl/functions/v1');
+      return normalized.isEmpty ? null : normalized;
     }
     return null;
   }
@@ -183,6 +192,7 @@ class BackendApiClient {
     Map<String, dynamic>? body,
     Duration timeout = const Duration(seconds: 15),
     int maxRetries = 3,
+    bool throwOnClientError = false,
   }) async {
     final baseUrl = resolveBaseUrl();
     if (baseUrl == null || baseUrl.isEmpty) {
@@ -213,6 +223,13 @@ class BackendApiClient {
               response.statusCode < 500 &&
               response.statusCode != 408 &&
               response.statusCode != 429) {
+            if (throwOnClientError) {
+              throw ApiException(
+                message: _errorMessageFromBody(response.body),
+                statusCode: response.statusCode,
+                details: _decodeObject(response.body),
+              );
+            }
             return null;
           }
           if (attempt < maxRetries) {
@@ -267,6 +284,25 @@ class BackendApiClient {
       }
     }
     return null;
+  }
+
+  Map<String, dynamic>? _decodeObject(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  String _errorMessageFromBody(String raw) {
+    final decoded = _decodeObject(raw);
+    final message = decoded?['message']?.toString().trim();
+    if (message != null && message.isNotEmpty) return message;
+    final error = decoded?['error']?.toString().trim();
+    if (error != null && error.isNotEmpty) return error;
+    return 'Requisição recusada pelo backend remoto.';
   }
 
   Future<Map<String, dynamic>?> putJson(
@@ -374,7 +410,7 @@ class BackendApiClient {
       return null;
     }
 
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    final normalizedPath = _normalizePathForBase(baseUrl, path);
     final uri = Uri.parse('$baseUrl$normalizedPath');
     final headers = await buildHeaders();
 

@@ -7,6 +7,7 @@ abstract final class TripStatuses {
   static const inProgress = 'in_progress';
   static const arrived = 'arrived';
   static const completed = 'completed';
+  static const finished = 'finished';
   static const cancelled = 'cancelled';
   static const canceled =
       'canceled'; // Alternative spelling also used in backend
@@ -15,6 +16,7 @@ abstract final class TripStatuses {
   static const clientDeparting = 'client_departing';
   static const clientArrived = 'client_arrived';
   static const deleted = 'deleted'; // Synthetic status for removed items
+  static const notFound = 'not_found'; // Synthetic status for missing rows
 }
 
 /// Appointment/slot status constants.
@@ -60,6 +62,29 @@ abstract final class ServiceStatusSets {
     ServiceStatusAliases.completionRequested,
   };
 
+  static const mobileActive = <String>{
+    TripStatuses.waitingPayment,
+    TripStatuses.pending,
+    TripStatuses.searching,
+    ServiceStatusAliases.searchingProvider,
+    ServiceStatusAliases.searchProvider,
+    ServiceStatusAliases.waitingProvider,
+    TripStatuses.accepted,
+    'provider_near',
+    TripStatuses.arrived,
+    TripStatuses.inProgress,
+    ServiceStatusAliases.scheduleProposed,
+    TripStatuses.scheduled,
+    ServiceStatusAliases.waitingPaymentRemaining,
+    ServiceStatusAliases.waitingRemainingPayment,
+    ServiceStatusAliases.awaitingConfirmation,
+    ServiceStatusAliases.waitingClientConfirmation,
+    ServiceStatusAliases.completionRequested,
+    ServiceStatusAliases.contested,
+    TripStatuses.clientDeparting,
+    TripStatuses.clientArrived,
+  };
+
   static const clientHomeFallback = <String>{TripStatuses.openForSchedule};
 
   static const clientSearch = <String>{
@@ -69,28 +94,11 @@ abstract final class ServiceStatusSets {
     ServiceStatusAliases.waitingProvider,
   };
 
-  static const clientTracking = <String>{
-    'awaiting_signal',
-    TripStatuses.pending,
-    TripStatuses.searching,
-    TripStatuses.waitingPayment,
-    TripStatuses.accepted,
-    'provider_near',
-    TripStatuses.arrived,
-    TripStatuses.inProgress,
-    TripStatuses.scheduled,
-    ServiceStatusAliases.scheduleProposed,
-    ServiceStatusAliases.waitingRemainingPayment,
-    ServiceStatusAliases.waitingPaymentRemaining,
-    TripStatuses.clientDeparting,
-    TripStatuses.clientArrived,
-    ServiceStatusAliases.awaitingConfirmation,
-    ServiceStatusAliases.waitingClientConfirmation,
-    ServiceStatusAliases.contested,
-  };
+  static const clientTracking = <String>{'awaiting_signal', ...mobileActive};
 
   static const inactiveTerminal = <String>{
     TripStatuses.completed,
+    TripStatuses.finished,
     TripStatuses.cancelled,
     TripStatuses.canceled,
     ServiceStatusAliases.concluidedLegacy,
@@ -99,6 +107,7 @@ abstract final class ServiceStatusSets {
     ServiceStatusAliases.expired,
     ServiceStatusAliases.closed,
     TripStatuses.deleted,
+    TripStatuses.notFound,
   };
 }
 

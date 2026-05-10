@@ -1,5 +1,6 @@
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
+import '../utils/product_scope_gate.dart';
 
 typedef ProviderRouteForService = String Function(Map<String, dynamic> service);
 typedef ClientActiveRouteResolver =
@@ -79,6 +80,9 @@ class AppNavigationPolicy {
 
     if (role == 'provider') {
       if (activeService != null) {
+        if (!ProductScopeGate.isSalonSchedulingEnabled) {
+          return resolveProviderBaseRoute();
+        }
         return resolveProviderActiveRoute(activeService);
       }
       return resolveProviderBaseRoute();
@@ -93,6 +97,9 @@ class AppNavigationPolicy {
       final serviceId = activeService['id']?.toString() ?? '';
       if (serviceId.isNotEmpty) {
         final isFixed = isFixedService(activeService);
+        if (isFixed && !ProductScopeGate.isSalonSchedulingEnabled) {
+          return '/home';
+        }
         final fixedReady =
             isFixedScheduledFlowReady?.call(activeService) ?? false;
         if (fixedReady) {

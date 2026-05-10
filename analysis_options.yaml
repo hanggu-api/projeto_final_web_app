@@ -27,6 +27,8 @@ analyzer:
     - "test_user_query.dart"
     - "verify_final.dart"
     - "verify_system.dart"
+    # Widgetbook e uma bancada visual de desenvolvimento; nao entra no app Android.
+    - "lib/widgetbook/**"
   errors:
     # Muitos lugares usam APIs deprecadas do Flutter (ex.: Color.withOpacity).
     # Tratamos como dívida técnica e não bloqueamos a pipeline por isso.

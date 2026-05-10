@@ -138,7 +138,6 @@ flutter:
 
 
 dependency_overrides:
-  package_info_plus: 4.2.0
   flutter_jailbreak_detection:
     git:
       url: https://github.com/pdurasie-ecovery/flutter_jailbreak_detection.git

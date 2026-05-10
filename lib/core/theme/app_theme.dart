@@ -155,24 +155,42 @@ class AppTheme {
   }
 
   static InputDecoration inputDecoration(String label, IconData icon) {
+    const borderRadiusValue = 18.0;
+    final baseBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(borderRadiusValue),
+      borderSide: const BorderSide(color: Color(0xFFE6ECF5), width: 1.2),
+    );
+
     return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: darkGray, fontFamily: fontFamily),
-      prefixIcon: Icon(icon, color: darkGray),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(borderRadius),
-        borderSide: BorderSide.none,
+      hintText: label,
+      hintStyle: const TextStyle(
+        fontFamily: fontFamily,
+        color: textMuted,
+        fontWeight: FontWeight.w600,
+        fontSize: 16,
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(borderRadius),
-        borderSide: BorderSide.none,
+      prefixIcon: Icon(icon, color: accentBlue, size: 21),
+      floatingLabelBehavior: FloatingLabelBehavior.never,
+      border: baseBorder,
+      enabledBorder: baseBorder,
+      focusedBorder: baseBorder.copyWith(
+        borderSide: BorderSide(
+          color: primaryYellow.withOpacity(0.95),
+          width: 2,
+        ),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(borderRadius),
-        borderSide: BorderSide(color: darkBlueText, width: 1.5),
+      errorBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: errorRed.withOpacity(0.75), width: 1.4),
+      ),
+      focusedErrorBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: errorRed, width: 1.8),
+      ),
+      disabledBorder: baseBorder.copyWith(
+        borderSide: const BorderSide(color: Color(0xFFF1F5F9), width: 1.2),
       ),
       filled: true,
-      fillColor: backgroundLight,
+      fillColor: surfaceWhite,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
     );
   }
 

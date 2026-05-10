@@ -32,6 +32,7 @@ class ProviderServiceCard extends StatefulWidget {
   final VoidCallback? onConfirmSchedule;
   final Map<String, String>? travelInfo;
   final bool isFocusMode;
+  final bool showScheduleAction;
 
   const ProviderServiceCard({
     super.key,
@@ -47,6 +48,7 @@ class ProviderServiceCard extends StatefulWidget {
     this.onConfirmSchedule,
     this.travelInfo,
     this.isFocusMode = false,
+    this.showScheduleAction = false,
   });
 
   @override
@@ -123,6 +125,13 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
   DateTime _minimumScheduleDateTime() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, now.hour, now.minute);
+  }
+
+  bool _isTerminalProviderStatus(String status) {
+    return status == TripStatuses.completed ||
+        status == TripStatuses.cancelled ||
+        status == TripStatuses.canceled ||
+        ServiceStatusSets.inactiveTerminal.contains(status);
   }
 
   bool _isSameCalendarDay(DateTime a, DateTime b) {
@@ -437,10 +446,40 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
         isUnassigned &&
         (statusLower == TripStatuses.pending ||
             statusLower == TripStatuses.openForSchedule ||
-            statusLower == TripStatuses.searching);
+            statusLower == TripStatuses.searching ||
+            statusLower == ServiceStatusAliases.searchingProvider ||
+            statusLower == ServiceStatusAliases.searchProvider ||
+            statusLower == ServiceStatusAliases.waitingProvider);
+    final scheduleProposedBy =
+        s['schedule_proposed_by_user_id']?.toString() ??
+        s['schedule_proposed_by']?.toString();
+    final scheduleProviderId = s['provider_id']?.toString();
+    final isClientScheduleProposal =
+        statusLower == ServiceStatusAliases.scheduleProposed &&
+        scheduleProposedBy != null &&
+        scheduleProposedBy != scheduleProviderId;
+    final shouldShowCompactScheduleProposal =
+        statusLower == ServiceStatusAliases.scheduleProposed &&
+        s['scheduled_at'] != null &&
+        !widget.isFocusMode;
+    final isScheduleNegotiation =
+        statusLower == ServiceStatusAliases.scheduleProposed ||
+        statusLower == TripStatuses.scheduled;
+    final providerScheduleRounds =
+        int.tryParse('${s['schedule_provider_rounds'] ?? ''}') ?? 0;
+    final remainingProviderRounds =
+        int.tryParse('${s['remainingProviderRounds'] ?? ''}') ??
+        int.tryParse('${s['remaining_provider_rounds'] ?? ''}');
+    final providerScheduleLimitReached =
+        providerScheduleRounds >= 5 || remainingProviderRounds == 0;
+    final canShowAvailableScheduleAction =
+        widget.showScheduleAction &&
+        !isScheduleNegotiation &&
+        !providerScheduleLimitReached &&
+        !_isTerminalProviderStatus(statusLower);
     final canShowScheduleAction =
-        statusLower == TripStatuses.openForSchedule &&
-        widget.onSchedule != null;
+        widget.onSchedule != null &&
+        (canShowAvailableScheduleAction || isClientScheduleProposal);
     final serviceTitle =
         (s['task_name'] ??
                 s['task_title'] ??
@@ -461,6 +500,12 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
     final remainingClientConfirmationLabel = remainingClientConfirmation == null
         ? null
         : _formatRemainingClientConfirmation(remainingClientConfirmation);
+    final hasProofVideo = (s['proof_video'] ?? s['proofVideo'] ?? '')
+        .toString()
+        .trim()
+        .isNotEmpty;
+    final showPendingClientConfirmationCard =
+        isAwaitingClientConfirmation && hasProofVideo;
     final hideMapInFocusMode =
         widget.isFocusMode &&
         (hasArrived ||
@@ -624,17 +669,14 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.cyan.shade600, Colors.cyan.shade800],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.grey.shade300),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.cyan.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
@@ -643,7 +685,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                       children: [
                         const Icon(
                           LucideIcons.calendarCheck,
-                          color: Colors.white,
+                          color: Colors.black87,
                           size: 20,
                         ),
                         const SizedBox(width: 12),
@@ -652,7 +694,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                             'Agendado para ${_formatScheduledDate(s['scheduled_at'].toString())}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Colors.black87,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -664,17 +706,10 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                   ),
                 ],
 
-                if (statusLower == ServiceStatusAliases.scheduleProposed &&
-                    s['scheduled_at'] != null) ...[
+                if (shouldShowCompactScheduleProposal) ...[
                   const SizedBox(height: 12),
                   Builder(
                     builder: (_) {
-                      final proposedBy =
-                          s['schedule_proposed_by_user_id']?.toString() ??
-                          s['schedule_proposed_by']?.toString();
-                      final providerId = s['provider_id']?.toString();
-                      final isClientProposal =
-                          proposedBy != null && proposedBy != providerId;
                       final expiresAt = s['schedule_expires_at']?.toString();
                       return Container(
                         width: double.infinity,
@@ -683,7 +718,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: isClientProposal
+                          color: isClientScheduleProposal
                               ? Colors.blue[600]
                               : Colors.orange[600],
                           borderRadius: BorderRadius.circular(10),
@@ -691,7 +726,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                         child: Row(
                           children: [
                             Icon(
-                              isClientProposal
+                              isClientScheduleProposal
                                   ? LucideIcons.calendarClock
                                   : LucideIcons.clock,
                               color: Colors.white,
@@ -703,7 +738,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    isClientProposal
+                                    isClientScheduleProposal
                                         ? 'Cliente propôs: ${_formatScheduledDate(s['scheduled_at'].toString())}'
                                         : 'Aguardando confirmação do cliente',
                                     style: const TextStyle(
@@ -730,6 +765,12 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                       );
                     },
                   ),
+                ],
+
+                if (canShowScheduleAction &&
+                    !(widget.isFocusMode && isClientScheduleProposal)) ...[
+                  const SizedBox(height: 12),
+                  _buildScheduleAction(statusLower),
                 ],
 
                 // EXPANDED CONTENT
@@ -1165,7 +1206,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                   ],
                 ],
 
-                if (isAwaitingClientConfirmation) ...[
+                if (showPendingClientConfirmationCard) ...[
                   const SizedBox(height: 16),
                   Container(
                     width: double.infinity,
@@ -1244,14 +1285,7 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                   const SizedBox(height: 16),
                   Builder(
                     builder: (_) {
-                      final proposedBy =
-                          s['schedule_proposed_by_user_id']?.toString() ??
-                          s['schedule_proposed_by']?.toString();
-                      final providerId = s['provider_id']?.toString();
-                      final isClientProposal =
-                          proposedBy != null && proposedBy != providerId;
-
-                      if (isClientProposal) {
+                      if (isClientScheduleProposal) {
                         // CLIENT counter-proposed: show date + ACCEPT button
                         return Container(
                           width: double.infinity,
@@ -1337,32 +1371,57 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                         );
                       } else {
                         // PROVIDER proposed: waiting for client confirmation
+                        final scheduledAt = s['scheduled_at']?.toString();
+                        final expiresAt = s['schedule_expires_at']?.toString();
                         return Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.orange.withOpacity(0.3),
-                            ),
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.blue.shade100),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                LucideIcons.clock,
-                                color: Colors.orange,
-                                size: 20,
+                              Text(
+                                'Sua proposta foi enviada',
+                                style: TextStyle(
+                                  color: Colors.blue.shade900,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Text(
-                                  'Aguardando o cliente confirmar seu agendamento.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange,
+                              if (scheduledAt != null &&
+                                  scheduledAt.trim().isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  _formatScheduledDate(scheduledAt),
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.black87,
                                   ),
+                                ),
+                              ],
+                              if (expiresAt != null &&
+                                  expiresAt.trim().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Validade até ${_formatScheduledDate(expiresAt)}',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              Text(
+                                'Estamos aguardando a resposta do cliente para o horário sugerido.',
+                                style: TextStyle(
+                                  color: Colors.grey.shade800,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.25,
                                 ),
                               ),
                             ],
@@ -1372,37 +1431,32 @@ class _ProviderServiceCardState extends State<ProviderServiceCard>
                     },
                   ),
                 ],
-
-                // SCHEDULING ACTION (only for open_for_schedule, NOT for schedule_proposed to avoid infinite loop)
-                if (canShowScheduleAction) ...[
-                  const SizedBox(height: 16),
-                  if (!_isScheduling)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _startSchedulingNow,
-                        icon: const Icon(LucideIcons.calendar, size: 18),
-                        label: Text(
-                          statusLower == ServiceStatusAliases.scheduleProposed
-                              ? 'ALTERAR AGENDAMENTO'
-                              : 'AGENDAR SERVIÇO',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[600],
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    _buildSchedulingForm(),
-                ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScheduleAction(String statusLower) {
+    if (_isScheduling) return _buildSchedulingForm();
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _startSchedulingNow,
+        icon: const Icon(LucideIcons.calendar, size: 18),
+        label: Text(
+          statusLower == ServiceStatusAliases.scheduleProposed
+              ? 'ALTERAR AGENDAMENTO'
+              : 'AGENDAR SERVIÇO',
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue[600],
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );

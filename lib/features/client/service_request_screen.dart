@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/fixed_schedule_gate.dart';
+import '../../core/utils/product_scope_gate.dart';
 import 'home_prestador_fixo.dart';
 import 'service_request_screen_mobile.dart';
 
@@ -47,6 +48,12 @@ class ServiceRequestScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!ProductScopeGate.isSalonSchedulingEnabled) {
+      return ServiceRequestScreenMobile(
+        initialData: initialData,
+        onSwitchToFixed: onSwitchToFixed,
+      );
+    }
     if (_shouldUseFixedFlow) {
       return ServiceRequestScreenFixed(
         initialProviderId: int.tryParse(initialProviderId ?? ''),

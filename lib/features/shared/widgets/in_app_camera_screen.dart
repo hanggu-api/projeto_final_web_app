@@ -61,6 +61,8 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
   DateTime? _fixatingStartTime;
   String _livenessInstruction = "Aguardando rosto...";
   bool _manualCaptureMode = false;
+  bool get _shouldUseBlinkOnly =>
+      widget.isSelfie && (widget.blinkOnly || !widget.forceFullLiveness);
 
   // TTS Configuration
   late FlutterTts _flutterTts;
@@ -123,11 +125,8 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
       await _controller!.initialize();
 
       _manualCaptureMode =
-          (!widget.isSelfie &&
-              DeviceCapabilityService.instance.prefersSimplifiedDocumentScan) ||
-          (widget.isSelfie &&
-              !widget.forceFullLiveness &&
-              DeviceCapabilityService.instance.prefersSimplifiedFaceLiveness);
+          !widget.isSelfie &&
+          DeviceCapabilityService.instance.prefersSimplifiedDocumentScan;
 
       if (widget.isSelfie) {
         _faceDetector = FaceDetector(
@@ -354,7 +353,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
             _blinkCount++;
             _leftEyeClosed = false;
             if (_blinkCount >= _targetBlinks) {
-              if (widget.blinkOnly) {
+              if (_shouldUseBlinkOnly) {
                 // Se for apenas piscada, pula direto para o final
                 setState(() {
                   _currentStep = LivenessStep.done;
@@ -384,6 +383,15 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
         break;
 
       case LivenessStep.turningLeft:
+        if (_shouldUseBlinkOnly) {
+          setState(() {
+            _currentStep = LivenessStep.done;
+            _captureProgress = 1.0;
+            _livenessInstruction = "Perfeito! Capturando...";
+          });
+          Future.delayed(const Duration(milliseconds: 100), () => _capture());
+          break;
+        }
         final headYaw = face.headEulerAngleY; // Rotação para os lados
         if (headYaw != null && headYaw > 15) {
           // Virou para a esquerda (yaw positivo no ML Kit para câmera frontal geralmente)
@@ -396,6 +404,15 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
         break;
 
       case LivenessStep.turningRight:
+        if (_shouldUseBlinkOnly) {
+          setState(() {
+            _currentStep = LivenessStep.done;
+            _captureProgress = 1.0;
+            _livenessInstruction = "Perfeito! Capturando...";
+          });
+          Future.delayed(const Duration(milliseconds: 100), () => _capture());
+          break;
+        }
         final headYaw = face.headEulerAngleY;
         if (headYaw != null && headYaw < -15) {
           // Virou para a direita
@@ -409,6 +426,15 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
         break;
 
       case LivenessStep.fixating:
+        if (_shouldUseBlinkOnly) {
+          setState(() {
+            _currentStep = LivenessStep.done;
+            _captureProgress = 1.0;
+            _livenessInstruction = "Perfeito! Capturando...";
+          });
+          Future.delayed(const Duration(milliseconds: 100), () => _capture());
+          break;
+        }
         final pitch = face.headEulerAngleX ?? 0;
         final yaw = face.headEulerAngleY ?? 0;
         final roll = face.headEulerAngleZ ?? 0;
@@ -732,13 +758,15 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
                         backgroundColor: Colors.transparent,
                       ),
                     ),
-                  if (_currentStep == LivenessStep.fixating)
+                  if (!_shouldUseBlinkOnly &&
+                      _currentStep == LivenessStep.fixating)
                     const Icon(
                       LucideIcons.target,
                       color: Color(0xFF00FF88),
                       size: 40,
                     ),
-                  if (_currentStep == LivenessStep.turningLeft)
+                  if (!_shouldUseBlinkOnly &&
+                      _currentStep == LivenessStep.turningLeft)
                     const Positioned(
                       left: 10,
                       child: Icon(
@@ -747,7 +775,8 @@ class _InAppCameraScreenState extends State<InAppCameraScreen> {
                         size: 60,
                       ),
                     ),
-                  if (_currentStep == LivenessStep.turningRight)
+                  if (!_shouldUseBlinkOnly &&
+                      _currentStep == LivenessStep.turningRight)
                     const Positioned(
                       right: 10,
                       child: Icon(

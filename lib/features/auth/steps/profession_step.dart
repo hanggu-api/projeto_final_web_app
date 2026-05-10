@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/fixed_schedule_gate.dart';
 import '../../../services/api_service.dart';
 
 class ProfessionStep extends StatefulWidget {
@@ -23,6 +24,8 @@ class _ProfessionStepState extends State<ProfessionStep> {
   List<Map<String, dynamic>> _professions = [];
   List<Map<String, dynamic>> _filteredProfessions = [];
   bool _isLoading = true;
+  bool _fixedRegistrationEnabled = true;
+  bool _mobileRegistrationEnabled = true;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -41,10 +44,26 @@ class _ProfessionStepState extends State<ProfessionStep> {
 
   Future<void> _fetchProfessions() async {
     try {
-      final professions = await ApiService().getProfessions();
+      final api = ApiService();
+      final results = await Future.wait([
+        api.getProfessions(),
+        api.getAppConfig(),
+      ]);
+      final professions = results[0] as List<dynamic>;
+      final appConfig = results[1] as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
-        _professions = List<Map<String, dynamic>>.from(professions);
+        _fixedRegistrationEnabled = _configBool(
+          appConfig['provider.fixed.registration.enabled'],
+          fallback: true,
+        );
+        _mobileRegistrationEnabled = _configBool(
+          appConfig['provider.mobile.registration.enabled'],
+          fallback: true,
+        );
+        _professions = List<Map<String, dynamic>>.from(
+          professions,
+        ).where(_isAllowedByRegistrationFlags).toList();
         _filteredProfessions = []; // Start empty
         _isLoading = false;
       });
@@ -54,6 +73,55 @@ class _ProfessionStepState extends State<ProfessionStep> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  bool _configBool(dynamic value, {required bool fallback}) {
+    if (value == null) return fallback;
+    if (value is bool) return value;
+    final normalized = value.toString().trim().toLowerCase();
+    if (['true', '1', 'yes', 'sim', 'on', 'enabled'].contains(normalized)) {
+      return true;
+    }
+    if ([
+      'false',
+      '0',
+      'no',
+      'nao',
+      'não',
+      'off',
+      'disabled',
+    ].contains(normalized)) {
+      return false;
+    }
+    return fallback;
+  }
+
+  bool _isFixedProfession(Map<String, dynamic> profession) {
+    final serviceType = (profession['service_type'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    return {'salon', 'beauty', 'fixed', 'at_provider'}.contains(serviceType) ||
+        isCanonicalFixedServiceRecord(profession);
+  }
+
+  bool _isAllowedByRegistrationFlags(Map<String, dynamic> profession) {
+    final isFixed = _isFixedProfession(profession);
+    if (isFixed) return _fixedRegistrationEnabled;
+    return _mobileRegistrationEnabled;
+  }
+
+  String _emptySearchMessage() {
+    if (!_fixedRegistrationEnabled && !_mobileRegistrationEnabled) {
+      return 'Cadastro de prestadores indisponível no momento';
+    }
+    if (!_fixedRegistrationEnabled) {
+      return 'Nenhuma profissão móvel encontrada';
+    }
+    if (!_mobileRegistrationEnabled) {
+      return 'Nenhuma profissão de prestador fixo encontrada';
+    }
+    return 'Nenhuma profissão encontrada';
   }
 
   String _removeDiacritics(String str) {
@@ -313,17 +381,18 @@ class _ProfessionStepState extends State<ProfessionStep> {
             fontSize: 16,
           ),
           textInputAction: TextInputAction.search,
-          decoration: AppTheme.authInputDecoration(
-            'Buscar profissão...',
-            LucideIcons.search,
-          ).copyWith(
-            helperText: 'Digite pelo menos 3 letras para buscar',
-            helperStyle: GoogleFonts.manrope(
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w500,
-              fontSize: 12,
-            ),
-          ),
+          decoration:
+              AppTheme.authInputDecoration(
+                'Buscar profissão...',
+                LucideIcons.search,
+              ).copyWith(
+                helperText: 'Digite pelo menos 3 letras para buscar',
+                helperStyle: GoogleFonts.manrope(
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 12,
+                ),
+              ),
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -336,21 +405,23 @@ class _ProfessionStepState extends State<ProfessionStep> {
                   ),
                 )
               : _filteredProfessions.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
-                    'Nenhuma profissão encontrada',
-                    style: TextStyle(color: Colors.grey),
+                    _emptySearchMessage(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 )
               : ListView.separated(
                   itemCount: _filteredProfessions.length,
                   separatorBuilder: (_, index) => const Divider(),
                   itemBuilder: (context, index) {
-                final profession = _filteredProfessions[index];
-                // Normalize id to string to keep consistency across flows
-                profession['id'] = profession['id']?.toString();
-                final isSelected = widget.selectedProfession?['id']?.toString() ==
-                    profession['id']?.toString();
+                    final profession = _filteredProfessions[index];
+                    // Normalize id to string to keep consistency across flows
+                    profession['id'] = profession['id']?.toString();
+                    final isSelected =
+                        widget.selectedProfession?['id']?.toString() ==
+                        profession['id']?.toString();
 
                     return ListTile(
                       leading: CircleAvatar(

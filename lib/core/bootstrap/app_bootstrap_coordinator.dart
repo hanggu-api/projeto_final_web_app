@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/ai/genkit_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/api_service.dart';
+import '../../services/data_gateway.dart';
 import '../../services/global_startup_manager.dart';
 import '../../services/startup_service.dart';
 import '../../services/token_manager.dart';
@@ -21,6 +22,9 @@ import '../navigation/app_bootstrap_route_resolver.dart';
 import '../navigation/app_navigation_policy.dart';
 import '../runtime/app_runtime_service.dart';
 import '../tracking/backend_tracking_api.dart';
+import '../constants/trip_statuses.dart';
+
+const String _kLastProviderActiveServiceId = 'last_provider_active_service_id';
 
 class AppBootstrapInitializationResult {
   final String initialLocation;
@@ -69,6 +73,14 @@ class AppBootstrapCoordinator {
     try {
       step = 'ApiService.init()';
       api.init();
+
+      if (!SupabaseConfig.isInitialized) {
+        return const AppBootstrapInitializationResult(
+          initialLocation: '/login',
+          error:
+              'Supabase remoto não inicializado. Verifique SUPABASE_URL e SUPABASE_ANON_KEY remotos antes de usar o app.',
+        );
+      }
 
       final prefsFuture = SharedPreferences.getInstance();
 
@@ -122,6 +134,7 @@ class AppBootstrapCoordinator {
 
       if (backendBootstrap != null) {
         await api.persistBootstrapIdentity(
+          userId: backendBootstrap.userId,
           role: backendBootstrap.role,
           isMedical: backendBootstrap.isMedical,
           isFixedLocation: backendBootstrap.isFixedLocation,
@@ -131,6 +144,34 @@ class AppBootstrapCoordinator {
       }
 
       step = 'resolveBootstrapRoute';
+      final canResolveProviderScheduleBootstrap =
+          role == 'provider' &&
+          backendBootstrap?.isMedical != true &&
+          (currentUser != null ||
+              (backendBootstrap?.userId?.trim().isNotEmpty ?? false) ||
+              (api.userId?.trim().isNotEmpty ?? false));
+      if (canResolveProviderScheduleBootstrap) {
+        step = 'provider mobile schedule negotiation bootstrap';
+        final providerNegotiation = await _findProviderMobileNegotiation(
+          api: api,
+          backendBootstrap: backendBootstrap,
+          currentUser: currentUser,
+        );
+        if (providerNegotiation != null) {
+          activeService = providerNegotiation;
+          final route = navigationPolicyBuilder(
+            api,
+          ).resolveProviderActiveRoute(providerNegotiation);
+          debugPrint(
+            '✅ [Main] Negociação móvel ativa encontrada no bootstrap: ${providerNegotiation['id']}. Abrindo $route imediatamente.',
+          );
+          return AppBootstrapInitializationResult(
+            initialLocation: route,
+            error: null,
+          );
+        }
+      }
+
       if (backendBootstrap != null &&
           backendBootstrap.nextRoute.trim().isNotEmpty) {
         return AppBootstrapInitializationResult(
@@ -155,9 +196,11 @@ class AppBootstrapCoordinator {
         }
       }
 
-      if (currentUser != null) {
-        debugPrint(
-          '⚠️ [Main] Sem resposta canônica de /api/v1/auth/bootstrap no ambiente atual; usando fallback local de rota.',
+      if (currentUser != null && backendBootstrap == null) {
+        return const AppBootstrapInitializationResult(
+          initialLocation: '/login',
+          error:
+              'Backend remoto online não respondeu /api/v1/auth/bootstrap. Verifique as Edge Functions do Supabase antes de continuar.',
         );
       }
 
@@ -183,6 +226,80 @@ class AppBootstrapCoordinator {
         error: msg,
       );
     }
+  }
+
+  Future<Map<String, dynamic>?> _findProviderMobileNegotiation({
+    required ApiService api,
+    required BackendBootstrapState? backendBootstrap,
+    required User? currentUser,
+  }) async {
+    final rawProviderId =
+        backendBootstrap?.userId?.trim() ?? api.userId?.trim() ?? '';
+    var providerUserId = int.tryParse(rawProviderId);
+    if (providerUserId == null && currentUser != null) {
+      providerUserId = await awaitBootstrapStep(
+        'resolve provider user id',
+        DataGateway().resolveUserIdByAuthUid(currentUser.id),
+        timeout: const Duration(seconds: 2),
+      );
+    }
+    if (providerUserId == null || providerUserId <= 0) return null;
+
+    debugPrint(
+      '🔎 [Main] Buscando negociação móvel ativa providerUserId=$providerUserId',
+    );
+    final rows = await awaitBootstrapStep(
+      'provider mobile schedule negotiations',
+      DataGateway().loadProviderMobileScheduleNegotiations(
+        providerUserId,
+        limit: 10,
+      ),
+      timeout: const Duration(seconds: 3),
+      fallback: const <Map<String, dynamic>>[],
+    );
+    final negotiations = rows ?? const <Map<String, dynamic>>[];
+    debugPrint(
+      '🔎 [Main] Negociações móveis encontradas no bootstrap: ${negotiations.length}',
+    );
+    if (negotiations.isEmpty) {
+      final cached = await _findCachedProviderActiveService();
+      if (cached != null) return cached;
+      return null;
+    }
+
+    negotiations.sort((a, b) {
+      final aCreated = a['created_at']?.toString() ?? '';
+      final bCreated = b['created_at']?.toString() ?? '';
+      return bCreated.compareTo(aCreated);
+    });
+    return Map<String, dynamic>.from(negotiations.first);
+  }
+
+  Future<Map<String, dynamic>?> _findCachedProviderActiveService() async {
+    final prefs = await SharedPreferences.getInstance();
+    final serviceId = prefs.getString(_kLastProviderActiveServiceId)?.trim();
+    if (serviceId == null || serviceId.isEmpty) return null;
+
+    try {
+      final service = await ApiService().getServiceDetails(
+        serviceId,
+        scope: ServiceDataScope.mobileOnly,
+        forceRefresh: true,
+      );
+      final status = normalizeServiceStatus(service['status']?.toString());
+      if (ServiceStatusSets.mobileActive.contains(status)) {
+        debugPrint(
+          '✅ [Main] Serviço ativo recuperado do cache local: $serviceId status=$status',
+        );
+        return Map<String, dynamic>.from(service);
+      }
+      await prefs.remove(_kLastProviderActiveServiceId);
+    } catch (e) {
+      debugPrint(
+        '⚠️ [Main] Falha ao validar serviço ativo em cache $serviceId: $e',
+      );
+    }
+    return null;
   }
 
   void schedulePostFrameBootstrap() {

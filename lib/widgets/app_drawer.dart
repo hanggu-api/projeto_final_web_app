@@ -215,8 +215,31 @@ class _AppDrawerState extends State<AppDrawer> {
     final route = (role == 'provider' || role == 'driver')
         ? '/my-provider-profile'
         : '/client-settings';
+    if (widget.asPage) {
+      context.push(route);
+    } else {
+      context.pop();
+      context.push(route);
+    }
+  }
+
+  void _openRoute(String route) {
+    if (widget.asPage) {
+      context.go(route);
+      return;
+    }
     context.pop();
-    context.push(route);
+    context.go(route);
+  }
+
+  Future<void> _logout() async {
+    if (!context.mounted) return;
+    if (!widget.asPage) {
+      context.pop();
+    }
+    await ApiService().clearToken();
+    if (!context.mounted) return;
+    context.go('/login');
   }
 
   @override
@@ -278,6 +301,41 @@ class _AppDrawerState extends State<AppDrawer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.asPage) ...[
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                      return;
+                    }
+                    final role = (_role ?? '').trim().toLowerCase();
+                    context.go(
+                      role == 'provider' || role == 'driver'
+                          ? '/provider-home'
+                          : '/home',
+                    );
+                  },
+                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                ),
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'Menu',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 48),
+              ],
+            ),
+            const SizedBox(height: 18),
+          ],
           Row(
             children: [
               Stack(
@@ -449,8 +507,7 @@ class _AppDrawerState extends State<AppDrawer> {
             isSelected: isSelected,
             onTap: () {
               setState(() => _currentIndex = idx);
-              context.pop();
-              context.go(item.route);
+              _openRoute(item.route);
             },
           );
         }).toList(),
@@ -462,13 +519,7 @@ class _AppDrawerState extends State<AppDrawer> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       child: InkWell(
-        onTap: () async {
-          if (!context.mounted) return;
-          context.pop();
-          await ApiService().clearToken();
-          if (!context.mounted) return;
-          context.go('/login');
-        },
+        onTap: _logout,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),

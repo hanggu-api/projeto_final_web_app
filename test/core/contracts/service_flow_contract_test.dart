@@ -72,6 +72,26 @@ void main() {
       );
     });
 
+    test('bloqueia finalizar antes do código de conclusão', () {
+      expect(
+        ServiceFlowContract.canTransition(
+          CanonicalServiceState.inProgress,
+          CanonicalServiceState.completed,
+        ),
+        isFalse,
+      );
+    });
+
+    test('mantém rejeição do prestador dentro da fila de dispatch', () {
+      expect(
+        ServiceFlowContract.canTransition(
+          CanonicalServiceState.providerRejected,
+          CanonicalServiceState.offeredToProvider,
+        ),
+        isTrue,
+      );
+    });
+
     test('estado terminal nao transiciona', () {
       expect(
         ServiceFlowContract.canTransition(
@@ -123,6 +143,40 @@ void main() {
           ServiceAction.cancelService,
         ),
         isTrue,
+      );
+    });
+
+    test('cliente nao pode iniciar nem concluir servico pelo papel errado', () {
+      expect(
+        ServiceFlowContract.canRoleExecute(
+          ServiceActorRole.client,
+          ServiceAction.startService,
+        ),
+        isFalse,
+      );
+      expect(
+        ServiceFlowContract.canRoleExecute(
+          ServiceActorRole.client,
+          ServiceAction.completeService,
+        ),
+        isFalse,
+      );
+    });
+
+    test('backend gera pix mas nao aceita oferta de prestador', () {
+      expect(
+        ServiceFlowContract.canRoleExecute(
+          ServiceActorRole.backend,
+          ServiceAction.generatePixDownPayment,
+        ),
+        isTrue,
+      );
+      expect(
+        ServiceFlowContract.canRoleExecute(
+          ServiceActorRole.backend,
+          ServiceAction.acceptOffer,
+        ),
+        isFalse,
       );
     });
   });

@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/utils/fixed_schedule_gate.dart';
+import '../../../core/utils/product_scope_gate.dart';
 import '../../../core/utils/navigation_helper.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -123,6 +124,7 @@ class _FixedServiceCardState extends State<FixedServiceCard>
   }
 
   void _startTravelPolling() {
+    if (!ProductScopeGate.isSalonSchedulingEnabled) return;
     _refreshTimer?.cancel();
     _calculateTravelTime();
     // Atualiza a cada 30 segundos para evitar sobrecarga de GPS e poluição do console
@@ -670,8 +672,8 @@ class _FixedServiceCardState extends State<FixedServiceCard>
                       (item) => item?['role'] == 'requester',
                       orElse: () => null,
                     );
-                final beneficiaryName =
-                    '${beneficiary?['display_name'] ?? ''}'.trim();
+                final beneficiaryName = '${beneficiary?['display_name'] ?? ''}'
+                    .trim();
                 final beneficiaryId = '${beneficiary?['user_id'] ?? ''}'.trim();
                 final requesterId = '${requester?['user_id'] ?? ''}'.trim();
                 final participantContextLabel =

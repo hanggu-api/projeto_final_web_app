@@ -17,6 +17,7 @@ import '../supabase/remote_ui/supabase_remote_action_api.dart';
 import '../../services/analytics_service.dart';
 import '../../services/api_service.dart';
 import '../../services/provider_keepalive_service.dart';
+import '../../core/utils/product_scope_gate.dart';
 
 class DefaultRemoteActionExecutor implements RemoteActionExecutor {
   DefaultRemoteActionExecutor({
@@ -84,6 +85,16 @@ class DefaultRemoteActionExecutor implements RemoteActionExecutor {
         await context.push('/servicos');
         return;
       case 'service_request_fixed':
+        if (!ProductScopeGate.isSalonSchedulingEnabled) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Agendamento de salão está indisponível no momento.',
+              ),
+            ),
+          );
+          return;
+        }
         await context.push('/beauty-booking');
         return;
       default:

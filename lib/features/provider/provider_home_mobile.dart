@@ -6,9 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/trip_statuses.dart';
 import '../../core/utils/navigation_helper.dart';
+import '../../core/utils/provider_mobile_active_policy.dart';
 import '../../core/utils/service_flow_classifier.dart';
 import 'widgets/provider_profile_widgets.dart';
 import 'widgets/provider_service_card.dart';
@@ -24,6 +27,50 @@ import '../shared/widgets/notification_dropdown_menu.dart';
 import 'utils/travel_helper.dart';
 import 'widgets/service_offer_modal.dart';
 import '../../widgets/ad_carousel.dart';
+
+const String _kLastProviderActiveServiceId = 'last_provider_active_service_id';
+
+@visibleForTesting
+bool isProviderMobileScheduleNegotiation(Map<String, dynamic> service) {
+  final status = normalizeServiceStatus(service['status']?.toString());
+  return status == ServiceStatusAliases.scheduleProposed ||
+      status == TripStatuses.scheduled;
+}
+
+@visibleForTesting
+bool isProviderMobileActiveWork(Map<String, dynamic> service) {
+  final status = normalizeServiceStatus(service['status']?.toString());
+  if (!ServiceStatusSets.mobileActive.contains(status)) return false;
+  final hasAssignedProvider =
+      service['provider_id'] != null ||
+      (service['provider_uid'] ?? '').toString().trim().isNotEmpty;
+  return hasAssignedProvider || isProviderMobileScheduleNegotiation(service);
+}
+
+@visibleForTesting
+List<dynamic> filterProviderMobileAvailableItems(List<dynamic> services) {
+  return services.where((raw) {
+    if (raw is! Map) return true;
+    return !isProviderMobileActiveWork(Map<String, dynamic>.from(raw));
+  }).toList();
+}
+
+@visibleForTesting
+bool shouldRedirectProviderMobileToActiveService({
+  required String? lastRedirectedServiceId,
+  required String selectedServiceId,
+  required String currentLocation,
+  required String targetLocation,
+}) {
+  if (selectedServiceId.trim().isEmpty || targetLocation.trim().isEmpty) {
+    return false;
+  }
+  if (currentLocation == targetLocation) {
+    return false;
+  }
+  return lastRedirectedServiceId != selectedServiceId ||
+      currentLocation != targetLocation;
+}
 
 class ProviderHomeMobile extends StatefulWidget {
   final bool loadOnInit;
@@ -71,6 +118,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   // Notification / Offer State
   final Set<String> _openOfferIds = {};
   final Map<String, DateTime> _offerCooldownUntilById = {};
+  final Map<String, Map<String, dynamic>> _localScheduleProposals = {};
   String? _lastAutoRedirectedServiceId;
 
   // Firebase Listeners for auto-refresh
@@ -81,14 +129,11 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   Timer? _offersRetryTimer;
   Timer? _availableServicesRefreshTimer;
   Timer? _paymentStatusRefreshTimer;
-  int _offersRetryAttempt = 0;
+  Timer? _activeScheduleRecoveryTimer;
   int _offersPollingNetworkErrorCount = 0;
-  bool _offersRebindInProgress = false;
   bool _socketHandlersBound = false;
   bool _offersStreamDegraded = false;
   DateTime? _offersStreamDegradedSince;
-  DateTime? _lastOffersTransientLogAt;
-  String? _lastOffersTransientSignature;
   DateTime? _lastHeavyFallbackRefreshAt;
   DateTime? _offersPollingPausedUntil;
   DateTime? _lastLocationPermissionLogAt;
@@ -99,6 +144,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     hasLocalConnectivity: true,
   );
   bool _isForeground = true;
+  bool _recoveringActiveScheduleNegotiations = false;
 
   String _normText(String? value) {
     final raw = (value ?? '').toLowerCase().trim();
@@ -221,6 +267,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       _startOffersPollingFallback();
       _startAvailableServicesRefreshLoop();
       _startPaymentStatusRefreshLoop();
+      _startActiveScheduleRecoveryLoop();
       _initSocket();
       _loadData();
       // _checkUberEnabled(); // desativado (prestador não alterna para motorista)
@@ -241,7 +288,6 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         _networkSnapshot = snapshot;
       });
       if (wasOfflineLike && snapshot.isOnline) {
-        _offersRetryAttempt = 0;
         _offersPollingNetworkErrorCount = 0;
         _offersPollingPausedUntil = null;
         _listenToServiceOffers(_currentUserId?.trim() ?? '');
@@ -265,6 +311,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       _startOffersPollingFallback();
       _startAvailableServicesRefreshLoop();
       _startPaymentStatusRefreshLoop();
+      _startActiveScheduleRecoveryLoop();
       unawaited(_networkStatus.refreshConnectivity());
       unawaited(_loadData(showLoading: false));
       return;
@@ -277,6 +324,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       _offersPollingTimer?.cancel();
       _availableServicesRefreshTimer?.cancel();
       _paymentStatusRefreshTimer?.cancel();
+      _activeScheduleRecoveryTimer?.cancel();
       debugPrint(
         '⏸️ [ProviderHomeMobile] app in background. Polling loops paused until resume.',
       );
@@ -337,6 +385,15 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     context.push('/provider-active/$serviceId');
   }
 
+  void _rememberProviderActiveServiceId(String serviceId) {
+    final normalized = serviceId.trim();
+    if (normalized.isEmpty) return;
+    unawaited(() async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kLastProviderActiveServiceId, normalized);
+    }());
+  }
+
   bool _isTerminalStatus(String? raw) {
     final status = normalizeServiceStatus(raw);
     return status == 'finished' ||
@@ -358,6 +415,8 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       case 'provider_near':
       case TripStatuses.arrived:
       case TripStatuses.accepted:
+      case ServiceStatusAliases.scheduleProposed:
+      case TripStatuses.scheduled:
         return 2;
       case TripStatuses.pending:
         return 3;
@@ -369,10 +428,8 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   String? _routeForActiveService(Map<String, dynamic> service) {
     final id = service['id']?.toString().trim() ?? '';
     if (id.isEmpty) return null;
-    final status = normalizeServiceStatus(service['status']?.toString());
-    if (ServiceStatusSets.providerConcluding.contains(status)) {
-      return '/provider-home';
-    }
+    final mobileActiveRoute = resolveProviderMobileActiveRoute(service);
+    if (mobileActiveRoute != null) return mobileActiveRoute;
     final flow = classifyServiceFlow(service);
     return flow == ServiceFlowKind.fixed
         ? '/provider-home'
@@ -396,8 +453,10 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         (int.tryParse('${updated['schedule_provider_rounds'] ?? ''}') ?? 0) + 1;
     updated['schedule_round'] =
         (int.tryParse('${updated['schedule_round'] ?? ''}') ?? 0) + 1;
+    updated['local_schedule_proposed_at'] = DateTime.now().toIso8601String();
 
     setState(() {
+      _localScheduleProposals[serviceId] = updated;
       _availableServices.removeWhere((s) => s['id']?.toString() == serviceId);
       _myServices.removeWhere((s) => s['id']?.toString() == serviceId);
       _myServices.insert(0, updated);
@@ -405,6 +464,8 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         _tabController.animateTo(0);
       }
     });
+    _rememberProviderActiveServiceId(serviceId);
+    _openProviderActiveFlow(serviceId);
   }
 
   void _applyLocalScheduleConfirmedState(
@@ -418,6 +479,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     updated['scheduled_at'] = scheduledAt.toUtc().toIso8601String();
 
     setState(() {
+      _localScheduleProposals.remove(serviceId);
       _availableServices.removeWhere((s) => s['id']?.toString() == serviceId);
       final index = _myServices.indexWhere(
         (s) => s['id']?.toString() == serviceId,
@@ -431,6 +493,61 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
         _tabController.animateTo(0);
       }
     });
+  }
+
+  List<dynamic> _mergeLocalScheduleProposals(List<dynamic> backendServices) {
+    if (_localScheduleProposals.isEmpty) return backendServices;
+
+    final merged = <String, Map<String, dynamic>>{};
+    for (final raw in backendServices) {
+      if (raw is! Map) continue;
+      final service = Map<String, dynamic>.from(raw);
+      final id = service['id']?.toString().trim() ?? '';
+      if (id.isEmpty) continue;
+      merged[id] = service;
+      final status = normalizeServiceStatus(service['status']?.toString());
+      if (status != ServiceStatusAliases.scheduleProposed) {
+        _localScheduleProposals.remove(id);
+      }
+    }
+
+    final now = DateTime.now();
+    _localScheduleProposals.removeWhere((_, service) {
+      final createdAt = DateTime.tryParse(
+        (service['local_schedule_proposed_at'] ?? '').toString(),
+      );
+      if (createdAt == null) return false;
+      return now.difference(createdAt) > const Duration(minutes: 10);
+    });
+
+    for (final entry in _localScheduleProposals.entries) {
+      merged.putIfAbsent(entry.key, () => entry.value);
+    }
+    return merged.values.toList();
+  }
+
+  List<dynamic> _mergeLocalScheduleProposalsIntoAvailable(
+    List<dynamic> backendServices,
+  ) {
+    if (_localScheduleProposals.isEmpty) {
+      return filterProviderMobileAvailableItems(backendServices);
+    }
+
+    final merged = <String, Map<String, dynamic>>{};
+    for (final raw in backendServices) {
+      if (raw is! Map) continue;
+      final service = Map<String, dynamic>.from(raw);
+      if (_isScheduleNegotiation(service)) continue;
+      final id = service['id']?.toString().trim() ?? '';
+      if (id.isEmpty) continue;
+      merged[id] = service;
+    }
+
+    return merged.values.toList();
+  }
+
+  bool _isScheduleNegotiation(Map<String, dynamic> service) {
+    return isProviderMobileScheduleNegotiation(service);
   }
 
   void _maybeRedirectToActiveService(List<dynamic> services) {
@@ -464,11 +581,19 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     final target = _routeForActiveService(selected);
     if (selectedId.isEmpty || target == null) return;
 
-    if (_lastAutoRedirectedServiceId == selectedId) return;
-    _lastAutoRedirectedServiceId = selectedId;
-
     final currentLocation = GoRouterState.of(context).uri.toString();
-    if (currentLocation == target) return;
+    if (!shouldRedirectProviderMobileToActiveService(
+      lastRedirectedServiceId: _lastAutoRedirectedServiceId,
+      selectedServiceId: selectedId,
+      currentLocation: currentLocation,
+      targetLocation: target,
+    )) {
+      if (currentLocation == target) {
+        _lastAutoRedirectedServiceId = selectedId;
+      }
+      return;
+    }
+    _lastAutoRedirectedServiceId = selectedId;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -491,6 +616,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     _offersRetryTimer?.cancel();
     _availableServicesRefreshTimer?.cancel();
     _paymentStatusRefreshTimer?.cancel();
+    _activeScheduleRecoveryTimer?.cancel();
     for (final sub in _serviceSubscriptions) {
       sub.cancel();
     }
@@ -549,28 +675,9 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     });
   }
 
-  void _markOffersStreamHealthy() {
-    _offersRetryAttempt = 0;
-    _offersStreamDegraded = false;
-    _offersStreamDegradedSince = null;
-  }
-
   void _markOffersStreamDegraded() {
     _offersStreamDegraded = true;
     _offersStreamDegradedSince ??= DateTime.now();
-  }
-
-  void _logTransientOffersIssue(String message, {required String signature}) {
-    final now = DateTime.now();
-    final shouldLog =
-        _lastOffersTransientSignature != signature ||
-        _lastOffersTransientLogAt == null ||
-        now.difference(_lastOffersTransientLogAt!) >
-            const Duration(seconds: 20);
-    if (!shouldLog) return;
-    _lastOffersTransientSignature = signature;
-    _lastOffersTransientLogAt = now;
-    debugPrint(message);
   }
 
   void _startAvailableServicesRefreshLoop() {
@@ -627,6 +734,68 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       );
       unawaited(_loadData(showLoading: false));
     });
+  }
+
+  void _startActiveScheduleRecoveryLoop() {
+    if (!_isForeground) return;
+    _activeScheduleRecoveryTimer?.cancel();
+    _activeScheduleRecoveryTimer = Timer.periodic(const Duration(seconds: 8), (
+      _,
+    ) {
+      if (!mounted) return;
+      if (!_isForeground) return;
+      if (!_networkStatus.canAttemptSupabase) return;
+      unawaited(_recoverActiveScheduleNegotiations());
+    });
+  }
+
+  Future<void> _recoverActiveScheduleNegotiations() async {
+    if (_recoveringActiveScheduleNegotiations || !mounted) return;
+    final providerUserId = int.tryParse(_currentUserId?.trim() ?? '');
+    if (providerUserId == null || providerUserId <= 0) return;
+    _recoveringActiveScheduleNegotiations = true;
+
+    try {
+      final rows = await DataGateway().loadProviderMobileScheduleNegotiations(
+        providerUserId,
+        limit: 10,
+      );
+      final recovered = rows
+          .where((service) => !_isTerminalStatus(service['status']?.toString()))
+          .where(_matchesProviderProfession)
+          .toList();
+      if (recovered.isEmpty || !mounted) return;
+
+      debugPrint(
+        '🔄 [ProviderHomeMobile] recuperação encontrou ${recovered.length} negociação(ões) ativa(s).',
+      );
+
+      setState(() {
+        final recoveredIds = recovered
+            .map((service) => service['id']?.toString().trim() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet();
+        _availableServices.removeWhere((raw) {
+          if (raw is! Map) return false;
+          final id = raw['id']?.toString().trim() ?? '';
+          return recoveredIds.contains(id);
+        });
+        _myServices = _mergeLocalScheduleProposals([
+          ...recovered,
+          ..._myServices,
+        ]);
+        if (_tabController.index != 0) {
+          _tabController.animateTo(0);
+        }
+      });
+      _maybeRedirectToActiveService(recovered);
+    } catch (e) {
+      debugPrint(
+        '⚠️ [ProviderHomeMobile] falha ao recuperar negociação ativa: $e',
+      );
+    } finally {
+      _recoveringActiveScheduleNegotiations = false;
+    }
   }
 
   Future<void> _pollOffersFallback() async {
@@ -715,61 +884,6 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       sub.cancel();
     }
     _serviceSubscriptions.clear();
-  }
-
-  void _updateAvailableServicesWithTravel(
-    List<dynamic> firestoreServices,
-  ) async {
-    Position? currentPos;
-    try {
-      // Best effort location
-      currentPos = await Geolocator.getLastKnownPosition();
-      currentPos ??= await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          timeLimit: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      debugPrint('⚠️ [Location] Could not get location for distance calc: $e');
-    }
-
-    final updated = firestoreServices.map((s) {
-      if (currentPos != null &&
-          s['latitude'] != null &&
-          s['longitude'] != null) {
-        final double lat = s['latitude'] is String
-            ? double.parse(s['latitude'])
-            : s['latitude'];
-        final double lon = s['longitude'] is String
-            ? double.parse(s['longitude'])
-            : s['longitude'];
-
-        final dist =
-            Geolocator.distanceBetween(
-              currentPos.latitude,
-              currentPos.longitude,
-              lat,
-              lon,
-            ) /
-            1000.0; // km
-        s['distance_km'] = dist;
-      }
-      return s;
-    }).toList();
-
-    if (mounted) {
-      setState(() {
-        _availableServices = updated;
-        _notifText = (updated.isNotEmpty)
-            ? '${updated.first['category_name'] ?? updated.first['description'] ?? 'Serviço'} - ${updated.first['address'] ?? ''}'
-            : null;
-      });
-
-      // If we have available services, try to prefetch better travel info if needed
-      if (_availableServices.isNotEmpty) {
-        _prefetchTravelForFirstAvailable();
-      }
-    }
   }
 
   void _handlePaymentUpdate(dynamic data) {
@@ -1066,51 +1180,6 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     unawaited(_pollOffersFallback());
   }
 
-  void _scheduleOffersResubscribe(String providerUserIdText, String reason) {
-    if (!mounted || providerUserIdText.trim().isEmpty) return;
-    if (_offersRebindInProgress) return;
-
-    _offersRetryTimer?.cancel();
-    if (!_networkStatus.canAttemptSupabase) {
-      debugPrint(
-        '🔁 [ProviderHomeMobile] notificacao_de_servicos aguardando rede/back-end para religar providerUserId=$providerUserIdText',
-      );
-      _offersRetryTimer = Timer(const Duration(seconds: 15), () async {
-        if (!mounted) return;
-        await _networkStatus.refreshConnectivity();
-        if (_networkStatus.canAttemptSupabase) {
-          _listenToServiceOffers(providerUserIdText);
-        }
-      });
-      return;
-    }
-    _offersRetryAttempt = (_offersRetryAttempt + 1).clamp(1, 10);
-    final seconds = (2 << (_offersRetryAttempt - 1)).clamp(2, 60);
-    debugPrint(
-      '🔁 [ProviderHomeMobile] retry notificacao_de_servicos in ${seconds}s '
-      'attempt=$_offersRetryAttempt providerUserId=$providerUserIdText reason=$reason',
-    );
-
-    _offersRetryTimer = Timer(Duration(seconds: seconds), () async {
-      if (!mounted) return;
-      _offersRebindInProgress = true;
-      try {
-        await RealtimeService().requestSocketReconnect();
-        _listenToServiceOffers(providerUserIdText);
-        if (_offersStreamDegraded) {
-          unawaited(_pollOffersFallback());
-          if (_offersStreamDegradedSince != null &&
-              DateTime.now().difference(_offersStreamDegradedSince!) >=
-                  const Duration(seconds: 15)) {
-            unawaited(_loadData(showLoading: false));
-          }
-        }
-      } finally {
-        _offersRebindInProgress = false;
-      }
-    });
-  }
-
   Future<void> _onServiceOffered(Map<String, dynamic> data) async {
     if (!mounted) return;
     _loadData();
@@ -1162,9 +1231,21 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     try {
       final availableNow = await _api.getAvailableServices();
       final availableSched = await _api.getAvailableForSchedule();
-      final my = await DataGateway().loadMyServices();
+      final providerUserId = int.tryParse(_currentUserId?.trim() ?? '');
+      final scheduleNegotiations = providerUserId == null
+          ? const <Map<String, dynamic>>[]
+          : await DataGateway().loadProviderMobileScheduleNegotiations(
+              providerUserId,
+            );
+      final my = _mergeLocalScheduleProposals([
+        ...await DataGateway().loadMyServices(),
+        ...scheduleNegotiations,
+      ]);
       debugPrint('📋 [DEBUG] availableNow: ${availableNow.length} items');
       debugPrint('📋 [DEBUG] availableSched: ${availableSched.length} items');
+      debugPrint(
+        '📋 [DEBUG] scheduleNegotiations: ${scheduleNegotiations.length} items',
+      );
       debugPrint('📋 [DEBUG] myServices: ${my.length} items');
       if (availableNow.isNotEmpty) {
         debugPrint('📋 [DEBUG] availableNow[0]: ${availableNow.first}');
@@ -1177,8 +1258,11 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
 
       // Combine services and deduplicate by ID
       final Map<String, dynamic> uniqueServices = {};
+      final publicAvailableNow = await _filterOutPrivateDispatchServices(
+        availableNow,
+      );
 
-      for (var service in availableNow) {
+      for (var service in publicAvailableNow) {
         if (service['id'] != null) {
           uniqueServices[service['id'].toString()] = service;
         }
@@ -1191,9 +1275,6 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       }
 
       List<dynamic> combinedAvailable = uniqueServices.values.toList();
-      combinedAvailable = await _filterOutPrivateDispatchServices(
-        combinedAvailable,
-      );
       final shouldLoadEmergencyAvailable =
           combinedAvailable.isEmpty ||
           combinedAvailable.whereType<Map>().any(
@@ -1218,6 +1299,9 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       combinedAvailable = _mergeAvailableServicesPreservingRichData(
         combinedAvailable,
         _availableServices,
+      );
+      combinedAvailable = _mergeLocalScheduleProposalsIntoAvailable(
+        combinedAvailable,
       );
 
       if (mounted) {
@@ -1312,17 +1396,46 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     final address = (service['address'] ?? '').toString().trim();
     final profession = (service['profession'] ?? '').toString().trim();
     final categoryName = (service['category_name'] ?? '').toString().trim();
-    final lat = service['latitude'] is num
-        ? (service['latitude'] as num).toDouble()
-        : double.tryParse('${service['latitude'] ?? ''}');
-    final lon = service['longitude'] is num
-        ? (service['longitude'] as num).toDouble()
-        : double.tryParse('${service['longitude'] ?? ''}');
+    final coords = _resolveServiceDestinationCoords(service);
     return description.isEmpty ||
         _isUnavailableAddress(address) ||
-        lat == null ||
-        lon == null ||
+        coords == null ||
         (profession.isEmpty && categoryName.isEmpty);
+  }
+
+  double? _readNumeric(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      final number = value is num
+          ? value.toDouble()
+          : double.tryParse('${value ?? ''}');
+      if (number != null) return number;
+    }
+    return null;
+  }
+
+  LatLng? _resolveServiceDestinationCoords(Map<String, dynamic> service) {
+    final lat = _readNumeric(service, const [
+      'latitude',
+      'service_latitude',
+      'client_latitude',
+      'pickup_latitude',
+      'origin_latitude',
+      'lat',
+    ]);
+    final lon = _readNumeric(service, const [
+      'longitude',
+      'service_longitude',
+      'client_longitude',
+      'pickup_longitude',
+      'origin_longitude',
+      'lng',
+      'lon',
+    ]);
+    if (lat == null || lon == null) return null;
+    if (lat.abs() > 90 || lon.abs() > 180) return null;
+    if (lat == 0 && lon == 0) return null;
+    return LatLng(lat, lon);
   }
 
   bool _isUnavailableAddress(String? value) {
@@ -1412,6 +1525,11 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
           preferredString(fresh, current, 'task_name') ?? fresh['task_name'];
       fresh['latitude'] = preferredNumeric(fresh, current, 'latitude');
       fresh['longitude'] = preferredNumeric(fresh, current, 'longitude');
+      final coords = _resolveServiceDestinationCoords(fresh);
+      if (coords != null) {
+        fresh['latitude'] = coords.latitude;
+        fresh['longitude'] = coords.longitude;
+      }
       fresh['price_estimated'] = preferredNumeric(
         fresh,
         current,
@@ -1483,6 +1601,11 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
       current['task_name'] = takeIfMissing('task_name') ?? current['task_name'];
       current['latitude'] = takeNumericIfMissing('latitude');
       current['longitude'] = takeNumericIfMissing('longitude');
+      final coords = _resolveServiceDestinationCoords(current);
+      if (coords != null) {
+        current['latitude'] = coords.latitude;
+        current['longitude'] = coords.longitude;
+      }
       current['price_estimated'] = takeNumericIfMissing('price_estimated');
       current['price_upfront'] = takeNumericIfMissing('price_upfront');
       return current;
@@ -1548,30 +1671,24 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
     debugPrint('🚦 [Travel] Loading for service $id');
     try {
       Map<String, dynamic> resolved = Map<String, dynamic>.from(s);
-      double? toLat = resolved['latitude'] is num
-          ? (resolved['latitude'] as num).toDouble()
-          : double.tryParse('${resolved['latitude']}');
-      double? toLon = resolved['longitude'] is num
-          ? (resolved['longitude'] as num).toDouble()
-          : double.tryParse('${resolved['longitude']}');
+      LatLng? destination = _resolveServiceDestinationCoords(resolved);
 
-      if (toLat == null || toLon == null) {
+      if (destination == null) {
         final hydrated = await _hydrateAvailableServiceDetails(resolved);
         if (hydrated != null) {
           resolved = hydrated;
-          toLat = resolved['latitude'] is num
-              ? (resolved['latitude'] as num).toDouble()
-              : double.tryParse('${resolved['latitude']}');
-          toLon = resolved['longitude'] is num
-              ? (resolved['longitude'] as num).toDouble()
-              : double.tryParse('${resolved['longitude']}');
+          destination = _resolveServiceDestinationCoords(resolved);
         }
       }
 
-      if (toLat == null || toLon == null) {
-        debugPrint('❌ [Travel] Invalid destination coords for $id');
+      if (destination == null) {
+        debugPrint(
+          '⚠️ [Travel] Serviço $id sem coordenadas remotas válidas; distância indisponível.',
+        );
         return;
       }
+      final toLat = destination.latitude;
+      final toLon = destination.longitude;
 
       // ... (Fuel logic skipped for brevity, keeping existing if needed but focusing on distance) ...
       double? gasolina = 6.0; // Default fallback to ensure calc runs
@@ -1676,15 +1793,13 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
   }
 
   Future<void> _openNavigation(Map<String, dynamic> s) async {
-    final toLat = s['latitude'] is num
-        ? (s['latitude'] as num).toDouble()
-        : double.tryParse('${s['latitude']}');
-    final toLon = s['longitude'] is num
-        ? (s['longitude'] as num).toDouble()
-        : double.tryParse('${s['longitude']}');
-    if (toLat == null || toLon == null) return;
+    final destination = _resolveServiceDestinationCoords(s);
+    if (destination == null) return;
 
-    await NavigationHelper.openNavigation(latitude: toLat, longitude: toLon);
+    await NavigationHelper.openNavigation(
+      latitude: destination.latitude,
+      longitude: destination.longitude,
+    );
   }
 
   void _showWithdrawalDialog() async {
@@ -2143,6 +2258,7 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
           key: ValueKey('provider_service_${id ?? index}'),
           service: item,
           travelInfo: travel,
+          showScheduleAction: isAvailable,
           onNavigate: () => _openNavigation(item),
           onAccept: null,
           onReject: isAvailable && id != null
@@ -2224,6 +2340,21 @@ class _ProviderHomeMobileState extends State<ProviderHomeMobile>
                     }
                   } catch (e) {
                     if (mounted) {
+                      if (e is ApiException &&
+                          e.statusCode == 409 &&
+                          e.details?['error'] ==
+                              'schedule_negotiation_provider_limit_reached') {
+                        _rememberProviderActiveServiceId(id);
+                        setState(() {
+                          _availableServices.removeWhere(
+                            (service) => service['id']?.toString() == id,
+                          );
+                          if (_tabController.index != 0) {
+                            _tabController.animateTo(0);
+                          }
+                        });
+                        unawaited(_recoverActiveScheduleNegotiations());
+                      }
                       messenger.showSnackBar(
                         SnackBar(content: Text('Erro: $e')),
                       );

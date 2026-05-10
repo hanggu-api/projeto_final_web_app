@@ -46,6 +46,7 @@ import 'features/provider/provider_profile_content.dart';
 import 'features/shared/chat_list_screen.dart';
 import 'features/provider/service_details_screen_fixed.dart';
 import 'features/shared/chat_screen.dart';
+import 'features/shared/app_menu_screen.dart';
 import 'features/shared/notification_screen.dart';
 import 'features/shared/help_screen.dart';
 import 'features/shared/security_screen.dart';
@@ -58,6 +59,7 @@ import 'features/auth/change_password_screen.dart';
 import 'features/payment/screens/card_registration_screen.dart';
 import 'features/payment/screens/payment_methods_screen.dart';
 import 'services/api_service.dart';
+import 'services/data_gateway.dart';
 import 'services/theme_service.dart';
 import 'services/global_startup_manager.dart';
 import 'widgets/scaffold_with_nav_bar.dart';
@@ -67,7 +69,9 @@ import 'core/bootstrap/app_bootstrap_coordinator.dart';
 import 'core/bootstrap/app_environment.dart';
 import 'core/utils/logger.dart';
 import 'core/utils/fixed_schedule_gate.dart';
+import 'core/utils/product_scope_gate.dart';
 import 'core/utils/mobile_client_navigation_gate.dart';
+import 'core/utils/provider_mobile_active_policy.dart';
 import 'core/constants/trip_statuses.dart';
 import 'features/client/service_request_screen_mobile.dart';
 import 'features/client/home_prestador_fixo.dart';
@@ -85,6 +89,7 @@ bool isFixedScheduledFlowReady(Map<String, dynamic> service) {
 }
 
 bool shouldProviderStayOnHomeForService(Map<String, dynamic> service) {
+  if (isActiveMobileServiceForProvider(service)) return false;
   final status = normalizeServiceStatus(service['status']?.toString());
   return ServiceStatusSets.providerConcluding.contains(status);
 }
@@ -92,6 +97,8 @@ bool shouldProviderStayOnHomeForService(Map<String, dynamic> service) {
 String _providerRouteForService(Map<String, dynamic> service) {
   final id = service['id']?.toString() ?? '';
   if (id.isEmpty) return '/provider-home';
+  final mobileActiveRoute = resolveProviderMobileActiveRoute(service);
+  if (mobileActiveRoute != null) return mobileActiveRoute;
   if (shouldProviderStayOnHomeForService(service)) {
     return '/provider-home';
   }
@@ -372,6 +379,22 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           }
           return _providerRouteForService(activeService);
         }
+        final providerUserId = int.tryParse(api.userId?.trim() ?? '');
+        if (providerUserId != null && providerUserId > 0) {
+          final negotiations = await DataGateway()
+              .loadProviderMobileScheduleNegotiations(
+                providerUserId,
+                limit: 10,
+              );
+          if (negotiations.isNotEmpty) {
+            negotiations.sort((a, b) {
+              final aCreated = a['created_at']?.toString() ?? '';
+              final bCreated = b['created_at']?.toString() ?? '';
+              return bCreated.compareTo(aCreated);
+            });
+            return _providerRouteForService(negotiations.first);
+          }
+        }
       } catch (e) {
         debugPrint(
           '⚠️ [Redirect] Falha ao resolver serviço ativo do prestador: $e',
@@ -454,6 +477,16 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           path: '/servicos',
           builder: (context, state) => ServiceRequestScreenMobile(
             onSwitchToFixed: (data) {
+              if (!ProductScopeGate.isSalonSchedulingEnabled) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Agendamento de salão está indisponível no momento.',
+                    ),
+                  ),
+                );
+                return;
+              }
               context.push('/beauty-booking', extra: data);
             },
             initialData: state.extra is Map<String, dynamic>
@@ -463,11 +496,16 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         ),
         GoRoute(
           path: '/beauty-booking',
-          builder: (context, state) => ServiceRequestScreenFixed(
-            initialData: state.extra is Map<String, dynamic>
-                ? state.extra as Map<String, dynamic>
-                : null,
-          ),
+          builder: (context, state) {
+            if (!ProductScopeGate.isSalonSchedulingEnabled) {
+              return const HomeScreen();
+            }
+            return ServiceRequestScreenFixed(
+              initialData: state.extra is Map<String, dynamic>
+                  ? state.extra as Map<String, dynamic>
+                  : null,
+            );
+          },
         ),
         GoRoute(
           path: '/pix-payment',
@@ -497,6 +535,10 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         GoRoute(
           path: '/chats',
           builder: (context, state) => const ChatListScreen(),
+        ),
+        GoRoute(
+          path: '/menu',
+          builder: (context, state) => const AppMenuScreen(),
         ),
         GoRoute(path: '/help', builder: (context, state) => const HelpScreen()),
         GoRoute(

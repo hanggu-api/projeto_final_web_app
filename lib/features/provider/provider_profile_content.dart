@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/profile/backend_profile_api.dart';
-import '../../core/config/supabase_config.dart';
 import '../../services/api_service.dart';
 import '../../services/media_service.dart';
 import 'widgets/provider_profile_widgets.dart';
@@ -36,6 +35,8 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
   bool _isFixedProfile = false;
   bool _isVerified = false;
   double _walletBalance = 0.0;
+  String _ratingLabel = '--';
+  String _completionLabel = '--';
 
   @override
   void initState() {
@@ -48,10 +49,6 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
   }
 
   Future<void> _loadAvailableProfessions() async {
-    if (!SupabaseConfig.isInitialized) {
-      if (mounted) setState(() => _availableProfessions = []);
-      return;
-    }
     try {
       final list = await _api.getProfessions();
       if (mounted) {
@@ -65,17 +62,6 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
   }
 
   Future<void> _loadProfile() async {
-    if (!SupabaseConfig.isInitialized) {
-      if (mounted) {
-        setState(() {
-          _userName = 'Usuário';
-          _userEmail = 'email@exemplo.com';
-          _isVerified = false;
-          _walletBalance = 0.0;
-        });
-      }
-      return;
-    }
     try {
       final backendProfile = await _backendProfileApi.fetchMyProfile();
       if (backendProfile == null) {
@@ -98,7 +84,7 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
           _commercialName = (providerData['commercial_name'] ?? _userName)
               .toString();
           _providerAddress = (providerData['address'] ?? '').toString();
-          _isFixedProfile = user['is_fixed_location'] == true;
+          _isFixedProfile = _resolveIsFixedProfile(user, providerData);
           _isVerified = user['is_verified'] == true;
           final walletRaw =
               user['wallet_balance_effective'] ??
@@ -108,6 +94,8 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
           _walletBalance = walletRaw is num
               ? walletRaw.toDouble()
               : double.tryParse('$walletRaw') ?? 0;
+          _ratingLabel = _formatRatingLabel(user, providerData);
+          _completionLabel = _formatCompletionLabel(user, providerData);
         });
       }
     } catch (e) {
@@ -119,6 +107,74 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
         });
       }
     }
+  }
+
+  bool _parseBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value == 1;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1' || normalized == 'yes';
+    }
+    return false;
+  }
+
+  bool _resolveIsFixedProfile(
+    Map<String, dynamic> user,
+    Map<String, dynamic> providerData,
+  ) {
+    final subRole = (user['sub_role'] ?? providerData['sub_role'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (subRole == 'mobile') return false;
+    if (subRole == 'fixed') return true;
+    return _parseBool(
+      user['is_fixed_location'] ?? providerData['is_fixed_location'],
+    );
+  }
+
+  double? _readDouble(
+    Map<String, dynamic> user,
+    Map<String, dynamic> providerData,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = user[key] ?? providerData[key];
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse('${value ?? ''}');
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  String _formatRatingLabel(
+    Map<String, dynamic> user,
+    Map<String, dynamic> providerData,
+  ) {
+    final rating = _readDouble(user, providerData, const [
+      'rating_avg',
+      'rating',
+      'average_rating',
+      'provider_rating',
+    ]);
+    if (rating == null || rating <= 0) return '--';
+    return rating.toStringAsFixed(1).replaceAll('.', ',');
+  }
+
+  String _formatCompletionLabel(
+    Map<String, dynamic> user,
+    Map<String, dynamic> providerData,
+  ) {
+    final completion = _readDouble(user, providerData, const [
+      'completion_rate',
+      'completion_percentage',
+      'completed_rate',
+      'provider_completion_rate',
+    ]);
+    if (completion == null || completion <= 0) return '--';
+    final percent = completion <= 1 ? completion * 100 : completion;
+    return '${percent.clamp(0, 100).round()}%';
   }
 
   Future<void> _loadScheduleConfig() async {
@@ -164,7 +220,7 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
   }
 
   void _showEditSpecialtiesDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => SpecialtiesDialog(
         api: _api,
@@ -181,7 +237,7 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
           });
         },
       ),
-    );
+    ).whenComplete(_loadSpecialties);
   }
 
   Future<void> _showEditPersonalDialog() async {
@@ -709,39 +765,48 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _specialties
-                              .map(
-                                (s) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryYellow.withOpacity(
-                                      0.1,
+                        if (_specialties.isEmpty)
+                          Text(
+                            'Nenhuma profissão adicionada.',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textMuted,
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _specialties
+                                .map(
+                                  (s) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
                                     ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
+                                    decoration: BoxDecoration(
                                       color: AppTheme.primaryYellow.withOpacity(
-                                        0.3,
+                                        0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppTheme.primaryYellow
+                                            .withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      s,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.textDark,
                                       ),
                                     ),
                                   ),
-                                  child: Text(
-                                    s,
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.textDark,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+                                )
+                                .toList(),
+                          ),
                       ],
                     ],
                   ),
@@ -787,7 +852,7 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
                         child: _buildMetricCard(
                           LucideIcons.star,
                           Colors.orange,
-                          '4.9',
+                          _ratingLabel,
                           'Avaliação',
                         ),
                       ),
@@ -796,7 +861,7 @@ class _ProviderProfileContentState extends State<ProviderProfileContent> {
                         child: _buildMetricCard(
                           LucideIcons.checkCircle,
                           Colors.green,
-                          '92%',
+                          _completionLabel,
                           'Conclusão',
                         ),
                       ),

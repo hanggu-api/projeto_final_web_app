@@ -254,10 +254,37 @@ class DataGateway {
             .inFilter('status', activeStatuses)
             .order('created_at', ascending: false)
             .limit(20);
-        return (rows as List)
+        final byProvider = (rows as List)
             .whereType<Map>()
             .map((row) => Map<String, dynamic>.from(row))
             .toList();
+
+        List<Map<String, dynamic>> byProposal = const [];
+        try {
+          final proposedRows = await Supabase.instance.client
+              .from('service_requests')
+              .select('*')
+              .eq('schedule_proposed_by_user_id', providerId)
+              .inFilter('status', const ['schedule_proposed', 'scheduled'])
+              .order('created_at', ascending: false)
+              .limit(20);
+          byProposal = (proposedRows as List)
+              .whereType<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .toList();
+        } catch (e) {
+          debugPrint(
+            '⚠️ [DataGateway] fallback sem schedule_proposed_by_user_id: $e',
+          );
+        }
+
+        final merged = <String, Map<String, dynamic>>{};
+        for (final service in [...byProvider, ...byProposal]) {
+          final id = service['id']?.toString().trim() ?? '';
+          if (id.isEmpty) continue;
+          merged[id] = service;
+        }
+        return merged.values.toList();
       }
 
       final snapshot = await _api.getActiveServiceSnapshot(forceRefresh: true);
@@ -386,6 +413,86 @@ class DataGateway {
       debugPrint('⚠️ [DataGateway] loadProviderNotifiedOffers erro: $e');
       return const <Map<String, dynamic>>[];
     }
+  }
+
+  Future<List<Map<String, dynamic>>> loadProviderMobileScheduleNegotiations(
+    int providerUserId, {
+    int limit = 30,
+  }) async {
+    if (providerUserId <= 0) return const <Map<String, dynamic>>[];
+    const negotiationStatuses = ['schedule_proposed', 'scheduled'];
+    final merged = <String, Map<String, dynamic>>{};
+
+    void addRows(Object? rawRows) {
+      final rows = rawRows is List ? rawRows : const [];
+      for (final row in rows.whereType<Map>()) {
+        final service = Map<String, dynamic>.from(row);
+        final id = service['id']?.toString().trim() ?? '';
+        if (id.isEmpty) continue;
+        merged[id] = service;
+      }
+    }
+
+    try {
+      final response = await _backendApiClient.getJson(
+        '/api/v1/services?provider_id_eq=$providerUserId&status_in=${negotiationStatuses.join(",")}&limit=$limit&order=created_at.desc',
+      );
+      addRows(response?['data']);
+      debugPrint(
+        '📋 [DataGateway] backend schedule negotiations provider_id=$providerUserId count=${merged.length}',
+      );
+    } catch (e) {
+      debugPrint(
+        '⚠️ [DataGateway] loadProviderMobileScheduleNegotiations backend erro: $e',
+      );
+    }
+
+    try {
+      final rows = await Supabase.instance.client
+          .from('service_requests')
+          .select('*')
+          .eq('provider_id', providerUserId)
+          .inFilter('status', negotiationStatuses)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      addRows(rows);
+    } catch (e) {
+      debugPrint(
+        '⚠️ [DataGateway] loadProviderMobileScheduleNegotiations provider_id erro: $e',
+      );
+    }
+
+    try {
+      final rows = await Supabase.instance.client
+          .from('service_requests')
+          .select('*')
+          .eq('schedule_proposed_by_user_id', providerUserId)
+          .inFilter('status', negotiationStatuses)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      addRows(rows);
+    } catch (e) {
+      debugPrint(
+        '⚠️ [DataGateway] loadProviderMobileScheduleNegotiations proposed_by erro: $e',
+      );
+    }
+
+    try {
+      final rows = await Supabase.instance.client
+          .from('service_requests')
+          .select('*')
+          .eq('status', 'schedule_proposed')
+          .isFilter('provider_id', null)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      addRows(rows);
+    } catch (e) {
+      debugPrint(
+        '⚠️ [DataGateway] loadProviderMobileScheduleNegotiations unassigned erro: $e',
+      );
+    }
+
+    return merged.values.toList();
   }
 
   Future<List<Map<String, dynamic>>> loadServiceLogs(
@@ -726,8 +833,9 @@ class DataGateway {
     }
   }
 
-  /// Retorna um Stream do serviço diretamente do Supabase com proteção de Múltiplos Listeners
-  /// Tabela: service_requests_new
+  /// Retorna um Stream do serviço diretamente do Supabase com proteção de múltiplos listeners.
+  /// Fluxo móvel: tabela canônica `service_requests`.
+  /// Fluxo fixo: tabela canônica `agendamento_servico`.
   Stream<Map<String, dynamic>> watchService(
     String serviceId, {
     ServiceDataScope scope = ServiceDataScope.auto,
